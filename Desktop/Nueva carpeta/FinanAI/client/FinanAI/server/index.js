@@ -9,10 +9,11 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:5173', // URL del frontend
+  origin: ['http://localhost:5173', 'https://backend-production-cf437.up.railway.app'],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Access-Control-Allow-Origin']
 }));
 
 app.use(express.json());
@@ -21,6 +22,22 @@ app.use(express.json());
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`);
   next();
+});
+
+// Ruta de estado del servidor
+app.get('/', (req, res) => {
+  const serverInfo = {
+    status: 'online',
+    timestamp: new Date().toISOString(),
+    message: '¡Servidor FinanAI funcionando correctamente!',
+    endpoints: [
+      '/api/auth',
+      '/api/transactions',
+      '/api/goals',
+      '/api/notifications'
+    ]
+  };
+  res.json(serverInfo);
 });
 
 // Rutas
@@ -35,7 +52,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Error interno del servidor' });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
   console.log('Rutas disponibles:');
