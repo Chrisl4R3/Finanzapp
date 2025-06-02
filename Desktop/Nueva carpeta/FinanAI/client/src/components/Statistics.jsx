@@ -144,7 +144,7 @@ const Statistics = () => {
         throw new Error('No hay token de autenticación');
       }
 
-      const response = await fetch(`http://localhost:3000/api/transactions/statistics?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`, {
+      const response = await fetch(`https://backend-production-cf437.up.railway.app/api/transactions/statistics?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
