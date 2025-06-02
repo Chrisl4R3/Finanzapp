@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { authenticatedFetch } from '../auth/auth';
+import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../context/CurrencyContext';
 
 const CATEGORIES = {
@@ -25,11 +27,12 @@ const CATEGORIES = {
 const PAYMENT_METHODS = ['Efectivo', 'Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia Bancaria'];
 
 const Transactions = () => {
+  const { isAuthenticated } = useAuth();
   const { formatCurrency } = useCurrency();
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,23 +48,22 @@ const Transactions = () => {
   });
 
   useEffect(() => {
-    fetchTransactions();
-  }, []);
+    if (isAuthenticated) {
+      fetchTransactions();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredTransactions(transactions);
-      return;
-    }
+    if (!transactions.length) return;
 
-    const searchTermLower = searchTerm.toLowerCase();
     const filtered = transactions.filter(transaction => {
+      const searchTermLower = searchTerm.toLowerCase();
       const amount = transaction.amount.toString();
-      const date = new Date(transaction.date).toLocaleDateString();
+      const date = transaction.date;
       const description = transaction.description.toLowerCase();
       const category = transaction.category.toLowerCase();
-      const type = transaction.type === 'Income' ? 'ingreso' : 'gasto';
-
+      const type = transaction.type.toLowerCase();
+      
       return amount.includes(searchTermLower) ||
              date.includes(searchTermLower) ||
              description.includes(searchTermLower) ||
@@ -76,23 +78,8 @@ const Transactions = () => {
     try {
       setIsLoading(true);
       setError(null);
-      const token = sessionStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('No hay token de autenticación');
-      }
 
-      const response = await fetch('https://backend-production-cf437.up.railway.app/api/transactions', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al cargar las transacciones');
-      }
-      
+      const response = await authenticatedFetch('/transactions');
       const data = await response.json();
       setTransactions(data);
       setFilteredTransactions(data);
@@ -137,24 +124,12 @@ const Transactions = () => {
     }
 
     try {
-      const token = sessionStorage.getItem('token');
-      if (!token) {
-        throw new Error('No hay token de autenticación');
-      }
-
-      const response = await fetch(`http://localhost:3000/api/transactions/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      await authenticatedFetch(`/transactions/${id}`, {
+        method: 'DELETE'
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al eliminar la transacción');
-      }
-
       setTransactions(prev => prev.filter(t => t.id !== id));
+      setFilteredTransactions(prev => prev.filter(t => t.id !== id));
     } catch (err) {
       setError('Error al eliminar la transacción: ' + err.message);
       console.error('Error detallado:', err);
@@ -166,11 +141,6 @@ const Transactions = () => {
     try {
       setIsLoading(true);
       setError(null);
-
-      const token = sessionStorage.getItem('token');
-      if (!token) {
-        throw new Error('No hay token de autenticación');
-      }
 
       // Validaciones
       if (!formData.type || !formData.category || !formData.amount || !formData.date || !formData.description || !formData.payment_method) {
@@ -186,18 +156,14 @@ const Transactions = () => {
         throw new Error(`Categoría inválida para ${formData.type}`);
       }
 
-      const url = editingTransaction 
-        ? `http://localhost:3000/api/transactions/${editingTransaction.id}`
-        : 'http://localhost:3000/api/transactions';
+      const endpoint = editingTransaction 
+        ? `/transactions/${editingTransaction.id}`
+        : '/transactions';
 
       const method = editingTransaction ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await authenticatedFetch(endpoint, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({
           ...formData,
           amount
@@ -206,10 +172,6 @@ const Transactions = () => {
 
       const data = await response.json();
       
-      if (!response.ok) {
-        throw new Error(data.message || `Error al ${editingTransaction ? 'actualizar' : 'crear'} la transacción`);
-      }
-
       // Limpiar formulario y actualizar lista
       setFormData({
         type: 'Expense',
@@ -222,7 +184,7 @@ const Transactions = () => {
       });
       setShowForm(false);
       setEditingTransaction(null);
-      fetchTransactions();
+      await fetchTransactions();
     } catch (err) {
       setError('Error al guardar la transacción: ' + err.message);
       console.error('Error detallado:', err);

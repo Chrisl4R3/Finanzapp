@@ -18,26 +18,18 @@ import {
   FiChevronsRight
 } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
+import { authenticatedFetch } from '../auth/auth';
+import { useAuth } from '../contexts/AuthContext';
 // ... rest of imports ...
 
-const TransactionList = () => {
+const TransactionList = ({ searchTerm = '', filters = {} }) => {
   const { formatCurrency } = useCurrency();
+  const { isAuthenticated } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({
-    type: 'all',
-    startDate: '',
-    endDate: '',
-    minAmount: '',
-    maxAmount: ''
-  });
-  const [showFilters, setShowFilters] = useState(false);
-  
-  // Estados para la paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(6);
+  const itemsPerPage = 10;
 
   // Calcular resumen de transacciones
   const transactionSummary = transactions.reduce((summary, transaction) => {
@@ -54,6 +46,12 @@ const TransactionList = () => {
     totalExpenses: 0,
     totalTransactions: { income: 0, expenses: 0 }
   });
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchTransactions();
+    }
+  }, [isAuthenticated]);
 
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -72,35 +70,21 @@ const TransactionList = () => {
     return matchesSearch && matchesType && matchesAmount && matchesDate;
   });
 
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        const token = sessionStorage.getItem('token');
-        if (!token) {
-          throw new Error('No hay token de autenticación');
-        }
+  const fetchTransactions = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        const response = await fetch('https://backend-production-cf437.up.railway.app/api/transactions', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Error al cargar las transacciones');
-        }
-
-        const data = await response.json();
-        setTransactions(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchTransactions();
-  }, []);
+      const response = await authenticatedFetch('/transactions');
+      const data = await response.json();
+      setTransactions(data);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error detallado:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (isLoading) {
     return (
