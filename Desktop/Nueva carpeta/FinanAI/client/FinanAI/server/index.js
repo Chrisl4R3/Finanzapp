@@ -10,26 +10,13 @@ import pool from './config/db.js';
 
 const app = express();
 
-// Configuración de CORS antes de cualquier otra configuración
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://frontend-production-df22.up.railway.app'
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
-
-app.use(express.json());
-
 // Configuración de la sesión con MySQL
 const MySQLStoreSession = MySQLStore(session);
 
 const sessionStore = new MySQLStoreSession({
   clearExpired: true,
-  checkExpirationInterval: 900000, // Cada 15 minutos
-  expiration: 86400000, // 24 horas
+  checkExpirationInterval: 900000,
+  expiration: 86400000,
   createDatabaseTable: true,
   schema: {
     tableName: 'sessions',
@@ -46,21 +33,46 @@ app.use(session({
   key: 'finanzapp_session',
   secret: 'tu_secreto_super_seguro',
   store: sessionStore,
-  resave: false,
+  resave: true,
   saveUninitialized: false,
+  rolling: true,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // Cambiar a true en producción con HTTPS
     httpOnly: true,
-    maxAge: 86400000, // 24 horas
-    sameSite: 'none', // Importante para cookies entre dominios
-    domain: process.env.NODE_ENV === 'production' ? '.railway.app' : undefined // Dominio para producción
+    maxAge: 86400000,
+    sameSite: 'lax'
   }
 }));
+
+// Configuración de CORS
+app.use(cors({
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'https://frontend-production-df22.up.railway.app',
+      'https://backend-production-cf437.up.railway.app'
+    ];
+    // Permitir solicitudes sin origin (como las de Postman)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['set-cookie']
+}));
+
+app.use(express.json());
 
 // Logging middleware
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`);
+  console.log('Session ID:', req.sessionID);
   console.log('Session:', req.session);
+  console.log('Cookies:', req.cookies);
   next();
 });
 
