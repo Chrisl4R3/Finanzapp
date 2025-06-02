@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'https://backend-production-cf437.up.railway.app/api';
 
 export const login = async (credentials) => {
   const response = await fetch(`${API_URL}/auth/login`, {
