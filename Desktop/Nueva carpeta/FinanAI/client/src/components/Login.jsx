@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { login as authLogin } from '../auth/auth';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -63,27 +64,10 @@ const Login = () => {
     }
 
     try {
-      const response = await fetch('https://backend-production-cf437.up.railway.app/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-
-      const data = await response.json();
-      console.log('Respuesta del login:', data);
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Error al iniciar sesión');
-      }
-
-      // Guardar el token en sessionStorage
-      sessionStorage.setItem('token', data.token);
-      console.log('Token guardado:', data.token);
-
+      const data = await authLogin(formData);
+      
       // Actualizar el estado de autenticación
-      await login({
+      login({
         id: data.user.id,
         name: data.user.name,
         email: data.user.email,
@@ -104,45 +88,40 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background-color">
-      <div className="max-w-md w-full space-y-8 p-8 bg-card-bg rounded-xl shadow-lg">
+    <div className="min-h-screen flex items-center justify-center bg-background-color py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-text-primary">
             Iniciar Sesión
           </h2>
         </div>
-        {error && (
-          <div className="bg-danger-color bg-opacity-10 border border-danger-color border-opacity-20 text-danger-color px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        )}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm space-y-4">
+          <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="cedula" className="block text-sm font-medium text-text-secondary mb-2">Cédula</label>
+              <label htmlFor="cedula" className="sr-only">
+                Cédula
+              </label>
               <input
                 id="cedula"
                 name="cedula"
                 type="text"
                 required
-                maxLength="13"
-                className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-secondary-bg placeholder-text-secondary text-text-primary bg-secondary-bg focus:outline-none focus:ring-2 focus:ring-accent-color focus:border-transparent"
-                placeholder="Ejemplo: 402-1234567-8"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-border-color placeholder-text-secondary text-text-primary rounded-t-md focus:outline-none focus:ring-accent-color focus:border-accent-color focus:z-10 sm:text-sm bg-card-bg"
+                placeholder="Cédula (XXX-XXXXXXX-X)"
                 value={formData.cedula}
                 onChange={handleChange}
               />
-              <p className="mt-1 text-sm text-text-secondary">
-                Formato: XXX-XXXXXXX-X
-              </p>
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-2">Contraseña</label>
+              <label htmlFor="password" className="sr-only">
+                Contraseña
+              </label>
               <input
                 id="password"
                 name="password"
                 type="password"
                 required
-                className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-secondary-bg placeholder-text-secondary text-text-primary bg-secondary-bg focus:outline-none focus:ring-2 focus:ring-accent-color focus:border-transparent"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-border-color placeholder-text-secondary text-text-primary rounded-b-md focus:outline-none focus:ring-accent-color focus:border-accent-color focus:z-10 sm:text-sm bg-card-bg"
                 placeholder="Contraseña"
                 value={formData.password}
                 onChange={handleChange}
@@ -150,25 +129,26 @@ const Login = () => {
             </div>
           </div>
 
+          {error && (
+            <div className="text-red-500 text-sm text-center">
+              {error}
+            </div>
+          )}
+
           <div>
             <button
               type="submit"
               disabled={isLoading}
-              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white ${
-                isLoading 
-                  ? 'bg-accent-color-darker cursor-not-allowed'
-                  : 'bg-accent-color hover:bg-accent-color-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-color'
+              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-accent-color hover:bg-accent-color-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-color ${
+                isLoading ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
               {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </button>
           </div>
 
-          <div className="text-center">
-            <Link 
-              to="/register" 
-              className="font-medium text-accent-color hover:text-accent-color-darker"
-            >
+          <div className="text-sm text-center">
+            <Link to="/register" className="font-medium text-accent-color hover:text-accent-color-darker">
               ¿No tienes una cuenta? Regístrate
             </Link>
           </div>

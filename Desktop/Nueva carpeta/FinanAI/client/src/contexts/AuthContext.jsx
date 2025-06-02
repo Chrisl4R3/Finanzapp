@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { getCurrentUser } from '../auth/auth';
+import { getCurrentUser, logout as authLogout } from '../auth/auth';
 
 export const AuthContext = createContext();
 
@@ -8,29 +8,40 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Verificar la sesión al cargar la aplicación
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const userData = await getCurrentUser();
-        if (userData) {
-          setUser(userData);
-          setIsAuthenticated(true);
-        } else {
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error('Error al verificar la autenticación:', error);
+  const checkAuth = async () => {
+    try {
+      const userData = await getCurrentUser();
+      if (userData) {
+        setUser(userData);
+        setIsAuthenticated(true);
+      } else {
         setUser(null);
         setIsAuthenticated(false);
-      } finally {
-        setIsLoading(false);
       }
-    };
+    } catch (error) {
+      console.error('Error al verificar la autenticación:', error);
+      setUser(null);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  // Verificar la sesión al cargar la aplicación
+  useEffect(() => {
     checkAuth();
   }, []);
+
+  // Verificar la sesión periódicamente
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isAuthenticated) {
+        checkAuth();
+      }
+    }, 60000); // Verificar cada minuto
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
 
   const login = (userData) => {
     console.log('Login ejecutado con:', userData);
@@ -38,10 +49,18 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(true);
   };
 
-  const logout = () => {
-    console.log('Logout ejecutado');
-    setUser(null);
-    setIsAuthenticated(false);
+  const logout = async () => {
+    try {
+      await authLogout();
+      setUser(null);
+      setIsAuthenticated(false);
+      // Redirigir al login se maneja en el componente que llama a logout
+    } catch (error) {
+      console.error('Error durante el logout:', error);
+      // Aún así, limpiamos el estado local
+      setUser(null);
+      setIsAuthenticated(false);
+    }
   };
 
   const value = {
@@ -49,7 +68,8 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     isLoading,
     login,
-    logout
+    logout,
+    checkAuth // Exportamos checkAuth para poder usarlo en otros componentes
   };
 
   console.log('Estado actual de autenticación:', { isAuthenticated, user });

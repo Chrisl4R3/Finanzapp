@@ -40,35 +40,66 @@ export const register = async (userData) => {
 export const isAuthenticated = async () => {
   try {
     const response = await fetch(`${API_URL}/auth/verify`, {
-      credentials: 'include'
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
-    return response.ok;
+    
+    if (!response.ok) {
+      return false;
+    }
+    
+    const data = await response.json();
+    return data.isAuthenticated === true;
   } catch (error) {
+    console.error('Error verificando autenticación:', error);
     return false;
   }
 };
 
 export const logout = async () => {
   try {
-    await fetch(`${API_URL}/auth/logout`, {
+    const response = await fetch(`${API_URL}/auth/logout`, {
       method: 'POST',
-      credentials: 'include'
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
+
+    if (!response.ok) {
+      throw new Error('Error al cerrar sesión');
+    }
+
+    // Limpiar cualquier dato local
+    sessionStorage.clear();
+    localStorage.clear();
+    
+    return true;
   } catch (error) {
     console.error('Error al cerrar sesión:', error);
+    throw error;
   }
 };
 
 export const getCurrentUser = async () => {
   try {
     const response = await fetch(`${API_URL}/auth/verify`, {
-      credentials: 'include'
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
-    if (response.ok) {
-      const data = await response.json();
-      return data.user;
+
+    if (!response.ok) {
+      throw new Error('No se pudo obtener el usuario actual');
     }
-    return null;
+
+    const data = await response.json();
+    return data.user;
   } catch (error) {
     console.error('Error al obtener usuario actual:', error);
     return null;
@@ -81,20 +112,32 @@ export const authenticatedFetch = async (endpoint, options = {}) => {
       'Content-Type': 'application/json',
     },
     credentials: 'include',
-    ...options
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers
+    }
   };
 
-  const response = await fetch(`${API_URL}${endpoint}`, defaultOptions);
-  if (!response.ok) {
-    const errorMessage = `${response.status}: ${response.statusText}`;
-    console.error('Error en la petición:', {
-      status: response.status,
-      statusText: response.statusText,
-      endpoint
-    });
-    throw new Error(errorMessage);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, defaultOptions);
+    
+    if (response.status === 401) {
+      // Si la sesión expiró, redirigir al login
+      window.location.href = '/login';
+      throw new Error('Sesión expirada');
+    }
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Error en la petición: ${response.status}`);
+    }
+
+    return response;
+  } catch (error) {
+    console.error('Error en la petición autenticada:', error);
+    throw error;
   }
-  return response;
 };
 
 export const getDashboardData = async () => {
