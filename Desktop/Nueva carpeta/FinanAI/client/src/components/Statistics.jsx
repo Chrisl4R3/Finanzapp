@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { useCurrency } from '../context/CurrencyContext';
+import { authenticatedFetch } from '../auth/auth';
 
 // Registrar componentes de Chart.js
 ChartJS.register(
@@ -138,24 +139,8 @@ const Statistics = () => {
     try {
       setIsLoading(true);
       setError(null);
-      const token = sessionStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('No hay token de autenticación');
-      }
 
-      const response = await fetch(`https://backend-production-cf437.up.railway.app/api/transactions/statistics?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Error al cargar las estadísticas');
-      }
-
+      const response = await authenticatedFetch(`/transactions/statistics?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`);
       const data = await response.json();
       console.log('Datos recibidos del servidor:', data);
 
