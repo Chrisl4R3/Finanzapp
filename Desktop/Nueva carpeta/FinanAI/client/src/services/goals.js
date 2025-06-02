@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'https://backend-production-cf437.up.railway.app/api';
 
 // Obtener todas las metas
 export const getAllGoals = async () => {
