@@ -1,8 +1,10 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
 
 const router = express.Router();
+const JWT_SECRET = 'tu_secreto_super_seguro'; // Usar la misma clave que en el middleware
 
 // Registro
 router.post('/register', async (req, res) => {
@@ -46,9 +48,17 @@ router.post('/register', async (req, res) => {
     );
     console.log('Usuario insertado con ID:', result.insertId);
 
+    // Generar token JWT
+    const token = jwt.sign(
+      { userId: result.insertId },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
     res.status(201).json({
       message: 'Usuario registrado exitosamente',
-      userId: result.insertId
+      userId: result.insertId,
+      token
     });
   } catch (error) {
     console.error('Error detallado:', error);
@@ -86,6 +96,13 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
+    // Generar token JWT
+    const token = jwt.sign(
+      { userId: user.id },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
     // Guardar datos del usuario en la sesión
     req.session.user = {
       id: user.id,
@@ -108,7 +125,8 @@ router.post('/login', async (req, res) => {
           cedula: user.cedula,
           name: user.name,
           email: user.email
-        }
+        },
+        token // Incluir el token en la respuesta
       });
     });
   } catch (error) {
@@ -119,22 +137,67 @@ router.post('/login', async (req, res) => {
 
 // Verificar sesión
 router.get('/verify', (req, res) => {
+  // Primero verificar si hay una sesión activa
   if (req.session && req.session.user) {
-    res.json({ user: req.session.user });
+    return res.json({ 
+      user: req.session.user,
+      isAuthenticated: true 
+    });
+  }
+
+  // Si no hay sesión, verificar el token JWT
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, JWT_SECRET);
+      
+      // Obtener datos del usuario desde la base de datos
+      pool.query(
+        'SELECT id, cedula, name, email FROM users WHERE id = ?',
+        [decoded.userId],
+        (error, results) => {
+          if (error || results.length === 0) {
+            return res.status(401).json({ 
+              message: 'Token inválido',
+              isAuthenticated: false 
+            });
+          }
+
+          const user = results[0];
+          return res.json({ 
+            user,
+            isAuthenticated: true 
+          });
+        }
+      );
+    } catch (error) {
+      return res.status(401).json({ 
+        message: 'Token inválido',
+        isAuthenticated: false 
+      });
+    }
   } else {
-    res.status(401).json({ message: 'No hay sesión activa' });
+    res.status(401).json({ 
+      message: 'No hay autenticación válida',
+      isAuthenticated: false 
+    });
   }
 });
 
-// Cerrar sesión
+// Logout
 router.post('/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Error al cerrar sesión:', err);
-      return res.status(500).json({ message: 'Error al cerrar sesión' });
-    }
-    res.json({ message: 'Sesión cerrada exitosamente' });
-  });
+  if (req.session) {
+    req.session.destroy(err => {
+      if (err) {
+        return res.status(500).json({ message: 'Error al cerrar sesión' });
+      }
+      res.clearCookie('finanzapp_session');
+      res.json({ message: 'Sesión cerrada exitosamente' });
+    });
+  } else {
+    res.json({ message: 'No hay sesión activa' });
+  }
 });
 
 export default router;
