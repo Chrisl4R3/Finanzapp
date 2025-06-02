@@ -1,13 +1,46 @@
 import express from 'express';
 import cors from 'cors';
+import session from 'express-session';
+import MySQLStore from 'express-mysql-session';
 import authRoutes from './routes/auth.js';
 import transactionRoutes from './routes/transactions.js';
 import goalRoutes from './routes/goals.js';
 import notificationRoutes from './routes/notifications.js';
+import pool from './config/db.js';
 
 const app = express();
 
-// Middleware
+// Configuración de la sesión con MySQL
+const MySQLStoreSession = MySQLStore(session);
+
+const sessionStore = new MySQLStoreSession({
+  // La conexión ya está configurada en pool
+  createDatabaseTable: true,
+  schema: {
+    tableName: 'sessions',
+    columnNames: {
+      session_id: 'session_id',
+      expires: 'expires',
+      data: 'data'
+    }
+  }
+}, pool);
+
+// Middleware de sesión
+app.use(session({
+  key: 'finanzapp_session',
+  secret: 'tu_secreto_super_seguro',
+  store: sessionStore,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // true en producción
+    httpOnly: true,
+    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 días
+  }
+}));
+
+// Middleware CORS
 app.use(cors({
   origin: [
     'http://localhost:5173',

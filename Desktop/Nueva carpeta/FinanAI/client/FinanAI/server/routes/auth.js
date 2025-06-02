@@ -1,6 +1,5 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
 
 const router = express.Router();
@@ -87,21 +86,30 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
-    // Generar token JWT
-    const token = jwt.sign(
-      { userId: user.id, cedula: user.cedula },
-      'tu_secreto_jwt', // En producción, usar variables de entorno
-      { expiresIn: '24h' }
-    );
+    // Guardar datos del usuario en la sesión
+    req.session.user = {
+      id: user.id,
+      cedula: user.cedula,
+      name: user.name,
+      email: user.email
+    };
 
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        cedula: user.cedula,
-        name: user.name,
-        email: user.email
+    // Guardar la sesión
+    req.session.save((err) => {
+      if (err) {
+        console.error('Error al guardar la sesión:', err);
+        return res.status(500).json({ message: 'Error al iniciar sesión' });
       }
+
+      res.json({
+        message: 'Inicio de sesión exitoso',
+        user: {
+          id: user.id,
+          cedula: user.cedula,
+          name: user.name,
+          email: user.email
+        }
+      });
     });
   } catch (error) {
     console.error('Error en login:', error);
@@ -109,31 +117,24 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Verificar token
-router.get('/verify', async (req, res) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ message: 'No hay token' });
+// Verificar sesión
+router.get('/verify', (req, res) => {
+  if (req.session && req.session.user) {
+    res.json({ user: req.session.user });
+  } else {
+    res.status(401).json({ message: 'No hay sesión activa' });
   }
+});
 
-  try {
-    const decoded = jwt.verify(token, 'tu_secreto_jwt');
-    const [users] = await pool.query(
-      'SELECT id, cedula, name, email FROM users WHERE id = ?',
-      [decoded.userId]
-    );
-
-    if (users.length === 0) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
+// Cerrar sesión
+router.post('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Error al cerrar sesión:', err);
+      return res.status(500).json({ message: 'Error al cerrar sesión' });
     }
-
-    res.json({ user: users[0] });
-  } catch (error) {
-    console.error('Error al verificar token:', error);
-    res.status(403).json({ message: 'Token inválido' });
-  }
+    res.json({ message: 'Sesión cerrada exitosamente' });
+  });
 });
 
 export default router;

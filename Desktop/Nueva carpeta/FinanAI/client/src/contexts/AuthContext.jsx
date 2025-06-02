@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { getCurrentUser } from '../auth/auth';
 
 export const AuthContext = createContext();
 
@@ -7,44 +8,25 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Verificar el token al cargar la aplicación
+  // Verificar la sesión al cargar la aplicación
   useEffect(() => {
     const checkAuth = async () => {
-      const token = sessionStorage.getItem('token');
-      console.log('Verificando token:', token);
-      
-      if (token) {
-        try {
-          // Verificar el token con el backend
-          const response = await fetch('http://localhost:3000/api/auth/verify', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            console.log('Token válido, usuario:', data.user);
-            setUser(data.user);
-            setIsAuthenticated(true);
-          } else {
-            console.log('Token inválido');
-            sessionStorage.removeItem('token');
-            setUser(null);
-            setIsAuthenticated(false);
-          }
-        } catch (error) {
-          console.error('Error al verificar la autenticación:', error);
-          sessionStorage.removeItem('token');
+      try {
+        const userData = await getCurrentUser();
+        if (userData) {
+          setUser(userData);
+          setIsAuthenticated(true);
+        } else {
           setUser(null);
           setIsAuthenticated(false);
         }
-      } else {
-        console.log('No hay token');
+      } catch (error) {
+        console.error('Error al verificar la autenticación:', error);
         setUser(null);
         setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     checkAuth();
@@ -58,7 +40,6 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     console.log('Logout ejecutado');
-    sessionStorage.removeItem('token');
     setUser(null);
     setIsAuthenticated(false);
   };

@@ -6,6 +6,7 @@ export const login = async (credentials) => {
     headers: {
       'Content-Type': 'application/json',
     },
+    credentials: 'include',
     body: JSON.stringify(credentials),
   });
 
@@ -15,8 +16,6 @@ export const login = async (credentials) => {
   }
 
   const data = await response.json();
-  sessionStorage.setItem('user', JSON.stringify(data.user));
-  sessionStorage.setItem('token', data.token);
   return data;
 };
 
@@ -26,6 +25,7 @@ export const register = async (userData) => {
     headers: {
       'Content-Type': 'application/json',
     },
+    credentials: 'include',
     body: JSON.stringify(userData),
   });
 
@@ -37,36 +37,50 @@ export const register = async (userData) => {
   return await response.json();
 };
 
-export const isAuthenticated = () => {
-  const token = sessionStorage.getItem('token');
-  return token !== null;
+export const isAuthenticated = async () => {
+  try {
+    const response = await fetch(`${API_URL}/auth/verify`, {
+      credentials: 'include'
+    });
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
 };
 
-export const logout = () => {
-  sessionStorage.removeItem('user');
-  sessionStorage.removeItem('token');
+export const logout = async () => {
+  try {
+    await fetch(`${API_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+  } catch (error) {
+    console.error('Error al cerrar sesión:', error);
+  }
 };
 
-export const getCurrentUser = () => {
-  const user = sessionStorage.getItem('user');
-  return user ? JSON.parse(user) : null;
-};
-
-export const getAuthToken = () => {
-  return sessionStorage.getItem('token');
+export const getCurrentUser = async () => {
+  try {
+    const response = await fetch(`${API_URL}/auth/verify`, {
+      credentials: 'include'
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return data.user;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error al obtener usuario actual:', error);
+    return null;
+  }
 };
 
 export const authenticatedFetch = async (endpoint, options = {}) => {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error('401: No hay token de autenticación');
-  }
-
   const defaultOptions = {
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
     },
+    credentials: 'include',
     ...options
   };
 
@@ -76,8 +90,7 @@ export const authenticatedFetch = async (endpoint, options = {}) => {
     console.error('Error en la petición:', {
       status: response.status,
       statusText: response.statusText,
-      endpoint,
-      headers: defaultOptions.headers
+      endpoint
     });
     throw new Error(errorMessage);
   }
