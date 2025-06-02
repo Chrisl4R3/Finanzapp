@@ -13,5 +13,17 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src")
     }
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://backend-production-cf437.up.railway.app',
+        changeOrigin: true,
+        secure: false,
+        cookieDomainRewrite: {
+          '.railway.app': ''
+        }
+      }
+    }
   }
 })

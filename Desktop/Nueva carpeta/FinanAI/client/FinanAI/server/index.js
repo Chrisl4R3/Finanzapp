@@ -10,11 +10,26 @@ import pool from './config/db.js';
 
 const app = express();
 
+// Configuración de CORS antes de cualquier otra configuración
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://frontend-production-df22.up.railway.app'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+app.use(express.json());
+
 // Configuración de la sesión con MySQL
 const MySQLStoreSession = MySQLStore(session);
 
 const sessionStore = new MySQLStoreSession({
-  // La conexión ya está configurada en pool
+  clearExpired: true,
+  checkExpirationInterval: 900000, // Cada 15 minutos
+  expiration: 86400000, // 24 horas
   createDatabaseTable: true,
   schema: {
     tableName: 'sessions',
@@ -34,30 +49,18 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // true en producción
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 días
+    maxAge: 86400000, // 24 horas
+    sameSite: 'none', // Importante para cookies entre dominios
+    domain: process.env.NODE_ENV === 'production' ? '.railway.app' : undefined // Dominio para producción
   }
 }));
-
-// Middleware CORS
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://backend-production-cf437.up.railway.app',
-    'https://frontend-production-df22.up.railway.app'
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['Access-Control-Allow-Origin']
-}));
-
-app.use(express.json());
 
 // Logging middleware
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`);
+  console.log('Session:', req.session);
   next();
 });
 
