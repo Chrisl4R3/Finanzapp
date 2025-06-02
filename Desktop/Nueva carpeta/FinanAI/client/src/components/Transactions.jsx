@@ -82,7 +82,7 @@ const Transactions = () => {
         throw new Error('No hay token de autenticación');
       }
 
-      const response = await fetch('http://localhost:3000/api/transactions', {
+      const response = await fetch('https://backend-production-cf437.up.railway.app/api/transactions', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
