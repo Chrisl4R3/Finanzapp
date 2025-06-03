@@ -68,7 +68,12 @@ router.post('/', async (req, res) => {
       date,
       description,
       payment_method,
-      status = 'Completed'
+      status = 'Completed',
+      schedule = null,
+      recurrence = '',
+      is_scheduled = 0,
+      end_date = null,
+      parent_transaction_id = null
     } = req.body;
 
     // Validaciones básicas
@@ -77,7 +82,7 @@ router.post('/', async (req, res) => {
     }
 
     // Validar tipo
-    if (!['Income', 'Expense'].includes(type)) {
+    if (!['Income', 'Expense', 'Scheduled'].includes(type)) {
       return res.status(400).json({ message: 'Tipo de transacción inválido' });
     }
 
@@ -88,11 +93,21 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Validar método de pago
+    const validPaymentMethods = ['Efectivo', 'Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia Bancaria'];
+    if (!validPaymentMethods.includes(payment_method)) {
+      return res.status(400).json({ 
+        message: `Método de pago inválido. Métodos válidos: ${validPaymentMethods.join(', ')}` 
+      });
+    }
+
     const [result] = await pool.query(
       `INSERT INTO transactions 
-       (user_id, type, category, amount, date, description, payment_method, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.userId, type, category, amount, date, description, payment_method, status]
+       (user_id, type, category, amount, date, description, payment_method, 
+        status, schedule, recurrence, is_scheduled, end_date, parent_transaction_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [req.userId, type, category, amount, date, description, payment_method,
+       status, schedule, recurrence, is_scheduled, end_date, parent_transaction_id]
     );
 
     console.log('Transacción creada:', { id: result.insertId, ...req.body });

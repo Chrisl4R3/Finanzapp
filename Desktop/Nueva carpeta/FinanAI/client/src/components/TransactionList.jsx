@@ -71,10 +71,12 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     amount: '',
     description: '',
     payment_method: 'Efectivo',
-    status: 'Completed',
     date: new Date().toISOString().split('T')[0],
-    recurrence: null,
-    is_scheduled: false,
+    status: 'Completed',
+    schedule: null,
+    recurrence: '',
+    is_scheduled: 0,
+    end_date: null,
     parent_transaction_id: null
   });
 
@@ -164,11 +166,14 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         type: formData.type,
         category: formData.category,
         amount: amount,
+        date: formData.date,
         description: formData.description,
         payment_method: formData.payment_method,
-        date: new Date().toISOString().split('T')[0],
-        recurrence: null,
-        is_scheduled: false,
+        status: formData.status,
+        schedule: null,
+        recurrence: '',
+        is_scheduled: 0,
+        end_date: null,
         parent_transaction_id: null
       };
 
@@ -178,6 +183,9 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
       const response = await authenticatedFetch(endpoint, {
         method,
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(requestData)
       });
 
@@ -198,10 +206,12 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         amount: '',
         description: '',
         payment_method: 'Efectivo',
-        status: 'Completed',
         date: new Date().toISOString().split('T')[0],
-        recurrence: null,
-        is_scheduled: false,
+        status: 'Completed',
+        schedule: null,
+        recurrence: '',
+        is_scheduled: 0,
+        end_date: null,
         parent_transaction_id: null
       });
       setShowForm(false);
@@ -248,10 +258,12 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       amount: transaction.amount.toString(),
       description: transaction.description,
       payment_method: transaction.payment_method,
-      status: transaction.status,
       date: transaction.date,
+      status: transaction.status,
+      schedule: transaction.schedule,
       recurrence: transaction.recurrence,
       is_scheduled: transaction.is_scheduled,
+      end_date: transaction.end_date,
       parent_transaction_id: transaction.parent_transaction_id
     });
     setShowForm(true);
