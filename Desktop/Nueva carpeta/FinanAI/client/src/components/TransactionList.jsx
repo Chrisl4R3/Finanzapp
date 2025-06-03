@@ -157,7 +157,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       const method = editingTransaction ? 'PUT' : 'POST';
 
       const requestData = {
-        type: formData.type.toLowerCase(),
+        type: formData.type,
         category: formData.category,
         amount: amount,
         description: formData.description,

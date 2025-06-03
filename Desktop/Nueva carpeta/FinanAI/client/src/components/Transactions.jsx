@@ -53,7 +53,7 @@ const Transactions = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      fetchTransactions();
+    fetchTransactions();
     }
   }, [isAuthenticated]);
 
@@ -67,7 +67,7 @@ const Transactions = () => {
       const description = transaction.description.toLowerCase();
       const category = transaction.category.toLowerCase();
       const type = transaction.type.toLowerCase();
-      
+
       return amount.includes(searchTermLower) ||
              date.includes(searchTermLower) ||
              description.includes(searchTermLower) ||
@@ -175,7 +175,7 @@ const Transactions = () => {
       });
 
       const data = await response.json();
-      
+
       // Limpiar formulario y actualizar lista
       setFormData({
         type: 'Expense',
@@ -276,7 +276,7 @@ const Transactions = () => {
           <FiList className="w-5 h-5" />
           <span>Transacciones</span>
         </button>
-        <button
+          <button
           onClick={() => setActiveTab('scheduled')}
           className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all duration-300 ${
             activeTab === 'scheduled'
@@ -286,7 +286,7 @@ const Transactions = () => {
         >
           <FiClock className="w-5 h-5" />
           <span>Programadas</span>
-        </button>
+          </button>
       </div>
 
       {/* Content */}
