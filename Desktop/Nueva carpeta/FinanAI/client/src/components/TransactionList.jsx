@@ -58,7 +58,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [searchTermLocal, setSearchTermLocal] = useState(searchTerm);
-  const [filters, setFilters] = useState({
+  const [localFilters, setLocalFilters] = useState({
     type: 'all',
     minAmount: '',
     maxAmount: '',
@@ -98,18 +98,18 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   }, [isAuthenticated]);
 
   const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = transaction.description.toLowerCase().includes(searchTermLocal.toLowerCase()) ||
+                         transaction.category.toLowerCase().includes(searchTermLocal.toLowerCase());
     
-    const matchesType = filters.type === 'all' || transaction.type === filters.type;
+    const matchesType = localFilters.type === 'all' || transaction.type === localFilters.type;
     
     const amount = parseFloat(transaction.amount);
-    const matchesAmount = (!filters.minAmount || amount >= parseFloat(filters.minAmount)) &&
-                         (!filters.maxAmount || amount <= parseFloat(filters.maxAmount));
+    const matchesAmount = (!localFilters.minAmount || amount >= parseFloat(localFilters.minAmount)) &&
+                         (!localFilters.maxAmount || amount <= parseFloat(localFilters.maxAmount));
     
     const date = new Date(transaction.date);
-    const matchesDate = (!filters.startDate || date >= new Date(filters.startDate)) &&
-                       (!filters.endDate || date <= new Date(filters.endDate));
+    const matchesDate = (!localFilters.startDate || date >= new Date(localFilters.startDate)) &&
+                       (!localFilters.endDate || date <= new Date(localFilters.endDate));
 
     return matchesSearch && matchesType && matchesAmount && matchesDate;
   });
@@ -497,16 +497,16 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                     type="number"
                     placeholder="Min"
                     name="minAmount"
-                    value={filters.minAmount}
-                    onChange={(e) => setFilters(prev => ({ ...prev, minAmount: e.target.value }))}
+                    value={localFilters.minAmount}
+                    onChange={(e) => setLocalFilters(prev => ({ ...prev, minAmount: e.target.value }))}
                     className="w-1/2 p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
                   />
                   <input
                     type="number"
                     placeholder="Max"
                     name="maxAmount"
-                    value={filters.maxAmount}
-                    onChange={(e) => setFilters(prev => ({ ...prev, maxAmount: e.target.value }))}
+                    value={localFilters.maxAmount}
+                    onChange={(e) => setLocalFilters(prev => ({ ...prev, maxAmount: e.target.value }))}
                     className="w-1/2 p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
                   />
                 </div>
@@ -517,8 +517,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                 <input
                   type="date"
                   name="startDate"
-                  value={filters.startDate}
-                  onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                  value={localFilters.startDate}
+                  onChange={(e) => setLocalFilters(prev => ({ ...prev, startDate: e.target.value }))}
                   className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
                 />
               </div>
@@ -528,8 +528,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                 <input
                   type="date"
                   name="endDate"
-                  value={filters.endDate}
-                  onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                  value={localFilters.endDate}
+                  onChange={(e) => setLocalFilters(prev => ({ ...prev, endDate: e.target.value }))}
                   className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
                 />
               </div>
