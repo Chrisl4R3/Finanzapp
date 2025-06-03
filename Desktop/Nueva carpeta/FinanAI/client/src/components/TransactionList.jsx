@@ -157,11 +157,23 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
       const response = await authenticatedFetch(endpoint, {
         method,
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
-          ...formData,
-          amount
+          type: formData.type.toLowerCase(),
+          category: formData.category,
+          amount: amount,
+          description: formData.description,
+          payment_method: formData.payment_method,
+          status: formData.status
         })
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al guardar la transacción');
+      }
 
       const data = await response.json();
       
