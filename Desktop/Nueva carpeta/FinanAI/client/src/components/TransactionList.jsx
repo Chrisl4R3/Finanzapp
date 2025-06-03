@@ -69,7 +69,6 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     type: 'Expense',
     category: '',
     amount: '',
-    date: new Date().toISOString().split('T')[0],
     description: '',
     payment_method: 'Efectivo',
     status: 'Completed'
@@ -134,39 +133,53 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     e.preventDefault();
     try {
       setIsLoading(true);
-      if (editingTransaction) {
-        await authenticatedFetch(`/transactions/${editingTransaction.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-      } else {
-        await authenticatedFetch('/transactions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
+      setError(null);
+
+      // Validaciones
+      if (!formData.type || !formData.category || !formData.amount || !formData.description || !formData.payment_method) {
+        throw new Error('Todos los campos son requeridos');
       }
+
+      const amount = parseFloat(formData.amount);
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error('El monto debe ser un número positivo');
+      }
+
+      if (!CATEGORIES[formData.type].includes(formData.category)) {
+        throw new Error(`Categoría inválida para ${formData.type}`);
+      }
+
+      const endpoint = editingTransaction 
+        ? `/transactions/${editingTransaction.id}`
+        : '/transactions';
+
+      const method = editingTransaction ? 'PUT' : 'POST';
+
+      const response = await authenticatedFetch(endpoint, {
+        method,
+        body: JSON.stringify({
+          ...formData,
+          amount
+        })
+      });
+
+      const data = await response.json();
       
-      setShowForm(false);
-      setEditingTransaction(null);
+      // Limpiar formulario y actualizar lista
       setFormData({
         type: 'Expense',
         category: '',
         amount: '',
-        date: new Date().toISOString().split('T')[0],
         description: '',
         payment_method: 'Efectivo',
         status: 'Completed'
       });
+      setShowForm(false);
+      setEditingTransaction(null);
       await fetchTransactions();
     } catch (err) {
-      setError('Error al guardar la transacción');
-      console.error('Error:', err);
+      setError('Error al guardar la transacción: ' + err.message);
+      console.error('Error detallado:', err);
     } finally {
       setIsLoading(false);
     }
@@ -203,7 +216,6 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       type: transaction.type,
       category: transaction.category,
       amount: transaction.amount.toString(),
-      date: transaction.date.split('T')[0],
       description: transaction.description,
       payment_method: transaction.payment_method,
       status: transaction.status
@@ -459,81 +471,89 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         {/* Panel de Filtros */}
         {showForm && (
           <div className="mt-4 p-4 bg-card-bg rounded-xl shadow-lg">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm text-text-secondary mb-2">Tipo</label>
-                <select
-                  name="type"
-                  value={formData.type}
-                  onChange={handleChange}
-                  className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
-                  required
-                >
-                  <option value="Income">Ingreso</option>
-                  <option value="Expense">Gasto</option>
-                </select>
-              </div>
+            <form onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm text-text-secondary mb-2">Tipo</label>
+                  <select
+                    name="type"
+                    value={formData.type}
+                    onChange={handleChange}
+                    className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
+                    required
+                  >
+                    <option value="Income">Ingreso</option>
+                    <option value="Expense">Gasto</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm text-text-secondary mb-2">Categoría</label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
-                  required
-                >
-                  <option value="">Selecciona una categoría</option>
-                  {CATEGORIES[formData.type].map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
+                <div>
+                  <label className="block text-sm text-text-secondary mb-2">Categoría</label>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleChange}
+                    className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
+                    required
+                  >
+                    <option value="">Selecciona una categoría</option>
+                    {CATEGORIES[formData.type].map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm text-text-secondary mb-2">Monto</label>
-                <div className="flex gap-2">
+                <div>
+                  <label className="block text-sm text-text-secondary mb-2">Monto</label>
                   <input
                     type="number"
-                    placeholder="Min"
-                    name="minAmount"
-                    value={localFilters.minAmount}
-                    onChange={(e) => setLocalFilters(prev => ({ ...prev, minAmount: e.target.value }))}
-                    className="w-1/2 p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    name="maxAmount"
-                    value={localFilters.maxAmount}
-                    onChange={(e) => setLocalFilters(prev => ({ ...prev, maxAmount: e.target.value }))}
-                    className="w-1/2 p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
+                    name="amount"
+                    value={formData.amount}
+                    onChange={handleChange}
+                    placeholder="Ingresa el monto"
+                    className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
+                    required
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm text-text-secondary mb-2">Fecha Inicio</label>
-                <input
-                  type="date"
-                  name="startDate"
-                  value={localFilters.startDate}
-                  onChange={(e) => setLocalFilters(prev => ({ ...prev, startDate: e.target.value }))}
-                  className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm text-text-secondary mb-2">Descripción</label>
+                  <input
+                    type="text"
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    placeholder="Descripción de la transacción"
+                    className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
+                    required
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm text-text-secondary mb-2">Fecha Fin</label>
-                <input
-                  type="date"
-                  name="endDate"
-                  value={localFilters.endDate}
-                  onChange={(e) => setLocalFilters(prev => ({ ...prev, endDate: e.target.value }))}
-                  className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
-                />
+                <div>
+                  <label className="block text-sm text-text-secondary mb-2">Método de Pago</label>
+                  <select
+                    name="payment_method"
+                    value={formData.payment_method}
+                    onChange={handleChange}
+                    className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
+                    required
+                  >
+                    {PAYMENT_METHODS.map(method => (
+                      <option key={method} value={method}>{method}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="submit"
+                    className="w-full px-4 py-2 bg-accent-color hover:bg-accent-color-darker text-white rounded-xl transition-all duration-300"
+                  >
+                    {editingTransaction ? 'Actualizar' : 'Guardar'} Transacción
+                  </button>
+                </div>
               </div>
-            </div>
+            </form>
           </div>
         )}
       </div>
