@@ -71,7 +71,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     amount: '',
     description: '',
     payment_method: 'Efectivo',
-    status: 'Completed'
+    status: 'Completed',
+    date: new Date().toISOString().split('T')[0]
   });
 
   // Calcular resumen de transacciones
@@ -161,7 +162,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         category: formData.category,
         amount: amount,
         description: formData.description,
-        payment_method: formData.payment_method
+        payment_method: formData.payment_method,
+        date: new Date().toISOString().split('T')[0]
       };
 
       console.log('URL de la petición:', endpoint);
@@ -190,7 +192,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         amount: '',
         description: '',
         payment_method: 'Efectivo',
-        status: 'Completed'
+        status: 'Completed',
+        date: new Date().toISOString().split('T')[0]
       });
       setShowForm(false);
       setEditingTransaction(null);
@@ -236,7 +239,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       amount: transaction.amount.toString(),
       description: transaction.description,
       payment_method: transaction.payment_method,
-      status: transaction.status
+      status: transaction.status,
+      date: transaction.date
     });
     setShowForm(true);
   };
