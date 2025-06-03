@@ -15,12 +15,37 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiChevronsLeft,
-  FiChevronsRight
+  FiChevronsRight,
+  FiPlus
 } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import { authenticatedFetch } from '../auth/auth';
 import { useAuth } from '../contexts/AuthContext';
+import Swal from 'sweetalert2';
 // ... rest of imports ...
+
+const CATEGORIES = {
+  Income: ['Salario', 'Regalo', 'Otros-Ingreso'],
+  Expense: [
+    'Alimentación',
+    'Servicios',
+    'Salud',
+    'Vivienda',
+    'Educación',
+    'Transporte',
+    'Ropa',
+    'Seguros',
+    'Mantenimiento',
+    'Entretenimiento',
+    'Pasatiempos',
+    'Restaurantes',
+    'Compras',
+    'Viajes',
+    'Otros-Gasto'
+  ]
+};
+
+const PAYMENT_METHODS = ['Efectivo', 'Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia Bancaria'];
 
 const TransactionList = ({ searchTerm = '', filters = {} }) => {
   const { formatCurrency } = useCurrency();
@@ -30,6 +55,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [showForm, setShowForm] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
 
   // Calcular resumen de transacciones
   const transactionSummary = transactions.reduce((summary, transaction) => {
@@ -86,10 +113,178 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     }
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setIsLoading(true);
+      if (editingTransaction) {
+        await authenticatedFetch(`/transactions/${editingTransaction.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+      } else {
+        await authenticatedFetch('/transactions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+      }
+      
+      setShowForm(false);
+      setEditingTransaction(null);
+      setFormData({
+        type: 'Expense',
+        category: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        description: '',
+        payment_method: 'Efectivo',
+        status: 'Completed'
+      });
+      await fetchTransactions();
+    } catch (err) {
+      setError('Error al guardar la transacción');
+      console.error('Error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: "Esta acción no se puede deshacer",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#10B981',
+      cancelButtonColor: '#EF4444',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await authenticatedFetch(`/transactions/${id}`, {
+          method: 'DELETE',
+        });
+        await fetchTransactions();
+      } catch (err) {
+        setError('Error al eliminar la transacción');
+        console.error('Error:', err);
+      }
+    }
+  };
+
+  const handleEdit = (transaction) => {
+    setEditingTransaction(transaction);
+    setFormData({
+      type: transaction.type,
+      category: transaction.category,
+      amount: transaction.amount.toString(),
+      date: transaction.date.split('T')[0],
+      description: transaction.description,
+      payment_method: transaction.payment_method,
+      status: transaction.status
+    });
+    setShowForm(true);
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'type' ? { category: '' } : {})
+    }));
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const groupTransactionsByDate = (transactions) => {
+    const groups = transactions.reduce((acc, transaction) => {
+      const date = new Date(transaction.date);
+      date.setHours(0, 0, 0, 0);
+      
+      const existingGroup = acc.find(group => 
+        group.date.getTime() === date.getTime()
+      );
+
+      if (existingGroup) {
+        existingGroup.transactions.push(transaction);
+        existingGroup.total += transaction.type === 'income' 
+          ? parseFloat(transaction.amount) 
+          : -parseFloat(transaction.amount);
+      } else {
+        acc.push({
+          date,
+          transactions: [transaction],
+          total: transaction.type === 'income' 
+            ? parseFloat(transaction.amount) 
+            : -parseFloat(transaction.amount)
+        });
+      }
+
+      return acc;
+    }, []);
+
+    return groups.sort((a, b) => b.date - a.date);
+  };
+
+  const formatDate = (date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.getTime() === today.getTime()) {
+      return 'Hoy';
+    } else if (date.getTime() === yesterday.getTime()) {
+      return 'Ayer';
+    } else {
+      return date.toLocaleDateString('es-ES', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+  };
+
+  const getCategoryIcon = (category) => {
+    const icons = {
+      'Alimentación': '🍽️',
+      'Servicios': '🔧',
+      'Salud': '🏥',
+      'Vivienda': '🏠',
+      'Educación': '📚',
+      'Transporte': '🚗',
+      'Ropa': '👕',
+      'Seguros': '🛡️',
+      'Mantenimiento': '🔨',
+      'Entretenimiento': '🎮',
+      'Pasatiempos': '🎨',
+      'Restaurantes': '🍴',
+      'Compras': '🛍️',
+      'Viajes': '✈️',
+      'Otros-Gasto': '📦',
+      'Salario': '💰',
+      'Regalo': '🎁',
+      'Otros-Ingreso': '💵'
+    };
+    return icons[category] || '💰';
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
-        <FiLoader className="w-12 h-12 text-accent-color animate-spin" />
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl text-text-secondary">Cargando transacciones...</div>
       </div>
     );
@@ -138,6 +333,16 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       setCurrentPage(pageNumber);
     }
   };
+
+  const [formData, setFormData] = useState({
+    type: 'Expense',
+    category: '',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    payment_method: 'Efectivo',
+    status: 'Completed'
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -218,7 +423,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                 type="text"
                 placeholder="Buscar transacciones..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
                 className="w-full pl-10 pr-4 py-2 bg-secondary-bg rounded-xl border-none focus:ring-2 focus:ring-accent-color transition-all duration-300"
               />
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
@@ -227,11 +432,11 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
           
           <div className="flex items-center gap-4">
             <button
-              onClick={() => setShowFilters(!showFilters)}
+              onClick={() => setShowForm(!showForm)}
               className="flex items-center gap-2 px-4 py-2 bg-secondary-bg hover:bg-accent-color/10 text-text-primary rounded-xl transition-all duration-300"
             >
-              <FiFilter />
-              <span>Filtros</span>
+              <FiPlus />
+              <span>{showForm ? 'Cancelar' : 'Nueva'}</span>
             </button>
             
             <Link
@@ -245,26 +450,66 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         </div>
 
         {/* Panel de Filtros */}
-        {showFilters && (
+        {showForm && (
           <div className="mt-4 p-4 bg-card-bg rounded-xl shadow-lg">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm text-text-secondary mb-2">Tipo</label>
                 <select
-                  value={filters.type}
-                  onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
+                  name="type"
+                  value={formData.type}
+                  onChange={handleChange}
                   className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
+                  required
                 >
-                  <option value="all">Todos</option>
-                  <option value="income">Ingresos</option>
-                  <option value="expense">Gastos</option>
+                  <option value="Income">Ingreso</option>
+                  <option value="Expense">Gasto</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-text-secondary mb-2">Categoría</label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
+                  required
+                >
+                  <option value="">Selecciona una categoría</option>
+                  {CATEGORIES[formData.type].map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-text-secondary mb-2">Monto</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    name="minAmount"
+                    value={filters.minAmount}
+                    onChange={(e) => setFilters(prev => ({ ...prev, minAmount: e.target.value }))}
+                    className="w-1/2 p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    name="maxAmount"
+                    value={filters.maxAmount}
+                    onChange={(e) => setFilters(prev => ({ ...prev, maxAmount: e.target.value }))}
+                    className="w-1/2 p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
+                  />
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm text-text-secondary mb-2">Fecha Inicio</label>
                 <input
                   type="date"
+                  name="startDate"
                   value={filters.startDate}
                   onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
                   className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
@@ -275,30 +520,11 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                 <label className="block text-sm text-text-secondary mb-2">Fecha Fin</label>
                 <input
                   type="date"
+                  name="endDate"
                   value={filters.endDate}
                   onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
                   className="w-full p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm text-text-secondary mb-2">Monto</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.minAmount}
-                    onChange={(e) => setFilters(prev => ({ ...prev, minAmount: e.target.value }))}
-                    className="w-1/2 p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.maxAmount}
-                    onChange={(e) => setFilters(prev => ({ ...prev, maxAmount: e.target.value }))}
-                    className="w-1/2 p-2 bg-secondary-bg rounded-lg border-none focus:ring-2 focus:ring-accent-color"
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -342,10 +568,16 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
-                  <button className="text-accent-color hover:text-accent-color-darker transition-colors">
+                  <button
+                    onClick={() => handleEdit(transaction)}
+                    className="text-accent-color hover:text-accent-color-darker transition-colors"
+                  >
                     Editar
                   </button>
-                  <button className="text-danger-color hover:text-danger-color-darker transition-colors">
+                  <button
+                    onClick={() => handleDelete(transaction.id)}
+                    className="text-danger-color hover:text-danger-color-darker transition-colors"
+                  >
                     Eliminar
                   </button>
                 </td>
