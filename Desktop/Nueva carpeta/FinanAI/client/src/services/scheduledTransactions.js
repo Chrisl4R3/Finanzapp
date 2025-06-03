@@ -5,7 +5,8 @@ export const getAllScheduledTransactions = async () => {
   try {
     const response = await authenticatedFetch('/api/scheduled-transactions');
     if (!response.ok) {
-      throw new Error('Error al obtener las transacciones programadas');
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Error al obtener las transacciones programadas');
     }
     return response.json();
   } catch (error) {
@@ -24,10 +25,14 @@ export const createScheduledTransaction = async (transactionData) => {
       },
       body: JSON.stringify(transactionData),
     });
+    
+    const responseData = await response.json();
+    
     if (!response.ok) {
-      throw new Error('Error al crear la transacción programada');
+      throw new Error(responseData.message || 'Error al crear la transacción programada');
     }
-    return response.json();
+    
+    return responseData;
   } catch (error) {
     console.error('Error en createScheduledTransaction:', error);
     throw error;
@@ -44,10 +49,14 @@ export const updateScheduledTransaction = async (id, transactionData) => {
       },
       body: JSON.stringify(transactionData),
     });
+    
+    const responseData = await response.json();
+    
     if (!response.ok) {
-      throw new Error('Error al actualizar la transacción programada');
+      throw new Error(responseData.message || 'Error al actualizar la transacción programada');
     }
-    return response.json();
+    
+    return responseData;
   } catch (error) {
     console.error('Error en updateScheduledTransaction:', error);
     throw error;
@@ -60,10 +69,14 @@ export const deleteScheduledTransaction = async (id) => {
     const response = await authenticatedFetch(`/api/scheduled-transactions/${id}`, {
       method: 'DELETE'
     });
+    
+    const responseData = await response.json();
+    
     if (!response.ok) {
-      throw new Error('Error al eliminar la transacción programada');
+      throw new Error(responseData.message || 'Error al eliminar la transacción programada');
     }
-    return response.json();
+    
+    return responseData;
   } catch (error) {
     console.error('Error en deleteScheduledTransaction:', error);
     throw error;
@@ -80,10 +93,14 @@ export const updateScheduledTransactionStatus = async (id, status) => {
       },
       body: JSON.stringify({ status }),
     });
+    
+    const responseData = await response.json();
+    
     if (!response.ok) {
-      throw new Error('Error al actualizar el estado de la transacción programada');
+      throw new Error(responseData.message || 'Error al actualizar el estado de la transacción programada');
     }
-    return response.json();
+    
+    return responseData;
   } catch (error) {
     console.error('Error en updateScheduledTransactionStatus:', error);
     throw error;

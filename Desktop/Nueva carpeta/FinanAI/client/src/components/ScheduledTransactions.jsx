@@ -51,7 +51,7 @@ const ScheduledTransactions = () => {
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
-    type: 'Expense',
+    type: 'Income',
     category: '',
     payment_method: 'Efectivo',
     frequency: 'Monthly',
@@ -84,29 +84,44 @@ const ScheduledTransactions = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      setIsLoading(true);
+      setError(null);
+
+      // Validar campos requeridos
+      if (!formData.description || !formData.amount || !formData.type || 
+          !formData.category || !formData.payment_method || !formData.frequency || 
+          !formData.start_date) {
+        throw new Error('Todos los campos son requeridos excepto la fecha de fin');
+      }
+
+      const requestData = {
+        description: formData.description,
+        amount: parseFloat(formData.amount),
+        type: formData.type,
+        category: formData.category,
+        payment_method: formData.payment_method,
+        frequency: formData.frequency,
+        start_date: formData.start_date,
+        end_date: formData.end_date || null,
+        status: formData.status
+      };
+
+      console.log('Datos a enviar:', requestData);
+
       if (editingTransaction) {
         await scheduledTransactionService.updateScheduledTransaction(
           editingTransaction.id,
-          formData
+          requestData
         );
-        Toast.fire({
-          icon: 'success',
-          title: 'Transacción programada actualizada exitosamente'
-        });
       } else {
-        await scheduledTransactionService.createScheduledTransaction(formData);
-        Toast.fire({
-          icon: 'success',
-          title: 'Transacción programada creada exitosamente'
-        });
+        await scheduledTransactionService.createScheduledTransaction(requestData);
       }
       
-      setShowForm(false);
-      setEditingTransaction(null);
+      // Limpiar formulario y actualizar lista
       setFormData({
         description: '',
         amount: '',
-        type: 'Expense',
+        type: 'Income',
         category: '',
         payment_method: 'Efectivo',
         frequency: 'Monthly',
@@ -114,12 +129,25 @@ const ScheduledTransactions = () => {
         end_date: '',
         status: 'Active'
       });
+      
+      setShowForm(false);
+      setEditingTransaction(null);
       await fetchTransactions();
+      
+      Toast.fire({
+        icon: 'success',
+        title: editingTransaction 
+          ? 'Transacción programada actualizada exitosamente'
+          : 'Transacción programada creada exitosamente'
+      });
     } catch (err) {
+      console.error('Error completo:', err);
       Toast.fire({
         icon: 'error',
         title: err.message || 'Error al guardar la transacción programada'
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -229,7 +257,7 @@ const ScheduledTransactions = () => {
               setFormData({
                 description: '',
                 amount: '',
-                type: 'Expense',
+                type: 'Income',
                 category: '',
                 payment_method: 'Efectivo',
                 frequency: 'Monthly',
