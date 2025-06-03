@@ -155,19 +155,19 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
       const method = editingTransaction ? 'PUT' : 'POST';
 
+      const requestData = {
+        type: formData.type.toLowerCase(),
+        category: formData.category,
+        amount: amount,
+        description: formData.description,
+        payment_method: formData.payment_method
+      };
+
+      console.log('Enviando datos:', requestData);
+
       const response = await authenticatedFetch(endpoint, {
         method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type: formData.type.toLowerCase(),
-          category: formData.category,
-          amount: amount,
-          description: formData.description,
-          payment_method: formData.payment_method,
-          status: formData.status
-        })
+        body: JSON.stringify(requestData)
       });
 
       if (!response.ok) {
@@ -176,6 +176,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       }
 
       const data = await response.json();
+      console.log('Respuesta del servidor:', data);
       
       // Limpiar formulario y actualizar lista
       setFormData({
