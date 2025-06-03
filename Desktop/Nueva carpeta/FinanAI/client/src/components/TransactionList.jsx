@@ -72,7 +72,10 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     description: '',
     payment_method: 'Efectivo',
     status: 'Completed',
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    recurrence: null,
+    is_scheduled: false,
+    parent_transaction_id: null
   });
 
   // Calcular resumen de transacciones
@@ -163,7 +166,10 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         amount: amount,
         description: formData.description,
         payment_method: formData.payment_method,
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        recurrence: null,
+        is_scheduled: false,
+        parent_transaction_id: null
       };
 
       console.log('URL de la petición:', endpoint);
@@ -193,7 +199,10 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         description: '',
         payment_method: 'Efectivo',
         status: 'Completed',
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        recurrence: null,
+        is_scheduled: false,
+        parent_transaction_id: null
       });
       setShowForm(false);
       setEditingTransaction(null);
@@ -240,7 +249,10 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       description: transaction.description,
       payment_method: transaction.payment_method,
       status: transaction.status,
-      date: transaction.date
+      date: transaction.date,
+      recurrence: transaction.recurrence,
+      is_scheduled: transaction.is_scheduled,
+      parent_transaction_id: transaction.parent_transaction_id
     });
     setShowForm(true);
   };
