@@ -54,9 +54,26 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
+  const [searchTermLocal, setSearchTermLocal] = useState(searchTerm);
+  const [filters, setFilters] = useState({
+    type: 'all',
+    minAmount: '',
+    maxAmount: '',
+    startDate: '',
+    endDate: ''
+  });
+  const [formData, setFormData] = useState({
+    type: 'Expense',
+    category: '',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    payment_method: 'Efectivo',
+    status: 'Completed'
+  });
 
   // Calcular resumen de transacciones
   const transactionSummary = transactions.reduce((summary, transaction) => {
@@ -204,7 +221,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   };
 
   const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
+    setSearchTermLocal(e.target.value);
   };
 
   const groupTransactionsByDate = (transactions) => {
@@ -334,16 +351,6 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     }
   };
 
-  const [formData, setFormData] = useState({
-    type: 'Expense',
-    category: '',
-    amount: '',
-    date: new Date().toISOString().split('T')[0],
-    description: '',
-    payment_method: 'Efectivo',
-    status: 'Completed'
-  });
-
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Resumen de Transacciones */}
@@ -422,7 +429,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
               <input
                 type="text"
                 placeholder="Buscar transacciones..."
-                value={searchTerm}
+                value={searchTermLocal}
                 onChange={handleSearchChange}
                 className="w-full pl-10 pr-4 py-2 bg-secondary-bg rounded-xl border-none focus:ring-2 focus:ring-accent-color transition-all duration-300"
               />
