@@ -1,5 +1,57 @@
-const scheduledTransactionsRouter = require('./routes/scheduled_transactions');
-app.use('/api/scheduled-transactions', scheduledTransactionsRouter);
+import express from 'express';
+import cors from 'cors';
+import session from 'express-session';
+import MySQLStore from 'express-mysql-session';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import transactionsRouter from './routes/transactions.js';
+import scheduledTransactionsRouter from './routes/scheduled_transactions.js';
+import authRouter from './routes/auth.js';
+import goalsRouter from './routes/goals.js';
+import notificationsRouter from './routes/notifications.js';
+import pool from './config/db.js';
 
-// Importar y ejecutar el cron job
-require('./cron'); 
+const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Configuración de CORS
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:4173'],
+  credentials: true
+}));
+
+// Middleware para parsear JSON
+app.use(express.json());
+
+// Configuración de sesión
+const MySQLStoreSession = MySQLStore(session);
+const sessionStore = new MySQLStoreSession({}, pool);
+
+app.use(session({
+  key: 'finanzapp_session',
+  secret: 'your_secret_key',
+  store: sessionStore,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 24, // 24 horas
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  }
+}));
+
+// Rutas
+app.use('/api/auth', authRouter);
+app.use('/api/transactions', transactionsRouter);
+app.use('/api/scheduled-transactions', scheduledTransactionsRouter);
+app.use('/api/goals', goalsRouter);
+app.use('/api/notifications', notificationsRouter);
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en el puerto ${PORT}`);
+});
+
+export default app; 

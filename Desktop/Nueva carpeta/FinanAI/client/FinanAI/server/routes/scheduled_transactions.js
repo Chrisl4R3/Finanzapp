@@ -1,9 +1,10 @@
-const express = require('express');
-const router = express.Router();
-const pool = require('../db');
-const { authenticateToken } = require('../middleware/auth');
+import express from 'express';
+import pool from '../config/db.js';
+import { verifyToken } from '../middleware/auth.js';
 
-router.use(authenticateToken);
+const router = express.Router();
+
+router.use(verifyToken);
 
 // Obtener todas las transacciones programadas del usuario
 router.get('/', async (req, res) => {
@@ -168,4 +169,4 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
-module.exports = router; 
+export default router; 
