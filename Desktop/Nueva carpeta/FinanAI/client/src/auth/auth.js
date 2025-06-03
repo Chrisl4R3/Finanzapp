@@ -139,49 +139,48 @@ export const getCurrentUser = async () => {
 export const authenticatedFetch = async (endpoint, options = {}) => {
   try {
     const defaultOptions = {
+      credentials: 'include',
       headers: {
+        'Content-Type': 'application/json',
         ...getAuthHeaders(),
         ...options.headers
       },
-      credentials: 'include',
       ...options
     };
 
-    console.log('Realizando petición autenticada:', {
+    console.log('Configuración completa de la petición:', {
       url: `${API_URL}${endpoint}`,
-      headers: defaultOptions.headers
+      options: defaultOptions
     });
 
     const response = await fetch(`${API_URL}${endpoint}`, defaultOptions);
     
+    console.log('Respuesta inicial:', {
+      status: response.status,
+      statusText: response.statusText
+    });
+
     if (response.status === 401) {
       console.log('Token expirado o inválido, intentando renovar...');
-      // Si la sesión expiró, intentamos renovarla
       const refreshResult = await getCurrentUser();
       if (!refreshResult) {
-        // Si no se pudo renovar, redirigimos al login
         console.log('No se pudo renovar la sesión, redirigiendo al login...');
         localStorage.removeItem('authToken');
         window.location.href = '/login';
         throw new Error('Sesión expirada');
       }
       
-      // Reintentamos la petición original con el nuevo token
       console.log('Sesión renovada, reintentando petición...');
       return await fetch(`${API_URL}${endpoint}`, {
         ...defaultOptions,
         headers: {
+          'Content-Type': 'application/json',
           ...getAuthHeaders(),
           ...options.headers
         }
       });
     }
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `Error en la petición: ${response.status}`);
-    }
-
     return response;
   } catch (error) {
     console.error('Error en la petición autenticada:', error);

@@ -137,6 +137,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
       // Validaciones
       if (!formData.type || !formData.category || !formData.amount || !formData.description || !formData.payment_method) {
+        console.log('Datos del formulario:', formData);
         throw new Error('Todos los campos son requeridos');
       }
 
@@ -163,20 +164,24 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         payment_method: formData.payment_method
       };
 
-      console.log('Enviando datos:', requestData);
+      console.log('URL de la petición:', endpoint);
+      console.log('Método:', method);
+      console.log('Datos a enviar:', requestData);
 
       const response = await authenticatedFetch(endpoint, {
         method,
         body: JSON.stringify(requestData)
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al guardar la transacción');
-      }
+      console.log('Respuesta del servidor:', response);
+      console.log('Status:', response.status);
 
-      const data = await response.json();
-      console.log('Respuesta del servidor:', data);
+      const responseData = await response.json();
+      console.log('Datos de respuesta:', responseData);
+
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Error al guardar la transacción');
+      }
       
       // Limpiar formulario y actualizar lista
       setFormData({
@@ -191,8 +196,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       setEditingTransaction(null);
       await fetchTransactions();
     } catch (err) {
+      console.error('Error completo:', err);
       setError('Error al guardar la transacción: ' + err.message);
-      console.error('Error detallado:', err);
     } finally {
       setIsLoading(false);
     }
