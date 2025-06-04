@@ -265,31 +265,10 @@ const Transactions = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
+      <div className="mb-8">
         <h1 className="text-3xl font-bold text-text-primary">
           Transacciones
         </h1>
-        <div className="flex gap-4">
-          <button
-            onClick={() => navigate('/scheduled-transactions')}
-            className="inline-flex items-center gap-2 bg-card-bg text-text-primary px-6 py-3 rounded-xl hover:bg-accent-color/5 transition-all duration-300 border border-border-color"
-          >
-            <FiClock className="w-5 h-5" />
-            <span>Transacciones Programadas</span>
-          </button>
-          {!showForm && (
-            <button
-              onClick={() => {
-                setEditingTransaction(null);
-                setShowForm(true);
-              }}
-              className="inline-flex items-center gap-2 bg-accent-color text-white px-6 py-3 rounded-xl hover:bg-accent-color-darker transition-all duration-300"
-            >
-              <FiPlus className="w-5 h-5" />
-              <span>Nueva Transacción</span>
-            </button>
-          )}
-        </div>
       </div>
 
       {/* Tabs */}
