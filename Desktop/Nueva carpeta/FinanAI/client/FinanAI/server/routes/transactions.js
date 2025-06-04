@@ -5,7 +5,7 @@ import { verifyToken } from '../middleware/auth.js';
 const router = express.Router();
 
 const VALID_CATEGORIES = {
-  Income: ['Salario', 'Regalo', 'Otros-Ingreso'],
+  Income: ['Salario', 'Regalo', 'Inversiones', 'Otros-Ingreso'],
   Expense: [
     'Alimentación',
     'Servicios',
@@ -92,7 +92,7 @@ router.post('/', async (req, res) => {
     }
 
     // Validar categoría
-    if (!VALID_CATEGORIES[type].includes(category)) {
+    if (!assignToGoal && !VALID_CATEGORIES[type].includes(category)) {
       return res.status(400).json({ 
         message: `Categoría inválida para ${type}. Categorías válidas: ${VALID_CATEGORIES[type].join(', ')}` 
       });
