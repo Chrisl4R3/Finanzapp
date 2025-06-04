@@ -29,19 +29,36 @@ const VALID_CATEGORIES = {
 router.use(verifyToken);
 
 router.get('/', async (req, res) => {
+  const connection = await pool.getConnection();
   try {
-    const [transactions] = await pool.query(
-      `SELECT t.*, g.title as goal_title, g.target_amount as goal_target_amount, g.current_amount as goal_current_amount 
-       FROM transactions t 
-       LEFT JOIN goals g ON t.goal_id = g.id 
-       WHERE t.user_id = ? 
-       ORDER BY t.date DESC`,
-      [req.userId]
+    // Verificar si la tabla goals existe
+    const [tables] = await connection.query(
+      "SHOW TABLES LIKE 'goals'"
     );
+    
+    let query = 'SELECT t.* FROM transactions t WHERE t.user_id = ? ORDER BY t.date DESC';
+    
+    // Si existe la tabla goals, hacer el JOIN
+    if (tables.length > 0) {
+      query = `
+        SELECT t.*, g.title as goal_title, g.target_amount as goal_target_amount, g.current_amount as goal_current_amount 
+        FROM transactions t 
+        LEFT JOIN goals g ON t.goal_id = g.id 
+        WHERE t.user_id = ? 
+        ORDER BY t.date DESC
+      `;
+    }
+
+    const [transactions] = await connection.query(query, [req.userId]);
     res.json(transactions);
   } catch (error) {
     console.error('Error al obtener transacciones:', error);
-    res.status(500).json({ message: 'Error en el servidor' });
+    res.status(500).json({ 
+      message: 'Error en el servidor',
+      error: error.message 
+    });
+  } finally {
+    connection.release();
   }
 });
 
@@ -85,18 +102,26 @@ router.post('/', async (req, res) => {
       goal_id = null
     } = req.body;
 
+    console.log('Datos recibidos:', req.body);
+
     // Validaciones básicas
     if (!type || !category || !amount || !date || !description || !payment_method) {
-      return res.status(400).json({ message: 'Todos los campos son requeridos' });
+      await connection.rollback();
+      return res.status(400).json({ 
+        message: 'Todos los campos son requeridos',
+        received: { type, category, amount, date, description, payment_method }
+      });
     }
 
     // Validar tipo
     if (!['Income', 'Expense', 'Scheduled'].includes(type)) {
+      await connection.rollback();
       return res.status(400).json({ message: 'Tipo de transacción inválido' });
     }
 
     // Validar categoría
     if (!assignToGoal && !VALID_CATEGORIES[type].includes(category)) {
+      await connection.rollback();
       return res.status(400).json({ 
         message: `Categoría inválida para ${type}. Categorías válidas: ${VALID_CATEGORIES[type].join(', ')}` 
       });
@@ -105,42 +130,58 @@ router.post('/', async (req, res) => {
     // Validar método de pago
     const validPaymentMethods = ['Efectivo', 'Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia Bancaria'];
     if (!validPaymentMethods.includes(payment_method)) {
+      await connection.rollback();
       return res.status(400).json({ 
         message: `Método de pago inválido. Métodos válidos: ${validPaymentMethods.join(', ')}` 
       });
     }
 
-    // Si es una transacción asignada a meta, validar que la meta exista y pertenezca al usuario
-    if (assignToGoal && goal_id) {
-      const [goals] = await connection.query(
-        'SELECT * FROM goals WHERE id = ? AND user_id = ?',
-        [goal_id, req.userId]
-      );
-
-      if (goals.length === 0) {
-        return res.status(404).json({ message: 'Meta no encontrada' });
-      }
-
-      const goal = goals[0];
-      
-      // Validar que no exceda el monto objetivo de la meta
-      const [currentProgress] = await connection.query(
-        'SELECT COALESCE(SUM(amount), 0) as current_amount FROM transactions WHERE goal_id = ?',
-        [goal_id]
+    // Si hay goal_id, verificar primero si la tabla goals existe
+    if (goal_id) {
+      const [tables] = await connection.query(
+        "SHOW TABLES LIKE 'goals'"
       );
       
-      const totalAfterContribution = Number(currentProgress[0].current_amount) + Number(amount);
-      if (totalAfterContribution > goal.target_amount) {
-        return res.status(400).json({ 
-          message: 'El monto excede el objetivo de la meta' 
-        });
-      }
+      if (tables.length > 0) {
+        const [goals] = await connection.query(
+          'SELECT * FROM goals WHERE id = ? AND user_id = ?',
+          [goal_id, req.userId]
+        );
 
-      // Actualizar el progreso de la meta
-      await connection.query(
-        'UPDATE goals SET current_amount = current_amount + ? WHERE id = ?',
-        [amount, goal_id]
-      );
+        if (goals.length === 0) {
+          await connection.rollback();
+          return res.status(404).json({ message: 'Meta no encontrada' });
+        }
+
+        const goal = goals[0];
+        
+        // Validar que no exceda el monto objetivo de la meta
+        const [currentProgress] = await connection.query(
+          'SELECT COALESCE(SUM(amount), 0) as current_amount FROM transactions WHERE goal_id = ?',
+          [goal_id]
+        );
+        
+        const totalAfterContribution = Number(currentProgress[0].current_amount) + Number(amount);
+        if (totalAfterContribution > goal.target_amount) {
+          await connection.rollback();
+          return res.status(400).json({ 
+            message: 'El monto excede el objetivo de la meta',
+            current: currentProgress[0].current_amount,
+            contribution: amount,
+            total: totalAfterContribution,
+            target: goal.target_amount
+          });
+        }
+
+        // Actualizar el progreso de la meta
+        await connection.query(
+          'UPDATE goals SET current_amount = current_amount + ? WHERE id = ?',
+          [amount, goal_id]
+        );
+      } else {
+        // Si no existe la tabla goals pero se envió goal_id, ignorarlo
+        console.warn('Se intentó asignar a una meta pero la tabla goals no existe');
+      }
     }
 
     // Insertar la transacción
@@ -155,14 +196,24 @@ router.post('/', async (req, res) => {
 
     await connection.commit();
     
+    // Obtener la transacción recién creada
+    const [newTransaction] = await connection.query(
+      'SELECT * FROM transactions WHERE id = ?',
+      [result.insertId]
+    );
+
     res.status(201).json({
       message: 'Transacción creada exitosamente',
-      transactionId: result.insertId
+      transaction: newTransaction[0]
     });
   } catch (error) {
     await connection.rollback();
-    console.error('Error al crear transacción:', error);
-    res.status(500).json({ message: 'Error al crear la transacción: ' + error.message });
+    console.error('Error detallado al crear transacción:', error);
+    res.status(500).json({ 
+      message: 'Error al crear la transacción',
+      error: error.message,
+      sqlMessage: error.sqlMessage
+    });
   } finally {
     connection.release();
   }
