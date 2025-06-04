@@ -77,12 +77,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     recurrence: '',
     is_scheduled: 0,
     end_date: null,
-    parent_transaction_id: null,
-    assignToGoal: false,
-    goal_id: ''
+    parent_transaction_id: null
   });
-
-  const [goals, setGoals] = useState([]);
 
   // Calcular resumen de transacciones
   const transactionSummary = transactions.reduce((summary, transaction) => {
@@ -113,24 +109,6 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     );
     setTransactions(sortedTransactions);
   }, [transactions.length]);
-
-  // Cargar metas cuando se necesiten
-  useEffect(() => {
-    if (formData.assignToGoal) {
-      fetchGoals();
-    }
-  }, [formData.assignToGoal]);
-
-  const fetchGoals = async () => {
-    try {
-      const response = await authenticatedFetch('/goals');
-      const data = await response.json();
-      setGoals(data);
-    } catch (err) {
-      console.error('Error al cargar las metas:', err);
-      setError('Error al cargar las metas');
-    }
-  };
 
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = transaction.description.toLowerCase().includes(searchTermLocal.toLowerCase()) ||
@@ -242,9 +220,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         recurrence: '',
         is_scheduled: 0,
         end_date: null,
-        parent_transaction_id: null,
-        assignToGoal: false,
-        goal_id: ''
+        parent_transaction_id: null
       });
       setShowForm(false);
       setEditingTransaction(null);
@@ -296,9 +272,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       recurrence: transaction.recurrence,
       is_scheduled: transaction.is_scheduled,
       end_date: transaction.end_date,
-      parent_transaction_id: transaction.parent_transaction_id,
-      assignToGoal: transaction.assignToGoal,
-      goal_id: transaction.goal_id
+      parent_transaction_id: transaction.parent_transaction_id
     });
     setShowForm(true);
   };
@@ -643,47 +617,6 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
               </select>
             </div>
 
-            <div className="md:col-span-2 lg:col-span-3">
-              <label className="flex items-center gap-2 text-text-secondary">
-                <input
-                  type="checkbox"
-                  name="assignToGoal"
-                  checked={formData.assignToGoal}
-                  onChange={(e) => {
-                    const { checked } = e.target;
-                    setFormData(prev => ({
-                      ...prev,
-                      assignToGoal: checked,
-                      type: checked ? 'Income' : prev.type,
-                      goal_id: checked ? prev.goal_id : ''
-                    }));
-                  }}
-                  className="rounded border-border-color text-accent-color focus:ring-accent-color"
-                />
-                <span>Asignar a una meta</span>
-              </label>
-            </div>
-
-            {formData.assignToGoal && (
-              <div className="md:col-span-2 lg:col-span-3">
-                <label className="block text-sm text-text-secondary mb-2">Meta</label>
-                <select
-                  name="goal_id"
-                  value={formData.goal_id}
-                  onChange={handleChange}
-                  className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                  required={formData.assignToGoal}
-                >
-                  <option value="">Selecciona una meta</option>
-                  {goals.map(goal => (
-                    <option key={goal.id} value={goal.id}>
-                      {goal.title} - Progreso: {((goal.current_amount / goal.target_amount) * 100).toFixed(1)}%
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-4">
               <button
                 type="button"
@@ -735,17 +668,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                       <span className="text-2xl">{getCategoryIcon(transaction.category)}</span>
                       <div className="flex flex-col">
                         <span className="text-sm font-medium text-text-primary">{transaction.description}</span>
-                        <div className="flex items-center gap-2 text-xs text-text-secondary">
-                          <span>{transaction.payment_method}</span>
-                          {transaction.goal_id && (
-                            <>
-                              <span>•</span>
-                              <span className="text-accent-color">
-                                Meta: {transaction.goal_title} ({((transaction.goal_current_amount / transaction.goal_target_amount) * 100).toFixed(1)}%)
-                              </span>
-                            </>
-                          )}
-                        </div>
+                        <span className="text-xs text-text-secondary">{transaction.payment_method}</span>
                       </div>
                     </div>
                   </td>
