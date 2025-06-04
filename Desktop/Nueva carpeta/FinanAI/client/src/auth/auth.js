@@ -1,15 +1,13 @@
-const API_URL = 'https://backend-production-cf437.up.railway.app/api';
+// Usar el proxy configurado en vite.config.js
+const API_URL = '/api';
 
 // Función auxiliar para obtener el token
 const getStoredToken = () => localStorage.getItem('authToken');
 
-// Función auxiliar para configurar headers
-const getAuthHeaders = () => {
+// Función auxiliar para obtener los headers de autenticación
+export const getAuthHeaders = () => {
   const token = getStoredToken();
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': token ? `Bearer ${token}` : ''
-  };
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 
 export const login = async (credentials) => {
