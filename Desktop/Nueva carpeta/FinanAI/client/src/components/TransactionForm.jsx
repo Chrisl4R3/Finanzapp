@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiDollarSign, FiCalendar } from 'react-icons/fi';
+import { getAllGoals } from '../services/goals';
 
 const CATEGORIES = {
   Income: ['Salario', 'Regalo', 'Inversiones', 'Otros-Ingreso'],
@@ -37,23 +38,57 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
     date: new Date().toISOString().split('T')[0],
     description: '',
     payment_method: '',
+    assignToGoal: false,
+    goal_id: '',
     ...initialData
   });
 
+  const [goals, setGoals] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (formData.assignToGoal) {
+      loadGoals();
+    }
+  }, [formData.assignToGoal]);
+
+  const loadGoals = async () => {
+    try {
+      setLoading(true);
+      const goalsData = await getAllGoals();
+      setGoals(goalsData);
+    } catch (err) {
+      setError('Error al cargar las metas');
+      console.error('Error al cargar las metas:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value,
+      [name]: type === 'checkbox' ? checked : value,
       ...(name === 'type' && {
-        category: ''
+        category: '',
+        goal_id: ''
+      }),
+      ...(name === 'assignToGoal' && !checked && {
+        goal_id: ''
       })
     }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    // Si está asignado a una meta, forzamos el tipo a 'Income'
+    const submissionData = {
+      ...formData,
+      type: formData.assignToGoal ? 'Income' : formData.type
+    };
+    onSubmit(submissionData);
   };
 
   return (
@@ -67,6 +102,7 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
             onChange={handleChange}
             className="w-full bg-background-color text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
             required
+            disabled={formData.assignToGoal}
           >
             <option value="Expense">Gasto</option>
             <option value="Income">Ingreso</option>
@@ -83,7 +119,7 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
             required
           >
             <option value="">Selecciona una categoría</option>
-            {CATEGORIES[formData.type]?.map(category => (
+            {CATEGORIES[formData.assignToGoal ? 'Income' : formData.type]?.map(category => (
               <option key={category} value={category}>{category}</option>
             ))}
           </select>
@@ -150,6 +186,39 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
             required
           />
         </div>
+
+        <div className="col-span-2">
+          <label className="flex items-center space-x-2 text-text-secondary cursor-pointer">
+            <input
+              type="checkbox"
+              name="assignToGoal"
+              checked={formData.assignToGoal}
+              onChange={handleChange}
+              className="form-checkbox h-5 w-5 text-accent-color rounded border-border-color focus:ring-accent-color"
+            />
+            <span>Asignar directamente a una meta</span>
+          </label>
+        </div>
+
+        {formData.assignToGoal && (
+          <div className="col-span-2">
+            <label className="block text-text-secondary mb-2">Meta</label>
+            <select
+              name="goal_id"
+              value={formData.goal_id}
+              onChange={handleChange}
+              className="w-full bg-background-color text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+              required
+            >
+              <option value="">Selecciona una meta</option>
+              {goals.map(goal => (
+                <option key={goal.id} value={goal.id}>
+                  {goal.title} - Progreso: {((goal.current_amount / goal.target_amount) * 100).toFixed(1)}%
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="mt-6 flex justify-end space-x-4">
