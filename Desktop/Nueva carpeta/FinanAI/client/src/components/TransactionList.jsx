@@ -489,15 +489,15 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
       {/* Barra de búsqueda y filtros */}
       <div className="mb-6 flex flex-col sm:flex-row gap-4">
-        <input
-          type="text"
-          value={searchTermLocal}
-          onChange={(e) => setSearchTermLocal(e.target.value)}
-          placeholder="Buscar transacciones..."
-          className="flex-1 bg-card-bg border-none rounded-xl px-4 py-3 text-text-primary placeholder-text-secondary focus:ring-2 focus:ring-accent-color"
-        />
-        
-        <div className="flex gap-2">
+        <div className="flex-1 flex gap-4">
+          <input
+            type="text"
+            value={searchTermLocal}
+            onChange={(e) => setSearchTermLocal(e.target.value)}
+            placeholder="Buscar transacciones..."
+            className="flex-1 bg-card-bg border-none rounded-xl px-4 py-3 text-text-primary placeholder-text-secondary focus:ring-2 focus:ring-accent-color"
+          />
+          
           <select
             value={localFilters.type}
             onChange={(e) => setLocalFilters(prev => ({ ...prev, type: e.target.value }))}
@@ -508,7 +508,133 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
             <option value="expense">Gastos</option>
           </select>
         </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="px-4 py-2 bg-card-bg hover:bg-accent-color/10 text-text-primary rounded-xl transition-all duration-300 flex items-center gap-2"
+          >
+            <FiPlus className="w-5 h-5" />
+            <span>{showForm ? 'Cancelar' : 'Nueva'}</span>
+          </button>
+          
+          <Link
+            to="/transactions/new"
+            className="px-4 py-2 bg-accent-color hover:bg-accent-color-darker text-white rounded-xl transition-all duration-300 flex items-center gap-2"
+          >
+            <FiPlusCircle className="w-5 h-5" />
+            <span>Nueva Transacción</span>
+          </Link>
+        </div>
       </div>
+
+      {/* Formulario de transacción */}
+      {showForm && (
+        <div className="mb-6 bg-card-bg rounded-xl p-6 shadow-lg">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm text-text-secondary mb-2">Tipo</label>
+              <select
+                name="type"
+                value={formData.type}
+                onChange={handleChange}
+                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
+                required
+              >
+                <option value="Income">Ingreso</option>
+                <option value="Expense">Gasto</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm text-text-secondary mb-2">Categoría</label>
+              <select
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
+                required
+              >
+                <option value="">Selecciona una categoría</option>
+                {CATEGORIES[formData.type].map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm text-text-secondary mb-2">Monto</label>
+              <input
+                type="number"
+                name="amount"
+                value={formData.amount}
+                onChange={handleChange}
+                placeholder="Ingresa el monto"
+                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
+                required
+                step="0.01"
+                min="0"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-text-secondary mb-2">Fecha</label>
+              <input
+                type="date"
+                name="date"
+                value={formData.date}
+                onChange={handleChange}
+                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-text-secondary mb-2">Descripción</label>
+              <input
+                type="text"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="Descripción de la transacción"
+                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-text-secondary mb-2">Método de Pago</label>
+              <select
+                name="payment_method"
+                value={formData.payment_method}
+                onChange={handleChange}
+                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
+                required
+              >
+                {PAYMENT_METHODS.map(method => (
+                  <option key={method} value={method}>{method}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-4">
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="px-6 py-2 bg-card-bg hover:bg-secondary-bg text-text-secondary rounded-xl transition-all duration-300"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-2 bg-accent-color hover:bg-accent-color-darker text-white rounded-xl transition-all duration-300"
+              >
+                {editingTransaction ? 'Actualizar' : 'Guardar'} Transacción
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Lista de transacciones */}
       <div className="bg-card-bg rounded-xl shadow-lg overflow-hidden">
