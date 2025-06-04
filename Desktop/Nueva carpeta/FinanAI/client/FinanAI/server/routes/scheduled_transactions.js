@@ -34,6 +34,11 @@ router.post('/', async (req, res) => {
   } = req.body;
 
   try {
+    // Validar campos requeridos
+    if (!description || !amount || !type || !category || !payment_method || !frequency || !start_date) {
+      return res.status(400).json({ message: 'Todos los campos son requeridos excepto end_date' });
+    }
+
     // Calcular next_execution basado en start_date
     const next_execution = new Date(start_date);
 
@@ -169,4 +174,4 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
-export default router;
+export default router; 
