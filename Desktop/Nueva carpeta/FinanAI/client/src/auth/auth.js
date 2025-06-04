@@ -1,4 +1,4 @@
-const API_URL = 'https://backend-production-cf437.up.railway.app/api';
+const API_URL = 'https://backend-production-cf437.up.railway.app';
 
 // Función auxiliar para obtener el token
 const getStoredToken = () => localStorage.getItem('authToken');
