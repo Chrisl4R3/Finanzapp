@@ -269,7 +269,7 @@ const Transactions = () => {
         <h1 className="text-3xl font-bold text-text-primary">
           Transacciones
         </h1>
-      </div>
+          </div>
 
       {/* Tabs */}
       <div className="flex space-x-4 mb-6">
@@ -280,7 +280,7 @@ const Transactions = () => {
               ? 'bg-accent-color text-white'
               : 'bg-card-bg text-text-secondary hover:bg-accent-color/10'
           }`}
-        >
+          >
           <FiList className="w-5 h-5" />
           <span>Transacciones</span>
         </button>
