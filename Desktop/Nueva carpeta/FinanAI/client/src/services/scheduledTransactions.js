@@ -3,7 +3,7 @@ import { authenticatedFetch } from '../auth/auth';
 // Obtener todas las transacciones programadas
 export const getAllScheduledTransactions = async () => {
   try {
-    const response = await authenticatedFetch('/api/scheduled-transactions');
+    const response = await authenticatedFetch('https://backend-production-cf437.up.railway.app/api/scheduled-transactions');
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || 'Error al obtener las transacciones programadas');
@@ -18,7 +18,7 @@ export const getAllScheduledTransactions = async () => {
 // Crear nueva transacción programada
 export const createScheduledTransaction = async (transactionData) => {
   try {
-    const response = await authenticatedFetch('/api/scheduled-transactions', {
+    const response = await authenticatedFetch('https://backend-production-cf437.up.railway.app/api/scheduled-transactions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -42,7 +42,7 @@ export const createScheduledTransaction = async (transactionData) => {
 // Actualizar transacción programada
 export const updateScheduledTransaction = async (id, transactionData) => {
   try {
-    const response = await authenticatedFetch(`/api/scheduled-transactions/${id}`, {
+    const response = await authenticatedFetch(`https://backend-production-cf437.up.railway.app/api/scheduled-transactions/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -66,7 +66,7 @@ export const updateScheduledTransaction = async (id, transactionData) => {
 // Eliminar transacción programada
 export const deleteScheduledTransaction = async (id) => {
   try {
-    const response = await authenticatedFetch(`/api/scheduled-transactions/${id}`, {
+    const response = await authenticatedFetch(`https://backend-production-cf437.up.railway.app/api/scheduled-transactions/${id}`, {
       method: 'DELETE'
     });
     
@@ -86,7 +86,7 @@ export const deleteScheduledTransaction = async (id) => {
 // Cambiar estado de transacción programada
 export const updateScheduledTransactionStatus = async (id, status) => {
   try {
-    const response = await authenticatedFetch(`/api/scheduled-transactions/${id}/status`, {
+    const response = await authenticatedFetch(`https://backend-production-cf437.up.railway.app/api/scheduled-transactions/${id}/status`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
