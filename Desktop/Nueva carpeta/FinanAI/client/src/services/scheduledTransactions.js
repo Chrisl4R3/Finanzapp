@@ -1,14 +1,9 @@
 import { authenticatedFetch } from '../auth/auth';
-const API_URL = 'https://backend-production-cf437.up.railway.app/api/scheduled-transactions';
 
 // Obtener todas las transacciones programadas
 export const getAllScheduledTransactions = async () => {
   try {
-    const response = await authenticatedFetch(API_URL);
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error al obtener las transacciones programadas');
-    }
+    const response = await authenticatedFetch('/scheduled-transactions');
     return response.json();
   } catch (error) {
     console.error('Error en getAllScheduledTransactions:', error);
@@ -19,19 +14,10 @@ export const getAllScheduledTransactions = async () => {
 // Crear nueva transacción programada
 export const createScheduledTransaction = async (transactionData) => {
   try {
-    const response = await authenticatedFetch(API_URL, {
+    const response = await authenticatedFetch('/scheduled-transactions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(transactionData),
     });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error al crear la transacción programada');
-    }
-    
     return response.json();
   } catch (error) {
     console.error('Error en createScheduledTransaction:', error);
@@ -42,19 +28,10 @@ export const createScheduledTransaction = async (transactionData) => {
 // Actualizar transacción programada
 export const updateScheduledTransaction = async (id, transactionData) => {
   try {
-    const response = await authenticatedFetch(`${API_URL}/${id}`, {
+    const response = await authenticatedFetch(`/scheduled-transactions/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(transactionData),
     });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error al actualizar la transacción programada');
-    }
-    
     return response.json();
   } catch (error) {
     console.error('Error en updateScheduledTransaction:', error);
@@ -65,15 +42,9 @@ export const updateScheduledTransaction = async (id, transactionData) => {
 // Eliminar transacción programada
 export const deleteScheduledTransaction = async (id) => {
   try {
-    const response = await authenticatedFetch(`${API_URL}/${id}`, {
+    const response = await authenticatedFetch(`/scheduled-transactions/${id}`, {
       method: 'DELETE'
     });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error al eliminar la transacción programada');
-    }
-    
     return response.json();
   } catch (error) {
     console.error('Error en deleteScheduledTransaction:', error);
@@ -84,19 +55,10 @@ export const deleteScheduledTransaction = async (id) => {
 // Cambiar estado de transacción programada
 export const updateScheduledTransactionStatus = async (id, status) => {
   try {
-    const response = await authenticatedFetch(`${API_URL}/${id}/status`, {
+    const response = await authenticatedFetch(`/scheduled-transactions/${id}/status`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ status }),
     });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error al actualizar el estado de la transacción programada');
-    }
-    
     return response.json();
   } catch (error) {
     console.error('Error en updateScheduledTransactionStatus:', error);
