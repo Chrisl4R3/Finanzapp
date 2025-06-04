@@ -4,15 +4,16 @@ import session from 'express-session';
 import MySQLStore from 'express-mysql-session';
 import authRoutes from './routes/auth.js';
 import transactionRoutes from './routes/transactions.js';
+import scheduledTransactionsRoutes from './routes/scheduled_transactions.js';
 import goalRoutes from './routes/goals.js';
 import notificationRoutes from './routes/notifications.js';
 import pool from './config/db.js';
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Configuración de la sesión con MySQL
 const MySQLStoreSession = MySQLStore(session);
-
 const sessionStore = new MySQLStoreSession({
   clearExpired: true,
   checkExpirationInterval: 900000,
@@ -28,43 +29,35 @@ const sessionStore = new MySQLStoreSession({
   }
 }, pool);
 
+// Configuración de CORS
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://frontend-production-df22.up.railway.app',
+    'https://backend-production-cf437.up.railway.app'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
 // Middleware de sesión
 app.use(session({
   key: 'finanzapp_session',
-  secret: 'tu_secreto_super_seguro',
+  secret: process.env.SESSION_SECRET || 'tu_secreto_super_seguro',
   store: sessionStore,
-  resave: true,
+  resave: false,
   saveUninitialized: false,
   rolling: true,
   cookie: {
-    secure: false, // Cambiar a true en producción con HTTPS
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 86400000,
-    sameSite: 'lax'
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   }
 }));
 
-// Configuración de CORS
-app.use(cors({
-  origin: function(origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:5173',
-      'https://frontend-production-df22.up.railway.app',
-      'https://backend-production-cf437.up.railway.app'
-    ];
-    // Permitir solicitudes sin origin (como las de Postman)
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['set-cookie']
-}));
-
+// Middleware para parsear JSON
 app.use(express.json());
 
 // Logging middleware
@@ -85,6 +78,7 @@ app.get('/', (req, res) => {
     endpoints: [
       '/api/auth',
       '/api/transactions',
+      '/api/scheduled-transactions',
       '/api/goals',
       '/api/notifications'
     ]
@@ -95,21 +89,25 @@ app.get('/', (req, res) => {
 // Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/scheduled-transactions', scheduledTransactionsRoutes);
 app.use('/api/goals', goalRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-// Error handling
+// Middleware de manejo de errores
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({ message: 'Error interno del servidor' });
+  console.error(err.stack);
+  res.status(500).json({
+    message: 'Error interno del servidor',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
 });
 
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+  console.log(`Servidor corriendo en el puerto ${PORT}`);
   console.log('Rutas disponibles:');
   console.log('- /api/auth');
   console.log('- /api/transactions');
+  console.log('- /api/scheduled-transactions');
   console.log('- /api/goals');
   console.log('- /api/notifications');
 });

@@ -137,55 +137,44 @@ export const getCurrentUser = async () => {
 };
 
 export const authenticatedFetch = async (endpoint, options = {}) => {
-  try {
-    const defaultOptions = {
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders(),
-        ...options.headers
-      },
-      ...options
-    };
+  const token = getStoredToken();
+  const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
+  
+  const defaultOptions = {
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    },
+  };
 
-    console.log('Configuración completa de la petición:', {
-      url: `${API_URL}${endpoint}`,
-      options: defaultOptions
-    });
+  const response = await fetch(url, {
+    ...defaultOptions,
+    ...options,
+    headers: {
+      ...defaultOptions.headers,
+      ...options.headers,
+    },
+  });
 
-    const response = await fetch(`${API_URL}${endpoint}`, defaultOptions);
-    
-    console.log('Respuesta inicial:', {
-      status: response.status,
-      statusText: response.statusText
-    });
-
-    if (response.status === 401) {
-      console.log('Token expirado o inválido, intentando renovar...');
-      const refreshResult = await getCurrentUser();
-      if (!refreshResult) {
-        console.log('No se pudo renovar la sesión, redirigiendo al login...');
-        localStorage.removeItem('authToken');
-        window.location.href = '/login';
-        throw new Error('Sesión expirada');
-      }
-      
-      console.log('Sesión renovada, reintentando petición...');
-      return await fetch(`${API_URL}${endpoint}`, {
-        ...defaultOptions,
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-          ...options.headers
-        }
-      });
-    }
-    
-    return response;
-  } catch (error) {
-    console.error('Error en la petición autenticada:', error);
-    throw error;
+  // Manejo específico para errores de sesión
+  if (response.status === 401) {
+    localStorage.removeItem('authToken');
+    window.location.href = '/login';
+    throw new Error('Tu sesión ha expirado');
   }
+
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Error en la petición');
+    } else {
+      throw new Error('Error en la petición al servidor');
+    }
+  }
+
+  return response;
 };
 
 export const getDashboardData = async () => {
