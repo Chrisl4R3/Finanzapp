@@ -73,8 +73,7 @@ router.post('/', async (req, res) => {
       recurrence = '',
       is_scheduled = 0,
       end_date = null,
-      parent_transaction_id = null,
-      goal_id = null // Nuevo campo para relacionar con una meta
+      parent_transaction_id = null
     } = req.body;
 
     // Validaciones básicas
@@ -83,26 +82,8 @@ router.post('/', async (req, res) => {
     }
 
     // Validar tipo
-    if (!['Income', 'Expense', 'Scheduled', 'GoalContribution'].includes(type)) {
+    if (!['Income', 'Expense', 'Scheduled'].includes(type)) {
       return res.status(400).json({ message: 'Tipo de transacción inválido' });
-    }
-
-    // Si es una contribución a meta, validar que la meta existe y pertenece al usuario
-    if (type === 'GoalContribution' && goal_id) {
-      const [goal] = await pool.query(
-        'SELECT * FROM goals WHERE id = ? AND user_id = ?',
-        [goal_id, req.session.user.id]
-      );
-
-      if (goal.length === 0) {
-        return res.status(404).json({ message: 'Meta no encontrada' });
-      }
-
-      // Actualizar el progreso de la meta
-      await pool.query(
-        'UPDATE goals SET current_amount = current_amount + ? WHERE id = ?',
-        [amount, goal_id]
-      );
     }
 
     // Validar categoría
@@ -123,22 +104,20 @@ router.post('/', async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO transactions 
        (user_id, type, category, amount, date, description, payment_method, 
-        status, schedule, recurrence, is_scheduled, end_date, parent_transaction_id, goal_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.session.user.id, type, category, amount, date, description, payment_method,
-       status, schedule, recurrence, is_scheduled, end_date, parent_transaction_id, goal_id]
+        status, schedule, recurrence, is_scheduled, end_date, parent_transaction_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [req.userId, type, category, amount, date, description, payment_method,
+       status, schedule, recurrence, is_scheduled, end_date, parent_transaction_id]
     );
 
-    // Obtener la transacción creada
-    const [newTransaction] = await pool.query(
-      'SELECT * FROM transactions WHERE id = ?',
-      [result.insertId]
-    );
-
-    res.status(201).json(newTransaction[0]);
+    console.log('Transacción creada:', { id: result.insertId, ...req.body });
+    res.status(201).json({
+      message: 'Transacción creada exitosamente',
+      transactionId: result.insertId
+    });
   } catch (error) {
     console.error('Error al crear transacción:', error);
-    res.status(500).json({ message: 'Error al crear la transacción' });
+    res.status(500).json({ message: 'Error al crear la transacción: ' + error.message });
   }
 });
 

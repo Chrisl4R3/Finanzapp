@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FiDollarSign, FiCalendar } from 'react-icons/fi';
-import { getAllGoals } from '../services/goals';
 
 const CATEGORIES = {
   Income: ['Salario', 'Regalo', 'Inversiones', 'Otros-Ingreso'],
@@ -20,8 +19,7 @@ const CATEGORIES = {
     'Compras',
     'Viajes',
     'Otros-Gasto'
-  ],
-  GoalContribution: ['Aporte a Meta']
+  ]
 };
 
 const PAYMENT_METHODS = [
@@ -39,32 +37,8 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
     date: new Date().toISOString().split('T')[0],
     description: '',
     payment_method: '',
-    goal_id: '',
     ...initialData
   });
-
-  const [goals, setGoals] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (formData.type === 'GoalContribution') {
-      loadGoals();
-    }
-  }, [formData.type]);
-
-  const loadGoals = async () => {
-    try {
-      setLoading(true);
-      const goalsData = await getAllGoals();
-      setGoals(goalsData);
-    } catch (err) {
-      setError('Error al cargar las metas');
-      console.error('Error al cargar las metas:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -72,8 +46,7 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
       ...prev,
       [name]: value,
       ...(name === 'type' && {
-        category: '',
-        goal_id: ''
+        category: ''
       })
     }));
   };
@@ -97,45 +70,24 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
           >
             <option value="Expense">Gasto</option>
             <option value="Income">Ingreso</option>
-            <option value="GoalContribution">Abonar a Meta</option>
           </select>
         </div>
 
-        {formData.type === 'GoalContribution' ? (
-          <div>
-            <label className="block text-text-secondary mb-2">Meta</label>
-            <select
-              name="goal_id"
-              value={formData.goal_id}
-              onChange={handleChange}
-              className="w-full bg-background-color text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
-              required
-            >
-              <option value="">Selecciona una meta</option>
-              {goals.map(goal => (
-                <option key={goal.id} value={goal.id}>
-                  {goal.title} - Progreso: {((goal.current_amount / goal.target_amount) * 100).toFixed(1)}%
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <div>
-            <label className="block text-text-secondary mb-2">Categoría</label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              className="w-full bg-background-color text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
-              required
-            >
-              <option value="">Selecciona una categoría</option>
-              {CATEGORIES[formData.type]?.map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div>
+          <label className="block text-text-secondary mb-2">Categoría</label>
+          <select
+            name="category"
+            value={formData.category}
+            onChange={handleChange}
+            className="w-full bg-background-color text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+            required
+          >
+            <option value="">Selecciona una categoría</option>
+            {CATEGORIES[formData.type]?.map(category => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+        </div>
 
         <div>
           <label className="block text-text-secondary mb-2">Monto</label>
