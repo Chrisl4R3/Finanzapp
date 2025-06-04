@@ -1,6 +1,6 @@
 import { authenticatedFetch } from '../auth/auth';
 
-const API_URL = 'https://backend-production-cf437.up.railway.app/scheduled-transactions';
+const API_URL = 'https://backend-production-cf437.up.railway.app/api/scheduled-transactions';
 
 // Obtener todas las transacciones programadas
 export const getAllScheduledTransactions = async () => {
