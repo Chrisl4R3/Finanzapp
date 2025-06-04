@@ -3,6 +3,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 import Transactions from './components/Transactions';
+import ScheduledTransactions from './components/ScheduledTransactions';
 import Goals from './components/Goals';
 import Statistics from './components/Statistics';
 import Profile from './components/Profile';
@@ -42,6 +43,13 @@ function App() {
                   </Layout>
                 </RequireAuth>
               } />
+              <Route path="/scheduled-transactions" element={
+                <RequireAuth>
+                  <Layout>
+                    <ScheduledTransactions />
+                  </Layout>
+                </RequireAuth>
+              } />
               <Route path="/goals" element={
                 <RequireAuth>
                   <Layout>
@@ -64,7 +72,7 @@ function App() {
                 </RequireAuth>
               } />
             </Routes>
-      </div>
+          </div>
         </CurrencyProvider>
       </AuthProvider>
     </Router>

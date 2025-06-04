@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { authenticatedFetch } from '../auth/auth';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../context/CurrencyContext';
+import { useNavigate } from 'react-router-dom';
 import TransactionList from './TransactionList';
 import ScheduledTransactions from './ScheduledTransactions';
-import { FiList, FiClock } from 'react-icons/fi';
+import { FiList, FiClock, FiPlus } from 'react-icons/fi';
 
 const CATEGORIES = {
   Income: ['Salario', 'Regalo', 'Otros-Ingreso'],
@@ -30,6 +31,7 @@ const CATEGORIES = {
 const PAYMENT_METHODS = ['Efectivo', 'Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia Bancaria'];
 
 const Transactions = () => {
+  const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { formatCurrency } = useCurrency();
   const [transactions, setTransactions] = useState([]);
@@ -263,6 +265,33 @@ const Transactions = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-text-primary">
+          Transacciones
+        </h1>
+        <div className="flex gap-4">
+          <button
+            onClick={() => navigate('/scheduled-transactions')}
+            className="inline-flex items-center gap-2 bg-card-bg text-text-primary px-6 py-3 rounded-xl hover:bg-accent-color/5 transition-all duration-300 border border-border-color"
+          >
+            <FiClock className="w-5 h-5" />
+            <span>Transacciones Programadas</span>
+          </button>
+          {!showForm && (
+            <button
+              onClick={() => {
+                setEditingTransaction(null);
+                setShowForm(true);
+              }}
+              className="inline-flex items-center gap-2 bg-accent-color text-white px-6 py-3 rounded-xl hover:bg-accent-color-darker transition-all duration-300"
+            >
+              <FiPlus className="w-5 h-5" />
+              <span>Nueva Transacción</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="flex space-x-4 mb-6">
         <button
