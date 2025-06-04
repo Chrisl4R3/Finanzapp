@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useCurrency } from '../context/CurrencyContext';
 import * as scheduledTransactionService from '../services/scheduledTransactions';
 import Swal from 'sweetalert2';
-import { FiCalendar, FiClock, FiRepeat, FiEdit2, FiTrash2, FiPause, FiPlay } from 'react-icons/fi';
+import { FiCalendar, FiClock, FiRepeat, FiEdit2, FiTrash2, FiPause, FiPlay, FiPlus } from 'react-icons/fi';
 
 const CATEGORIES = {
   Income: ['Salario', 'Regalo', 'Otros-Ingreso'],
@@ -40,14 +40,7 @@ const Toast = Swal.mixin({
   }
 });
 
-const ScheduledTransactions = () => {
-  const [transactions, setTransactions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState(null);
-  const { formatCurrency } = useCurrency();
-
+const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
@@ -57,8 +50,312 @@ const ScheduledTransactions = () => {
     frequency: 'Monthly',
     start_date: new Date().toISOString().split('T')[0],
     end_date: '',
-    status: 'Active'
+    status: 'Active',
+    ...initialData
   });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'type' ? { category: '' } : {})
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.description || !formData.amount || !formData.category || 
+        !formData.payment_method || !formData.frequency || !formData.start_date) {
+      Toast.fire({
+        icon: 'error',
+        title: 'Por favor completa todos los campos requeridos'
+      });
+      return;
+    }
+    onSubmit(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-card-bg rounded-xl p-6 space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Descripción */}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-2">
+            Descripción
+          </label>
+          <input
+            type="text"
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            className="w-full px-4 py-2 rounded-lg bg-input-bg border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+            required
+          />
+        </div>
+
+        {/* Monto */}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-2">
+            Monto
+          </label>
+          <input
+            type="number"
+            name="amount"
+            value={formData.amount}
+            onChange={handleChange}
+            step="0.01"
+            min="0"
+            className="w-full px-4 py-2 rounded-lg bg-input-bg border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+            required
+          />
+        </div>
+
+        {/* Tipo */}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-2">
+            Tipo
+          </label>
+          <select
+            name="type"
+            value={formData.type}
+            onChange={handleChange}
+            className="w-full px-4 py-2 rounded-lg bg-input-bg border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+            required
+          >
+            <option value="Income">Ingreso</option>
+            <option value="Expense">Gasto</option>
+          </select>
+        </div>
+
+        {/* Categoría */}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-2">
+            Categoría
+          </label>
+          <select
+            name="category"
+            value={formData.category}
+            onChange={handleChange}
+            className="w-full px-4 py-2 rounded-lg bg-input-bg border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+            required
+          >
+            <option value="">Selecciona una categoría</option>
+            {CATEGORIES[formData.type].map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Método de pago */}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-2">
+            Método de pago
+          </label>
+          <select
+            name="payment_method"
+            value={formData.payment_method}
+            onChange={handleChange}
+            className="w-full px-4 py-2 rounded-lg bg-input-bg border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+            required
+          >
+            {PAYMENT_METHODS.map(method => (
+              <option key={method} value={method}>{method}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Frecuencia */}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-2">
+            Frecuencia
+          </label>
+          <select
+            name="frequency"
+            value={formData.frequency}
+            onChange={handleChange}
+            className="w-full px-4 py-2 rounded-lg bg-input-bg border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+            required
+          >
+            {FREQUENCIES.map(freq => (
+              <option key={freq} value={freq}>
+                {freq === 'Daily' ? 'Diaria' :
+                 freq === 'Weekly' ? 'Semanal' :
+                 freq === 'Monthly' ? 'Mensual' : 'Anual'}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Fecha de inicio */}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-2">
+            Fecha de inicio
+          </label>
+          <input
+            type="date"
+            name="start_date"
+            value={formData.start_date}
+            onChange={handleChange}
+            className="w-full px-4 py-2 rounded-lg bg-input-bg border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+            required
+          />
+        </div>
+
+        {/* Fecha de fin (opcional) */}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-2">
+            Fecha de fin (opcional)
+          </label>
+          <input
+            type="date"
+            name="end_date"
+            value={formData.end_date}
+            onChange={handleChange}
+            min={formData.start_date}
+            className="w-full px-4 py-2 rounded-lg bg-input-bg border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end space-x-4 mt-6">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-6 py-2 rounded-lg border border-border-color hover:bg-card-bg-darker transition-colors"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          className="px-6 py-2 rounded-lg bg-accent-color text-white hover:bg-accent-color-darker transition-colors"
+        >
+          {initialData ? 'Actualizar' : 'Crear'}
+        </button>
+      </div>
+    </form>
+  );
+};
+
+const TransactionCard = ({ transaction, onEdit, onDelete, onStatusChange, formatCurrency }) => {
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Active':
+        return 'bg-success-color/10 text-success-color';
+      case 'Paused':
+        return 'bg-warning-color/10 text-warning-color';
+      case 'Completed':
+        return 'bg-text-secondary/10 text-text-secondary';
+      default:
+        return 'bg-text-secondary/10 text-text-secondary';
+    }
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const formatFrequency = (frequency) => {
+    const translations = {
+      Daily: 'Diaria',
+      Weekly: 'Semanal',
+      Monthly: 'Mensual',
+      Yearly: 'Anual'
+    };
+    return translations[frequency] || frequency;
+  };
+
+  return (
+    <div className="bg-card-bg rounded-xl p-6 hover:shadow-lg transition-all duration-300">
+      <div className="flex justify-between items-start">
+        <div>
+          <h3 className="text-lg font-semibold text-text-primary mb-2">
+            {transaction.description}
+          </h3>
+          <p className={`text-xl font-bold ${
+            transaction.type === 'Income' ? 'text-success-color' : 'text-error-color'
+          }`}>
+            {transaction.type === 'Income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+          </p>
+        </div>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => onStatusChange(transaction.id, transaction.status)}
+            className="p-2 rounded-lg hover:bg-background-color transition-colors"
+            title={transaction.status === 'Active' ? 'Pausar' : 'Activar'}
+          >
+            {transaction.status === 'Active' ? 
+              <FiPause className="w-5 h-5 text-warning-color" /> :
+              <FiPlay className="w-5 h-5 text-success-color" />
+            }
+          </button>
+          <button
+            onClick={() => onEdit(transaction)}
+            className="p-2 rounded-lg hover:bg-background-color transition-colors"
+            title="Editar"
+          >
+            <FiEdit2 className="w-5 h-5 text-accent-color" />
+          </button>
+          <button
+            onClick={() => onDelete(transaction.id)}
+            className="p-2 rounded-lg hover:bg-background-color transition-colors"
+            title="Eliminar"
+          >
+            <FiTrash2 className="w-5 h-5 text-error-color" />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="flex items-center gap-2 text-text-secondary">
+          <FiRepeat className="w-4 h-4" />
+          <span className="text-sm">{formatFrequency(transaction.frequency)}</span>
+        </div>
+        <div className="flex items-center gap-2 text-text-secondary">
+          <FiCalendar className="w-4 h-4" />
+          <span className="text-sm">
+            Inicio: {formatDate(transaction.start_date)}
+          </span>
+        </div>
+        {transaction.end_date && (
+          <div className="flex items-center gap-2 text-text-secondary">
+            <FiClock className="w-4 h-4" />
+            <span className="text-sm">
+              Fin: {formatDate(transaction.end_date)}
+            </span>
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <span className={`px-2 py-1 rounded-lg text-xs font-medium ${getStatusColor(transaction.status)}`}>
+            {transaction.status === 'Active' ? 'Activa' : 
+             transaction.status === 'Paused' ? 'Pausada' : 'Completada'}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="px-2 py-1 text-xs rounded-lg bg-background-color text-text-secondary">
+          {transaction.category}
+        </span>
+        <span className="px-2 py-1 text-xs rounded-lg bg-background-color text-text-secondary">
+          {transaction.payment_method}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+const ScheduledTransactions = () => {
+  const [transactions, setTransactions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+  const { formatCurrency } = useCurrency();
 
   useEffect(() => {
     fetchTransactions();
@@ -81,67 +378,29 @@ const ScheduledTransactions = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (formData) => {
     try {
       setIsLoading(true);
-      setError(null);
-
-      // Validar campos requeridos
-      if (!formData.description || !formData.amount || !formData.type || 
-          !formData.category || !formData.payment_method || !formData.frequency || 
-          !formData.start_date) {
-        throw new Error('Todos los campos son requeridos excepto la fecha de fin');
-      }
-
-      const requestData = {
-        description: formData.description,
-        amount: parseFloat(formData.amount),
-        type: formData.type,
-        category: formData.category,
-        payment_method: formData.payment_method,
-        frequency: formData.frequency,
-        start_date: formData.start_date,
-        end_date: formData.end_date || null,
-        status: formData.status
-      };
-
-      console.log('Datos a enviar:', requestData);
-
       if (editingTransaction) {
         await scheduledTransactionService.updateScheduledTransaction(
           editingTransaction.id,
-          requestData
+          formData
         );
+        Toast.fire({
+          icon: 'success',
+          title: 'Transacción programada actualizada exitosamente'
+        });
       } else {
-        await scheduledTransactionService.createScheduledTransaction(requestData);
+        await scheduledTransactionService.createScheduledTransaction(formData);
+        Toast.fire({
+          icon: 'success',
+          title: 'Transacción programada creada exitosamente'
+        });
       }
-      
-      // Limpiar formulario y actualizar lista
-      setFormData({
-        description: '',
-        amount: '',
-        type: 'Income',
-        category: '',
-        payment_method: 'Efectivo',
-        frequency: 'Monthly',
-        start_date: new Date().toISOString().split('T')[0],
-        end_date: '',
-        status: 'Active'
-      });
-      
       setShowForm(false);
       setEditingTransaction(null);
       await fetchTransactions();
-      
-      Toast.fire({
-        icon: 'success',
-        title: editingTransaction 
-          ? 'Transacción programada actualizada exitosamente'
-          : 'Transacción programada creada exitosamente'
-      });
     } catch (err) {
-      console.error('Error completo:', err);
       Toast.fire({
         icon: 'error',
         title: err.message || 'Error al guardar la transacción programada'
@@ -199,33 +458,7 @@ const ScheduledTransactions = () => {
     }
   };
 
-  const handleEdit = (transaction) => {
-    setEditingTransaction(transaction);
-    setFormData({
-      description: transaction.description,
-      amount: transaction.amount.toString(),
-      type: transaction.type,
-      category: transaction.category,
-      payment_method: transaction.payment_method,
-      frequency: transaction.frequency,
-      start_date: transaction.start_date.split('T')[0],
-      end_date: transaction.end_date ? transaction.end_date.split('T')[0] : '',
-      status: transaction.status
-    });
-    setShowForm(true);
-  };
-
-  const formatFrequency = (frequency) => {
-    const translations = {
-      Daily: 'Diaria',
-      Weekly: 'Semanal',
-      Monthly: 'Mensual',
-      Yearly: 'Anual'
-    };
-    return translations[frequency] || frequency;
-  };
-
-  if (isLoading) {
+  if (isLoading && !showForm) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl text-text-secondary">Cargando transacciones programadas...</div>
@@ -254,181 +487,27 @@ const ScheduledTransactions = () => {
           <button
             onClick={() => {
               setEditingTransaction(null);
-              setFormData({
-                description: '',
-                amount: '',
-                type: 'Income',
-                category: '',
-                payment_method: 'Efectivo',
-                frequency: 'Monthly',
-                start_date: new Date().toISOString().split('T')[0],
-                end_date: '',
-                status: 'Active'
-              });
               setShowForm(true);
             }}
-            className="bg-accent-color text-white px-6 py-3 rounded-xl hover:bg-accent-color-darker transition-all duration-300"
+            className="flex items-center gap-2 bg-accent-color text-white px-6 py-3 rounded-xl hover:bg-accent-color-darker transition-all duration-300"
           >
-            Nueva Transacción Programada
+            <FiPlus className="w-5 h-5" />
+            <span>Nueva Transacción</span>
           </button>
         </div>
       </div>
 
       {/* Formulario */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-card-bg rounded-xl p-8 max-w-2xl w-full mx-4">
-            <h2 className="text-2xl font-bold text-text-primary mb-6">
-              {editingTransaction ? 'Editar' : 'Nueva'} Transacción Programada
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">
-                    Descripción
-                  </label>
-                  <input
-                    type="text"
-                    name="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full p-3 rounded-lg bg-secondary-bg border-none focus:ring-2 focus:ring-accent-color"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">
-                    Monto
-                  </label>
-                  <input
-                    type="number"
-                    name="amount"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    className="w-full p-3 rounded-lg bg-secondary-bg border-none focus:ring-2 focus:ring-accent-color"
-                    step="0.01"
-                    min="0"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">
-                    Tipo
-                  </label>
-                  <select
-                    name="type"
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value, category: '' })}
-                    className="w-full p-3 rounded-lg bg-secondary-bg border-none focus:ring-2 focus:ring-accent-color"
-                    required
-                  >
-                    <option value="Income">Ingreso</option>
-                    <option value="Expense">Gasto</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">
-                    Categoría
-                  </label>
-                  <select
-                    name="category"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full p-3 rounded-lg bg-secondary-bg border-none focus:ring-2 focus:ring-accent-color"
-                    required
-                  >
-                    <option value="">Selecciona una categoría</option>
-                    {CATEGORIES[formData.type].map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">
-                    Método de Pago
-                  </label>
-                  <select
-                    name="payment_method"
-                    value={formData.payment_method}
-                    onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
-                    className="w-full p-3 rounded-lg bg-secondary-bg border-none focus:ring-2 focus:ring-accent-color"
-                    required
-                  >
-                    {PAYMENT_METHODS.map(method => (
-                      <option key={method} value={method}>{method}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">
-                    Frecuencia
-                  </label>
-                  <select
-                    name="frequency"
-                    value={formData.frequency}
-                    onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
-                    className="w-full p-3 rounded-lg bg-secondary-bg border-none focus:ring-2 focus:ring-accent-color"
-                    required
-                  >
-                    {FREQUENCIES.map(freq => (
-                      <option key={freq} value={freq}>{formatFrequency(freq)}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">
-                    Fecha de Inicio
-                  </label>
-                  <input
-                    type="date"
-                    name="start_date"
-                    value={formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    className="w-full p-3 rounded-lg bg-secondary-bg border-none focus:ring-2 focus:ring-accent-color"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-2">
-                    Fecha de Fin (Opcional)
-                  </label>
-                  <input
-                    type="date"
-                    name="end_date"
-                    value={formData.end_date}
-                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    className="w-full p-3 rounded-lg bg-secondary-bg border-none focus:ring-2 focus:ring-accent-color"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForm(false);
-                    setEditingTransaction(null);
-                  }}
-                  className="px-6 py-3 rounded-xl bg-secondary-bg text-text-primary hover:bg-opacity-80 transition-all duration-300"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-3 rounded-xl bg-accent-color text-white hover:bg-accent-color-darker transition-all duration-300"
-                >
-                  {editingTransaction ? 'Actualizar' : 'Crear'}
-                </button>
-              </div>
-            </form>
-          </div>
+        <div className="mb-8">
+          <TransactionForm
+            onSubmit={handleSubmit}
+            onCancel={() => {
+              setShowForm(false);
+              setEditingTransaction(null);
+            }}
+            initialData={editingTransaction}
+          />
         </div>
       )}
 
@@ -443,106 +522,30 @@ const ScheduledTransactions = () => {
             <p className="text-text-secondary mb-8">
               Comienza a programar tus transacciones recurrentes para automatizar tus finanzas.
             </p>
+            <button
+              onClick={() => {
+                setEditingTransaction(null);
+                setShowForm(true);
+              }}
+              className="inline-flex items-center gap-2 bg-accent-color text-white px-6 py-3 rounded-xl hover:bg-accent-color-darker transition-all duration-300"
+            >
+              <FiPlus className="w-5 h-5" />
+              <span>Crear primera transacción</span>
+            </button>
           </div>
         ) : (
           transactions.map(transaction => (
-            <div
+            <TransactionCard
               key={transaction.id}
-              className="bg-card-bg rounded-xl p-6 hover:shadow-lg transition-all duration-300"
-            >
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-xl ${
-                    transaction.type === 'Income' 
-                      ? 'bg-success-color/10 text-success-color' 
-                      : 'bg-danger-color/10 text-danger-color'
-                  }`}>
-                    <FiRepeat className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-text-primary">
-                      {transaction.description}
-                    </h3>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      <span className="text-sm text-text-secondary">
-                        {transaction.category}
-                      </span>
-                      <span className="text-text-secondary">•</span>
-                      <span className="text-sm text-text-secondary">
-                        {formatFrequency(transaction.frequency)}
-                      </span>
-                      <span className="text-text-secondary">•</span>
-                      <span className="text-sm text-text-secondary">
-                        {transaction.payment_method}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <span className={`text-lg font-semibold ${
-                    transaction.type === 'Income' ? 'text-success-color' : 'text-danger-color'
-                  }`}>
-                    {transaction.type === 'Income' ? '+' : '-'}
-                    {formatCurrency(transaction.amount)}
-                  </span>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleStatusChange(transaction.id, transaction.status)}
-                      className={`p-2 rounded-lg transition-all duration-300 ${
-                        transaction.status === 'Active'
-                          ? 'text-success-color hover:bg-success-color/10'
-                          : 'text-text-secondary hover:bg-secondary-bg'
-                      }`}
-                      title={transaction.status === 'Active' ? 'Pausar' : 'Activar'}
-                    >
-                      {transaction.status === 'Active' ? <FiPause /> : <FiPlay />}
-                    </button>
-                    <button
-                      onClick={() => handleEdit(transaction)}
-                      className="p-2 text-text-secondary hover:text-accent-color hover:bg-accent-color/10 rounded-lg transition-all duration-300"
-                      title="Editar"
-                    >
-                      <FiEdit2 />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(transaction.id)}
-                      className="p-2 text-text-secondary hover:text-danger-color hover:bg-danger-color/10 rounded-lg transition-all duration-300"
-                      title="Eliminar"
-                    >
-                      <FiTrash2 />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-4">
-                <div className="flex items-center gap-2 text-text-secondary">
-                  <FiCalendar className="w-4 h-4" />
-                  <span className="text-sm">
-                    Inicio: {new Date(transaction.start_date).toLocaleDateString('es-ES')}
-                  </span>
-                </div>
-                {transaction.end_date && (
-                  <div className="flex items-center gap-2 text-text-secondary">
-                    <FiClock className="w-4 h-4" />
-                    <span className="text-sm">
-                      Fin: {new Date(transaction.end_date).toLocaleDateString('es-ES')}
-                    </span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                    transaction.status === 'Active'
-                      ? 'bg-success-color/10 text-success-color'
-                      : 'bg-text-secondary/10 text-text-secondary'
-                  }`}>
-                    {transaction.status === 'Active' ? 'Activa' : 'Pausada'}
-                  </span>
-                </div>
-              </div>
-            </div>
+              transaction={transaction}
+              onEdit={(transaction) => {
+                setEditingTransaction(transaction);
+                setShowForm(true);
+              }}
+              onDelete={handleDelete}
+              onStatusChange={handleStatusChange}
+              formatCurrency={formatCurrency}
+            />
           ))
         )}
       </div>
