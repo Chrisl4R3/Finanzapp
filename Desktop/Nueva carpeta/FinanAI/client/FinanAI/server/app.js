@@ -17,7 +17,7 @@ const __dirname = dirname(__filename);
 
 // Configuración de CORS
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:4173'],
+  origin: ['http://localhost:5173', 'http://localhost:4173', 'https://backend-production-cf437.up.railway.app'],
   credentials: true
 }));
 
@@ -37,8 +37,8 @@ app.use(session({
   cookie: {
     maxAge: 1000 * 60 * 60 * 24, // 24 horas
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax'
+    secure: true, // Siempre true en producción
+    sameSite: 'none' // Cambiado a 'none' para permitir solicitudes cross-site
   }
 }));
 
