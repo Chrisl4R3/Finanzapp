@@ -43,9 +43,9 @@ app.use(session({
 }));
 
 // Rutas
-app.use('/api/auth', authRouter);
 app.use('/api/transactions', transactionsRouter);
 app.use('/api/scheduled-transactions', scheduledTransactionsRouter);
+app.use('/api/auth', authRouter);
 app.use('/api/goals', goalsRouter);
 app.use('/api/notifications', notificationsRouter);
 
