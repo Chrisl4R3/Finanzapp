@@ -31,7 +31,11 @@ router.use(verifyToken);
 router.get('/', async (req, res) => {
   try {
     const [transactions] = await pool.query(
-      'SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC',
+      `SELECT t.*, g.title as goal_title, g.target_amount as goal_target_amount, g.current_amount as goal_current_amount 
+       FROM transactions t 
+       LEFT JOIN goals g ON t.goal_id = g.id 
+       WHERE t.user_id = ? 
+       ORDER BY t.date DESC`,
       [req.userId]
     );
     res.json(transactions);
@@ -106,7 +110,7 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Si es una transacción asignada a meta, validar que la meta exista
+    // Si es una transacción asignada a meta, validar que la meta exista y pertenezca al usuario
     if (assignToGoal && goal_id) {
       const [goals] = await connection.query(
         'SELECT * FROM goals WHERE id = ? AND user_id = ?',
@@ -131,27 +135,6 @@ router.post('/', async (req, res) => {
           message: 'El monto excede el objetivo de la meta' 
         });
       }
-    }
-
-    // Insertar la transacción de ingreso
-    const [incomeResult] = await connection.query(
-      `INSERT INTO transactions 
-       (user_id, type, category, amount, date, description, payment_method, 
-        status, schedule, recurrence, is_scheduled, end_date, parent_transaction_id, goal_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.userId, type, category, amount, date, description, payment_method,
-       status, schedule, recurrence, is_scheduled, end_date, parent_transaction_id, goal_id]
-    );
-
-    // Si es una transacción asignada a meta, crear automáticamente el gasto correspondiente
-    if (assignToGoal && goal_id) {
-      await connection.query(
-        `INSERT INTO transactions 
-         (user_id, type, category, amount, date, description, payment_method, 
-          status, schedule, recurrence, is_scheduled, end_date, parent_transaction_id, goal_id)
-         VALUES (?, 'Expense', 'Ahorro', ?, ?, ?, ?, 'Completed', NULL, '', 0, NULL, ?, ?)`,
-        [req.userId, amount, date, `Aporte a meta: ${description}`, payment_method, incomeResult.insertId, goal_id]
-      );
 
       // Actualizar el progreso de la meta
       await connection.query(
@@ -160,11 +143,21 @@ router.post('/', async (req, res) => {
       );
     }
 
+    // Insertar la transacción
+    const [result] = await connection.query(
+      `INSERT INTO transactions 
+       (user_id, type, category, amount, date, description, payment_method, 
+        status, schedule, recurrence, is_scheduled, end_date, parent_transaction_id, goal_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [req.userId, type, category, amount, date, description, payment_method,
+       status, schedule, recurrence, is_scheduled, end_date, parent_transaction_id, goal_id]
+    );
+
     await connection.commit();
-    console.log('Transacción creada:', { id: incomeResult.insertId, ...req.body });
+    
     res.status(201).json({
       message: 'Transacción creada exitosamente',
-      transactionId: incomeResult.insertId
+      transactionId: result.insertId
     });
   } catch (error) {
     await connection.rollback();
