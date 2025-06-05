@@ -149,7 +149,7 @@ router.post('/', async (req, res) => {
         `INSERT INTO transactions 
          (user_id, type, category, amount, date, description, payment_method, 
           status, schedule, recurrence, is_scheduled, end_date, parent_transaction_id, goal_id)
-         VALUES (?, 'Expense', 'Ahorro', ?, ?, ?, ?, 'Completed', NULL, '', 0, NULL, ?, ?)`,
+         VALUES (?, 'Expense', 'Otros-Gasto', ?, ?, ?, ?, 'Completed', NULL, '', 0, NULL, ?, ?)`,
         [req.userId, amount, date, `Aporte a meta: ${description}`, payment_method, incomeResult.insertId, goal_id]
       );
 
