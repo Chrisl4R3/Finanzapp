@@ -31,10 +31,14 @@ router.post('/:id/contribute', async (req, res) => {
     const goal = goals[0];
     console.log('✅ Meta encontrada:', goal);
 
-    const newProgress = parseFloat(goal.progress || 0) + parseFloat(amount);
+    let newProgress = parseFloat(goal.progress || 0) + parseFloat(amount);
     console.log('Nuevo progreso calculado:', newProgress);
     
     try {
+      // Redondear newProgress a dos decimales para ajustarse al tipo decimal(10,2) de la BD
+      newProgress = parseFloat(newProgress.toFixed(2));
+      console.log('Valor de newProgress redondeado:', newProgress);
+
       // Actualizar el progreso de la meta
       console.log('📝 Actualizando progreso de la meta...');
       await pool.query(
