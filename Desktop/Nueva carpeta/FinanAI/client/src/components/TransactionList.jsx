@@ -131,8 +131,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     return matchesSearch && matchesType && matchesAmount && matchesDate;
   });
 
-  const fetchTransactions = async () => {
-    try {
+    const fetchTransactions = async () => {
+      try {
       setIsLoading(true);
       setError(null);
 
@@ -174,7 +174,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
       if (formData.assignToGoal && !formData.goal_id) {
         throw new Error('Debes seleccionar una meta');
-      }
+        }
 
       const amount = parseFloat(formData.amount);
       if (isNaN(amount) || amount <= 0) {
@@ -201,16 +201,16 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
       const response = await authenticatedFetch(endpoint, {
         method,
-        headers: {
+          headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestData)
-      });
+        });
 
-      if (!response.ok) {
+        if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Error al guardar la transacción');
-      }
+        }
 
       // Limpiar formulario y actualizar lista
       setFormData({
@@ -238,13 +238,13 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         fetchGoals()
       ]);
 
-    } catch (err) {
+      } catch (err) {
       console.error('Error completo:', err);
       setError('Error al guardar la transacción: ' + err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
   const handleDelete = async (id) => {
     const result = await Swal.fire({
@@ -330,7 +330,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       }
 
       return acc;
-    }, []);
+  }, []);
 
     return groups.sort((a, b) => b.date - a.date);
   };
@@ -505,11 +505,11 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       {/* Barra de búsqueda y filtros */}
       <div className="mb-6 flex flex-col sm:flex-row gap-4">
         <div className="flex-1 flex gap-4">
-          <input
-            type="text"
+              <input
+                type="text"
             value={searchTermLocal}
             onChange={(e) => setSearchTermLocal(e.target.value)}
-            placeholder="Buscar transacciones..."
+                placeholder="Buscar transacciones..."
             className="flex-1 bg-card-bg border-none rounded-xl px-4 py-3 text-text-primary placeholder-text-secondary focus:ring-2 focus:ring-accent-color"
           />
           
@@ -522,40 +522,40 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
             <option value="income">Ingresos</option>
             <option value="expense">Gastos</option>
           </select>
-        </div>
-
+          </div>
+          
         <div className="flex gap-2">
-          <button
+            <button
             onClick={() => setShowForm(!showForm)}
             className="px-4 py-2 bg-card-bg hover:bg-accent-color/10 text-text-primary rounded-xl transition-all duration-300 flex items-center gap-2"
-          >
+            >
             <FiPlus className="w-5 h-5" />
             <span>{showForm ? 'Cancelar' : 'Nueva'}</span>
-          </button>
-          
-          <Link
+            </button>
+            
+            <Link
             to="/transactions/new"
             className="px-4 py-2 bg-accent-color hover:bg-accent-color-darker text-white rounded-xl transition-all duration-300 flex items-center gap-2"
-          >
+            >
             <FiPlusCircle className="w-5 h-5" />
-            <span>Nueva Transacción</span>
-          </Link>
+              <span>Nueva Transacción</span>
+            </Link>
+          </div>
         </div>
-      </div>
 
       {/* Formulario de transacción */}
       {showForm && (
         <div className="mb-6 bg-card-bg rounded-xl p-6 shadow-lg">
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm text-text-secondary mb-2">Tipo</label>
-              <select
+              <div>
+                <label className="block text-sm text-text-secondary mb-2">Tipo</label>
+                <select
                 name="type"
                 value={formData.type}
                 onChange={handleChange}
                 className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
                 required
-              >
+                >
                 <option value="Income">Ingreso</option>
                 <option value="Expense">Gasto</option>
               </select>
@@ -574,12 +574,12 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                 {CATEGORIES[formData.type].map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
-              </select>
-            </div>
+                </select>
+              </div>
 
-            <div>
+              <div>
               <label className="block text-sm text-text-secondary mb-2">Monto</label>
-              <input
+                <input
                 type="number"
                 name="amount"
                 value={formData.amount}
@@ -589,24 +589,24 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                 required
                 step="0.01"
                 min="0"
-              />
-            </div>
+                />
+              </div>
 
-            <div>
+              <div>
               <label className="block text-sm text-text-secondary mb-2">Fecha</label>
-              <input
-                type="date"
+                <input
+                  type="date"
                 name="date"
                 value={formData.date}
                 onChange={handleChange}
                 className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
                 required
-              />
-            </div>
+                />
+              </div>
 
-            <div>
+              <div>
               <label className="block text-sm text-text-secondary mb-2">Descripción</label>
-              <input
+                  <input
                 type="text"
                 name="description"
                 value={formData.description}
@@ -614,8 +614,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                 placeholder="Descripción de la transacción"
                 className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
                 required
-              />
-            </div>
+                  />
+                </div>
 
             <div>
               <label className="block text-sm text-text-secondary mb-2">Método de Pago</label>
@@ -690,12 +690,12 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
               </button>
             </div>
           </form>
-        </div>
-      )}
+          </div>
+        )}
 
       {/* Lista de transacciones */}
       <div className="bg-card-bg rounded-xl shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-border-color">
             <thead className="bg-secondary-bg">
               <tr>
@@ -705,11 +705,11 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                 <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Monto</th>
                 <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Tipo</th>
                 <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Acciones</th>
-              </tr>
-            </thead>
+            </tr>
+          </thead>
             <tbody className="divide-y divide-border-color">
-              {currentItems.map((transaction) => (
-                <tr key={transaction.id} className="hover:bg-secondary-bg/50 transition-all duration-300">
+            {currentItems.map((transaction) => (
+              <tr key={transaction.id} className="hover:bg-secondary-bg/50 transition-all duration-300">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-text-primary">
@@ -733,161 +733,161 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                     <span className="px-3 py-1 rounded-full text-xs font-medium bg-secondary-bg text-text-primary">
                       {transaction.category}
                     </span>
-                  </td>
+                </td>
                   <td className={`px-6 py-4 text-sm font-medium ${
                     transaction.type === 'Income' ? 'text-success-color' : 'text-danger-color'
-                  }`}>
+                }`}>
                     {transaction.type === 'Income' ? '+' : '-'}
-                    {formatCurrency(Math.abs(transaction.amount))}
-                  </td>
+                  {formatCurrency(Math.abs(transaction.amount))}
+                </td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       transaction.type === 'Income' 
-                        ? 'bg-success-color/10 text-success-color' 
-                        : 'bg-danger-color/10 text-danger-color'
-                    }`}>
+                      ? 'bg-success-color/10 text-success-color' 
+                      : 'bg-danger-color/10 text-danger-color'
+                  }`}>
                       {transaction.type === 'Income' ? 'Ingreso' : 'Gasto'}
-                    </span>
-                  </td>
+                  </span>
+                </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleEdit(transaction)}
                         className="text-sm text-accent-color hover:text-accent-color-darker transition-colors"
                       >
-                        Editar
-                      </button>
+                    Editar
+                  </button>
                       <span className="text-border-color">|</span>
                       <button
                         onClick={() => handleDelete(transaction.id)}
                         className="text-sm text-danger-color hover:text-danger-color-darker transition-colors"
                       >
-                        Eliminar
-                      </button>
+                    Eliminar
+                  </button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
         </div>
       </div>
 
-      {/* Mensaje cuando no hay resultados en la búsqueda */}
-      {filteredTransactions.length === 0 && (
-        <div className="text-center py-8">
-          <p className="text-text-secondary">No se encontraron transacciones que coincidan con los filtros.</p>
-        </div>
-      )}
-
-      {/* Paginación */}
-      {filteredTransactions.length > 0 && (
-        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
-          <div className="flex items-center gap-2 text-text-secondary text-sm">
-            <span>Mostrar</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => {
-                setItemsPerPage(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="bg-secondary-bg border-none rounded-lg px-2 py-1 focus:ring-2 focus:ring-accent-color"
-            >
-              <option value={6}>6</option>
-              <option value={12}>12</option>
-              <option value={24}>24</option>
-              <option value={48}>48</option>
-            </select>
-            <span>por página</span>
+        {/* Mensaje cuando no hay resultados en la búsqueda */}
+        {filteredTransactions.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-text-secondary">No se encontraron transacciones que coincidan con los filtros.</p>
           </div>
+        )}
 
-          <div className="flex items-center gap-2">
-            <p className="text-sm text-text-secondary">
-              Mostrando {indexOfFirstItem + 1} a {Math.min(indexOfLastItem, filteredTransactions.length)} de {filteredTransactions.length} transacciones
-            </p>
-            
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => paginate(1)}
-                disabled={currentPage === 1}
-                className={`p-2 rounded-lg transition-all duration-300 ${
-                  currentPage === 1
-                    ? 'text-text-secondary cursor-not-allowed'
-                    : 'hover:bg-accent-color/10 text-text-primary'
-                }`}
+        {/* Paginación */}
+        {filteredTransactions.length > 0 && (
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
+            <div className="flex items-center gap-2 text-text-secondary text-sm">
+              <span>Mostrar</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-secondary-bg border-none rounded-lg px-2 py-1 focus:ring-2 focus:ring-accent-color"
               >
-                <FiChevronsLeft className="w-4 h-4" />
-              </button>
+                <option value={6}>6</option>
+                <option value={12}>12</option>
+                <option value={24}>24</option>
+                <option value={48}>48</option>
+              </select>
+              <span>por página</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-text-secondary">
+                Mostrando {indexOfFirstItem + 1} a {Math.min(indexOfLastItem, filteredTransactions.length)} de {filteredTransactions.length} transacciones
+              </p>
               
-              <button
-                onClick={() => paginate(currentPage - 1)}
-                disabled={currentPage === 1}
-                className={`p-2 rounded-lg transition-all duration-300 ${
-                  currentPage === 1
-                    ? 'text-text-secondary cursor-not-allowed'
-                    : 'hover:bg-accent-color/10 text-text-primary'
-                }`}
-              >
-                <FiChevronLeft className="w-4 h-4" />
-              </button>
-
-              {/* Números de página */}
               <div className="flex items-center gap-1">
-                {[...Array(Math.min(3, totalPages))].map((_, index) => {
-                  let pageNumber;
-                  if (totalPages <= 3) {
-                    pageNumber = index + 1;
-                  } else if (currentPage <= 2) {
-                    pageNumber = index + 1;
-                  } else if (currentPage >= totalPages - 1) {
-                    pageNumber = totalPages - 2 + index;
-                  } else {
-                    pageNumber = currentPage - 1 + index;
-                  }
+                <button
+                  onClick={() => paginate(1)}
+                  disabled={currentPage === 1}
+                  className={`p-2 rounded-lg transition-all duration-300 ${
+                    currentPage === 1
+                      ? 'text-text-secondary cursor-not-allowed'
+                      : 'hover:bg-accent-color/10 text-text-primary'
+                  }`}
+                >
+                  <FiChevronsLeft className="w-4 h-4" />
+                </button>
+                
+                <button
+                  onClick={() => paginate(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className={`p-2 rounded-lg transition-all duration-300 ${
+                    currentPage === 1
+                      ? 'text-text-secondary cursor-not-allowed'
+                      : 'hover:bg-accent-color/10 text-text-primary'
+                  }`}
+                >
+                  <FiChevronLeft className="w-4 h-4" />
+                </button>
 
-                  return (
-                    <button
-                      key={pageNumber}
-                      onClick={() => paginate(pageNumber)}
-                      className={`w-8 h-8 rounded-lg transition-all duration-300 ${
-                        currentPage === pageNumber
-                          ? 'bg-accent-color text-white'
-                          : 'hover:bg-accent-color/10 text-text-primary'
-                      }`}
-                    >
-                      {pageNumber}
-                    </button>
-                  );
-                })}
+                {/* Números de página */}
+                <div className="flex items-center gap-1">
+                  {[...Array(Math.min(3, totalPages))].map((_, index) => {
+                    let pageNumber;
+                    if (totalPages <= 3) {
+                      pageNumber = index + 1;
+                    } else if (currentPage <= 2) {
+                      pageNumber = index + 1;
+                    } else if (currentPage >= totalPages - 1) {
+                      pageNumber = totalPages - 2 + index;
+                    } else {
+                      pageNumber = currentPage - 1 + index;
+                    }
+
+                    return (
+                      <button
+                        key={pageNumber}
+                        onClick={() => paginate(pageNumber)}
+                        className={`w-8 h-8 rounded-lg transition-all duration-300 ${
+                          currentPage === pageNumber
+                            ? 'bg-accent-color text-white'
+                            : 'hover:bg-accent-color/10 text-text-primary'
+                        }`}
+                      >
+                        {pageNumber}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => paginate(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className={`p-2 rounded-lg transition-all duration-300 ${
+                    currentPage === totalPages
+                      ? 'text-text-secondary cursor-not-allowed'
+                      : 'hover:bg-accent-color/10 text-text-primary'
+                  }`}
+                >
+                  <FiChevronRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={() => paginate(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className={`p-2 rounded-lg transition-all duration-300 ${
+                    currentPage === totalPages
+                      ? 'text-text-secondary cursor-not-allowed'
+                      : 'hover:bg-accent-color/10 text-text-primary'
+                  }`}
+                >
+                  <FiChevronsRight className="w-4 h-4" />
+                </button>
               </div>
-
-              <button
-                onClick={() => paginate(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className={`p-2 rounded-lg transition-all duration-300 ${
-                  currentPage === totalPages
-                    ? 'text-text-secondary cursor-not-allowed'
-                    : 'hover:bg-accent-color/10 text-text-primary'
-                }`}
-              >
-                <FiChevronRight className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => paginate(totalPages)}
-                disabled={currentPage === totalPages}
-                className={`p-2 rounded-lg transition-all duration-300 ${
-                  currentPage === totalPages
-                    ? 'text-text-secondary cursor-not-allowed'
-                    : 'hover:bg-accent-color/10 text-text-primary'
-                }`}
-              >
-                <FiChevronsRight className="w-4 h-4" />
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 };
