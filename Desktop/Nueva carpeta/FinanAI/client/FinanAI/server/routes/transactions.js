@@ -155,7 +155,7 @@ router.post('/', async (req, res) => {
 
       // Actualizar el progreso de la meta
       await connection.query(
-        'UPDATE goals SET current_amount = current_amount + ? WHERE id = ?',
+        'UPDATE goals SET progress = progress + ? WHERE id = ?',
         [amount, goal_id]
       );
     }
