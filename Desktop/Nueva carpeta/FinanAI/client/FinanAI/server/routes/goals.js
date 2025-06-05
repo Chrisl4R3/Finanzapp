@@ -141,12 +141,13 @@ router.post('/:id/contribute', async (req, res) => {
         description: `Abono a meta: ${goal.name}`,
         payment_method: 'Efectivo',
         status: 'Completed',
-        date: new Date()
+        date: new Date(),
+        goal_id: goal.id
       };
       console.log('Datos de la transacción:', transactionData);
 
       const [transactionResult] = await pool.query(
-        'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           userId,
           'Expense',
@@ -155,7 +156,8 @@ router.post('/:id/contribute', async (req, res) => {
           `Abono a meta: ${goal.name}`,
           'Efectivo',
           'Completed',
-          new Date()
+          new Date(),
+          goal.id
         ]
       );
       console.log('✅ Transacción registrada con ID:', transactionResult.insertId);
