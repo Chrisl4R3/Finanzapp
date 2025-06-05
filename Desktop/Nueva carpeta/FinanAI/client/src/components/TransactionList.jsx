@@ -58,6 +58,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [searchTermLocal, setSearchTermLocal] = useState(searchTerm);
+  const [goals, setGoals] = useState([]);
   const [localFilters, setLocalFilters] = useState({
     type: 'all',
     minAmount: '',
@@ -77,7 +78,9 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     recurrence: '',
     is_scheduled: 0,
     end_date: null,
-    parent_transaction_id: null
+    parent_transaction_id: null,
+    assignToGoal: false,
+    goal_id: ''
   });
 
   // Calcular resumen de transacciones
@@ -99,6 +102,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   useEffect(() => {
     if (isAuthenticated) {
       fetchTransactions();
+      fetchGoals();
     }
   }, [isAuthenticated]);
 
@@ -143,25 +147,38 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     }
   };
 
+  const fetchGoals = async () => {
+    try {
+      const response = await authenticatedFetch('/goals');
+      const data = await response.json();
+      // Solo mostrar metas activas que no estén completadas
+      const activeGoals = data.filter(goal => 
+        goal.current_amount < goal.target_amount
+      );
+      setGoals(activeGoals);
+    } catch (err) {
+      console.error('Error al cargar las metas:', err);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       setIsLoading(true);
       setError(null);
 
-      // Validaciones
+      // Validaciones básicas
       if (!formData.type || !formData.category || !formData.amount || !formData.description || !formData.payment_method) {
-        console.log('Datos del formulario:', formData);
         throw new Error('Todos los campos son requeridos');
+      }
+
+      if (formData.assignToGoal && !formData.goal_id) {
+        throw new Error('Debes seleccionar una meta');
       }
 
       const amount = parseFloat(formData.amount);
       if (isNaN(amount) || amount <= 0) {
         throw new Error('El monto debe ser un número positivo');
-      }
-
-      if (!CATEGORIES[formData.type].includes(formData.category)) {
-        throw new Error(`Categoría inválida para ${formData.type}`);
       }
 
       const endpoint = editingTransaction 
@@ -178,16 +195,9 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         description: formData.description,
         payment_method: formData.payment_method,
         status: formData.status,
-        schedule: null,
-        recurrence: '',
-        is_scheduled: 0,
-        end_date: null,
-        parent_transaction_id: null
+        assignToGoal: formData.assignToGoal,
+        goal_id: formData.assignToGoal ? formData.goal_id : null
       };
-
-      console.log('URL de la petición:', endpoint);
-      console.log('Método:', method);
-      console.log('Datos a enviar:', requestData);
 
       const response = await authenticatedFetch(endpoint, {
         method,
@@ -197,16 +207,11 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         body: JSON.stringify(requestData)
       });
 
-      console.log('Respuesta del servidor:', response);
-      console.log('Status:', response.status);
-
-      const responseData = await response.json();
-      console.log('Datos de respuesta:', responseData);
-
       if (!response.ok) {
-        throw new Error(responseData.message || 'Error al guardar la transacción');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al guardar la transacción');
       }
-      
+
       // Limpiar formulario y actualizar lista
       setFormData({
         type: 'Expense',
@@ -220,11 +225,19 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         recurrence: '',
         is_scheduled: 0,
         end_date: null,
-        parent_transaction_id: null
+        parent_transaction_id: null,
+        assignToGoal: false,
+        goal_id: ''
       });
       setShowForm(false);
       setEditingTransaction(null);
-      await fetchTransactions();
+      
+      // Actualizar tanto las transacciones como las metas
+      await Promise.all([
+        fetchTransactions(),
+        fetchGoals()
+      ]);
+
     } catch (err) {
       console.error('Error completo:', err);
       setError('Error al guardar la transacción: ' + err.message);
@@ -272,7 +285,9 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       recurrence: transaction.recurrence,
       is_scheduled: transaction.is_scheduled,
       end_date: transaction.end_date,
-      parent_transaction_id: transaction.parent_transaction_id
+      parent_transaction_id: transaction.parent_transaction_id,
+      assignToGoal: false,
+      goal_id: ''
     });
     setShowForm(true);
   };
@@ -615,6 +630,48 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                   <option key={method} value={method}>{method}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Campo para asignar a meta */}
+            <div className="md:col-span-2 lg:col-span-3">
+              <div className="flex items-center mb-2">
+                <input
+                  type="checkbox"
+                  id="assignToGoal"
+                  name="assignToGoal"
+                  checked={formData.assignToGoal}
+                  onChange={(e) => {
+                    const { checked } = e.target;
+                    setFormData(prev => ({
+                      ...prev,
+                      assignToGoal: checked,
+                      goal_id: checked ? prev.goal_id : '',
+                      type: checked ? 'Income' : prev.type // Forzar tipo a Income si se asigna a meta
+                    }));
+                  }}
+                  className="w-4 h-4 text-accent-color rounded border-border-color focus:ring-accent-color"
+                />
+                <label htmlFor="assignToGoal" className="ml-2 text-sm text-text-secondary">
+                  Asignar a una meta
+                </label>
+              </div>
+
+              {formData.assignToGoal && (
+                <select
+                  name="goal_id"
+                  value={formData.goal_id}
+                  onChange={handleChange}
+                  className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
+                  required
+                >
+                  <option value="">Selecciona una meta</option>
+                  {goals.map(goal => (
+                    <option key={goal.id} value={goal.id}>
+                      {goal.title} - Progreso: {((goal.current_amount / goal.target_amount) * 100).toFixed(1)}%
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-4">
