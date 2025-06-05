@@ -7,7 +7,7 @@ router.post('/:id/contribute', async (req, res) => {
     console.log('Usuario:', req.userId);
 
     const { id } = req.params;
-    const { amount, isDirectContribution } = req.body;
+    const { amount, isDirectContribution, paymentMethod } = req.body;
     const { userId } = req;
 
     if (!amount || amount <= 0) {
@@ -52,7 +52,7 @@ router.post('/:id/contribute', async (req, res) => {
           category: 'Otros-Gasto',
           amount,
           description: `Abono a meta: ${goal.name}`,
-          payment_method: 'Efectivo',
+          payment_method: paymentMethod,
           status: 'Completed',
           date: new Date()
         };
@@ -66,7 +66,7 @@ router.post('/:id/contribute', async (req, res) => {
             'Otros-Gasto',
             amount,
             `Abono a meta: ${goal.name}`,
-            'Efectivo',
+            paymentMethod,
             'Completed',
             new Date()
           ]
