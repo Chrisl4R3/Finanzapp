@@ -152,7 +152,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       const response = await authenticatedFetch('/goals');
       const data = await response.json();
       // Solo mostrar metas activas que no estén completadas
-      const activeGoals = data.filter(goal => goal.progress < goal.target_amount);
+      const activeGoals = data.filter(goal => goal.status === 'Active');
       setGoals(activeGoals);
     } catch (err) {
       console.error('Error al cargar las metas:', err);

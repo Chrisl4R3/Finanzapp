@@ -57,8 +57,9 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
     try {
       setLoading(true);
       const goalsData = await getAllGoals();
-      console.log('Metas cargadas:', goalsData);
-      setGoals(goalsData);
+      const activeGoals = goalsData.filter(goal => goal.status === 'Active');
+      console.log('Metas activas cargadas:', activeGoals);
+      setGoals(activeGoals);
     } catch (err) {
       setError('Error al cargar las metas');
       console.error('Error al cargar las metas:', err);
