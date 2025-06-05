@@ -667,7 +667,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                   <option value="">Selecciona una meta</option>
                   {goals.map(goal => (
                     <option key={goal.id} value={goal.id}>
-                      {goal.name} - Progreso: {((goal.current_amount / goal.target_amount) * 100).toFixed(1)}%
+                      {goal.name} - Progreso: {((goal.progress / goal.target_amount) * 100).toFixed(1)}%
                     </option>
                   ))}
                 </select>
