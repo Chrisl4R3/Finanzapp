@@ -173,6 +173,7 @@ router.post('/:id/contribute', async (req, res) => {
       
       res.json(response);
       console.log('✅ Respuesta enviada exitosamente');
+      return;
     } catch (error) {
       console.error('❌ Error detallado:', error);
       console.error('Stack trace:', error.stack);
