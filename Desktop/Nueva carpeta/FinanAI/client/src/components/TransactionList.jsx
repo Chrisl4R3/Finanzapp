@@ -893,4 +893,3 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 export default TransactionList; 
 
 
-.
