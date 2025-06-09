@@ -220,13 +220,32 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [result] = await pool.query('DELETE FROM goals WHERE id = ? AND user_id = ?', [id, userId]);
-    if (result.affectedRows === 0) {
+    // 1. Obtener la meta y su progreso
+    const [goals] = await pool.query('SELECT * FROM goals WHERE id = ? AND user_id = ?', [id, userId]);
+    if (goals.length === 0) {
       console.log('Meta no encontrada o no pertenece al usuario');
       return res.status(404).json({ message: 'Meta no encontrada o no pertenece al usuario.' });
     }
+    const goal = goals[0];
+    const progress = parseFloat(goal.progress || 0);
+
+    // 2. Si hay progreso, crear transacción de devolución
+    if (progress > 0) {
+      await pool.query(
+        `INSERT INTO transactions (user_id, type, category, amount, date, description, payment_method, status, goal_id) VALUES (?, 'Income', 'Otros-Ingreso', ?, NOW(), ?, 'Efectivo', 'Completed', NULL)`,
+        [userId, progress, `Devolución de meta eliminada: ${goal.name}`]
+      );
+      console.log('Transacción de devolución creada por', progress);
+    }
+
+    // 3. Eliminar la meta
+    const [result] = await pool.query('DELETE FROM goals WHERE id = ? AND user_id = ?', [id, userId]);
+    if (result.affectedRows === 0) {
+      console.log('Meta no encontrada o no pertenece al usuario (tras verificación)');
+      return res.status(404).json({ message: 'Meta no encontrada o no pertenece al usuario.' });
+    }
     console.log('Meta eliminada exitosamente');
-    res.status(200).json({ message: 'Meta eliminada exitosamente.' });
+    res.status(200).json({ message: 'Meta eliminada exitosamente. El dinero fue devuelto al presupuesto principal.' });
   } catch (error) {
     console.error('Error al eliminar meta:', error);
     res.status(500).json({ message: 'Error en el servidor al eliminar la meta.' });
