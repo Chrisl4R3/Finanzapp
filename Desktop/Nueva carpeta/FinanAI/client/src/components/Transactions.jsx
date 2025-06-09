@@ -69,12 +69,14 @@ const Transactions = () => {
       const description = transaction.description.toLowerCase();
       const category = transaction.category.toLowerCase();
       const type = transaction.type.toLowerCase();
+      const paymentMethod = transaction.payment_method.toLowerCase();
 
       return amount.includes(searchTermLower) ||
              date.includes(searchTermLower) ||
              description.includes(searchTermLower) ||
              category.includes(searchTermLower) ||
-             type.includes(searchTermLower);
+             paymentMethod.includes(searchTermLower) ||
+             paymentMethod.includes(searchTermLower);
     });
 
     setFilteredTransactions(filtered);
@@ -301,7 +303,7 @@ const Transactions = () => {
       {/* Content */}
       {activeTab === 'regular' ? (
         <TransactionList />
-      ) : activeTab === 'regular' ? (
+      ) : activeTab === 'regular' ? ( // This condition appears to be a duplicate
         <>
         <div className="mb-4">
             <input
