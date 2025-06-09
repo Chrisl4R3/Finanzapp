@@ -76,10 +76,14 @@ export const updateGoalProgress = async (goalId, progress) => {
 };
 
 // Eliminar meta
-export const deleteGoal = async (goalId) => {
+export const deleteGoal = async (goalId, reason) => {
   try {
     const response = await authenticatedFetch(`/goals/${goalId}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: {
+ 'Content-Type': 'application/json',
+      },
+ body: JSON.stringify({ reason }),
     });
     return response.json();
   } catch (error) {

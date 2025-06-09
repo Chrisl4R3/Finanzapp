@@ -66,27 +66,41 @@ const Goals = () => {
   };
 
   const handleDeleteGoal = async (goalId) => {
+    // Find the goal to get its name for the Swal title
+    const goalToDelete = goals.find(goal => goal.id === goalId);
+    const goalName = goalToDelete ? goalToDelete.name : 'la meta';
+
     const result = await Swal.fire({
       title: '¿Estás seguro?',
-      text: "Esta acción no se puede deshacer",
+      html: `<p>¿Estás seguro de que deseas eliminar la meta: <strong>${goalName}</strong>?</p><p class="text-text-secondary text-sm mt-2">Esta acción no se puede deshacer. El progreso actual se devolverá a tu presupuesto principal.</p>`,
       icon: 'warning',
       showCancelButton: true,
+      showDenyButton: false, // Ensure only confirm/cancel
       confirmButtonColor: '#10B981',
       cancelButtonColor: '#EF4444',
       confirmButtonText: 'Sí, eliminar',
       cancelButtonText: 'Cancelar',
       background: '#1A1A1A',
       color: '#FFFFFF',
+      input: 'textarea',
+      inputLabel: '¿Por qué quieres terminar esta meta?',
+      inputPlaceholder: 'Escribe tu razón aquí (opcional)...',
+      inputAttributes: {
+        'aria-label': 'Escribe tu razón aquí',
+      },
+      inputValue: '', // Initial value
       customClass: {
         popup: 'rounded-2xl border border-border-color/10',
         confirmButton: 'rounded-xl',
-        cancelButton: 'rounded-xl'
+        cancelButton: 'rounded-xl',
+        input: 'swal2-input !bg-secondary-bg !text-text-primary !border-border-color/20' // Custom styling for textarea
       }
     });
 
-    if (result.isConfirmed) {
+    if (result.isConfirmed) { // User clicked 'Sí, eliminar'
+      const reason = result.value || 'No se proporcionó razón'; // Get the value from the textarea
       try {
-        await goalService.deleteGoal(goalId);
+        await goalService.deleteGoal(goalId, reason);
         await fetchGoals();
         Toast.fire({
           icon: 'success',
@@ -101,6 +115,8 @@ const Goals = () => {
         setError(err.message || 'Error al eliminar la meta');
       }
     }
+    // No action needed if result.dismiss is true (user clicked 'Cancelar' or outside)
+
   };
 
   const handleContribute = async (amount, isDirectContribution) => {
