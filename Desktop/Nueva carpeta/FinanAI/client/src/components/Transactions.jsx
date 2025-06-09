@@ -144,6 +144,7 @@ const Transactions = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
       setIsLoading(true);
       setError(null);
@@ -204,7 +205,7 @@ const Transactions = () => {
     const groups = {};
     transactions.forEach(transaction => {
       const date = new Date(transaction.date);
-      const dateKey = date.toISOString().split('T')[0];
+      const dateKey = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString().split('T')[0];
       if (!groups[dateKey]) {
         groups[dateKey] = {
           date: new Date(dateKey),
@@ -300,7 +301,28 @@ const Transactions = () => {
       {/* Content */}
       {activeTab === 'regular' ? (
         <TransactionList />
-      ) : (
+      ) : activeTab === 'regular' ? (
+        <>
+        <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Buscar por Fecha, Descripción, Categoría, Monto"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-accent-color focus:border-accent-color"
+              value={searchTerm}
+              onChange={handleSearchChange}
+            />
+          </div>
+          <TransactionList
+            groupedTransactions={groupTransactionsByDate(filteredTransactions)}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            getCategoryIcon={getCategoryIcon}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+ />
+        </>
+      )
+       : (
         <ScheduledTransactions />
       )}
     </div>
