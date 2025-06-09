@@ -77,8 +77,9 @@ export const updateGoalProgress = async (goalId, progress) => {
 
 // Eliminar meta
 export const deleteGoal = async (goalId, reason) => {
+  let goal;
   try {
-    // Fetch goal details to get the contributed amount
+ // Fetch goal details to get the contributed amount
     const goalResponse = await authenticatedFetch(`/goals/${goalId}`);
     if (!goalResponse.ok) {
       throw new Error(`Error fetching goal ${goalId}: ${goalResponse.statusText}`);
@@ -97,25 +98,24 @@ export const deleteGoal = async (goalId, reason) => {
         status: 'Completed',
       };
 
-      await authenticatedFetch('/transactions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+ await authenticatedFetch('/transactions', {
+ method: 'POST',
+ headers: {
+ 'Content-Type': 'application/json',
         },
-        body: JSON.stringify(incomeTransaction),
+ body: JSON.stringify(incomeTransaction),
       });
     }
 
     // Proceed with goal deletion
-  try {
     const response = await authenticatedFetch(`/goals/${goalId}`, {
       method: 'DELETE',
       headers: {
  'Content-Type': 'application/json',
       },
- body: JSON.stringify({ reason }),
+      body: JSON.stringify({ reason }),
     });
-    return response.json();
+ return response.json();
   } catch (error) {
     // If transaction creation fails, still attempt to delete the goal,
     // but log the transaction error.
