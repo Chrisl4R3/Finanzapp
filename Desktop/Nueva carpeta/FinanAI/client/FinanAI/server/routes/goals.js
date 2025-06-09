@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
   console.log('GET /goals - Obteniendo todas las metas para el usuario:', req.userId);
   try {
     const [goals] = await pool.query(
-      'SELECT * FROM goals WHERE user_id = ? ORDER BY created_at DESC',
+      'SELECT id, name, target_amount, progress, end_date, type, status FROM goals WHERE user_id = ? ORDER BY created_at DESC',
       [req.userId]
     );
     console.log('Metas encontradas:', goals.length);

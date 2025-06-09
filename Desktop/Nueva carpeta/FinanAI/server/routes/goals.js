@@ -131,17 +131,6 @@ router.delete('/:id', async (req, res) => {
 
     // 2. Add the progress amount back to the user's balance
     if (progressAmount > 0) {
-      // Check if deletion_reason column exists, create if not
-      try {
-        await pool.query('ALTER TABLE goals ADD COLUMN deletion_reason TEXT;');
-        console.log('Added deletion_reason column to goals table.');
-      } catch (alterError) {
-        // Ignore error if column already exists (e.g., ER_DUP_FIELD_NAME)
-        if (alterError.code !== 'ER_DUP_FIELDNAME') {
-          console.error('Error adding deletion_reason column:', alterError);
-          throw alterError; // Rethrow if it's a different error
-        }
-      }
 
       await pool.query(
         'UPDATE users SET balance = balance + ? WHERE id = ?',
