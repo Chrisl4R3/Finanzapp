@@ -152,9 +152,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       const response = await authenticatedFetch('/goals');
       const data = await response.json();
       // Solo mostrar metas activas que no estén completadas
-      const activeGoals = data.filter(goal => 
-        goal.current_amount < goal.target_amount
-      );
+      const activeGoals = data.filter(goal => goal.status === 'Active');
       setGoals(activeGoals);
     } catch (err) {
       console.error('Error al cargar las metas:', err);
@@ -667,7 +665,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                   <option value="">Selecciona una meta</option>
                   {goals.map(goal => (
                     <option key={goal.id} value={goal.id}>
-                      {goal.title} - Progreso: {((goal.current_amount / goal.target_amount) * 100).toFixed(1)}%
+                      {goal.name} - Progreso: {((goal.progress / goal.target_amount) * 100).toFixed(1)}%
                     </option>
                   ))}
                 </select>
@@ -893,3 +891,6 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 };
 
 export default TransactionList; 
+
+
+.

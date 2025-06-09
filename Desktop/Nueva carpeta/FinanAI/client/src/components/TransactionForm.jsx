@@ -57,7 +57,9 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
     try {
       setLoading(true);
       const goalsData = await getAllGoals();
-      setGoals(goalsData);
+      const activeGoals = goalsData.filter(goal => goal.status === 'Active');
+      console.log('Metas activas cargadas:', activeGoals);
+      setGoals(activeGoals);
     } catch (err) {
       setError('Error al cargar las metas');
       console.error('Error al cargar las metas:', err);
@@ -213,7 +215,7 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
               <option value="">Selecciona una meta</option>
               {goals.map(goal => (
                 <option key={goal.id} value={goal.id}>
-                  {goal.title} - Progreso: {((goal.current_amount / goal.target_amount) * 100).toFixed(1)}%
+                  {goal.name} - Progreso: {((goal.progress / goal.target_amount) * 100).toFixed(1)}%
                 </option>
               ))}
             </select>
@@ -241,3 +243,7 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
 };
 
 export default TransactionForm; 
+
+
+
+.
