@@ -66,8 +66,10 @@ const Goals = () => {
   };
 
   const handleDeleteGoal = async (goalId) => {
+    // Limpiar el ID en caso de que venga como '22:1' u otro formato incorrecto
+    const cleanGoalId = typeof goalId === 'string' ? goalId.split(':')[0] : goalId;
     // Find the goal to get its name for the Swal title
-    const goalToDelete = goals.find(goal => goal.id === goalId);
+    const goalToDelete = goals.find(goal => String(goal.id) === String(cleanGoalId));
     const goalName = goalToDelete ? goalToDelete.name : 'la meta';
 
     const result = await Swal.fire({
@@ -98,9 +100,8 @@ const Goals = () => {
     });
 
     if (result.isConfirmed) { // User clicked 'Sí, eliminar'
-      const reason = result.value || 'No se proporcionó razón'; // Get the value from the textarea
       try {
-        await goalService.deleteGoal(goalId, reason);
+        await goalService.deleteGoal(cleanGoalId);
         await fetchGoals();
         Toast.fire({
           icon: 'success',
