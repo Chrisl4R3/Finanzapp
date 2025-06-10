@@ -214,7 +214,7 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
             >
               <option value="">Selecciona una meta</option>
               {goals.map(goal => (
-                <option key={goal.id} value={goal.id}>
+                <option key={goal.id} value={String(goal.id).split(':')[0]}>
                   {goal.name} - Progreso: {((goal.progress / goal.target_amount) * 100).toFixed(1)}%
                 </option>
               ))}
