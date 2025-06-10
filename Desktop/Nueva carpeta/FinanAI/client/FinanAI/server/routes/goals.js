@@ -238,7 +238,7 @@ router.delete('/:id', async (req, res) => {
     // 2. Si hay progreso, crear transacción de devolución
     if (progress > 0) {
       await pool.query(
-        `INSERT INTO transactions (user_id, type, category, amount, date, description, payment_method, status, goal_id) VALUES (?, 'Income', 'Otros-Ingreso', ?, NOW(), ?, 'Efectivo', 'Completed', NULL)`,
+        `INSERT INTO transactions (user_id, type, category, amount, date, description, payment_method, status, goal_id, recurrence, schedule, is_scheduled, end_date, parent_transaction_id) VALUES (?, 'Income', 'Otros-Ingreso', ?, NOW(), ?, 'Efectivo', 'Completed', NULL, '', NULL, 0, NULL, NULL)`,
         [userId, progress, `Devolución de meta eliminada: ${goal.name}`]
       );
       console.log('Transacción de devolución creada por', progress);
