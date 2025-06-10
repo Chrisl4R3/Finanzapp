@@ -3,7 +3,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import GoalForm from './GoalForm';
 import ContributeForm from './ContributeForm';
 import * as goalService from '../services/goals';
-import { FaTrash, FaPlus } from 'react-icons/fa';
+import { FaTrash, FaPlus, FaHistory } from 'react-icons/fa';
 import { IoMdTrendingUp } from 'react-icons/io';
 import Swal from 'sweetalert2';
 
@@ -26,6 +26,10 @@ const Goals = () => {
   const [showForm, setShowForm] = useState(false);
   const [showContributeForm, setShowContributeForm] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState(null);
+  const [historyGoal, setHistoryGoal] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [errorHistory, setErrorHistory] = useState(null);
   const { formatCurrency } = useCurrency();
 
   const fetchGoals = async () => {
@@ -159,6 +163,30 @@ const Goals = () => {
     }
   };
 
+  // Función para obtener el historial de aportes a una meta
+  const fetchGoalHistory = async (goalId) => {
+    setLoadingHistory(true);
+    setErrorHistory(null);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`https://backend-production-cf437.up.railway.app/api/transactions?goal_id=${goalId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Error al obtener el historial de la meta');
+      const data = await response.json();
+      setHistory(data.filter(tx => tx.goal_id === goalId));
+    } catch (err) {
+      setErrorHistory(err.message || 'Error al obtener el historial');
+      setHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   useEffect(() => {
     fetchGoals();
   }, []);
@@ -231,12 +259,24 @@ const Goals = () => {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => handleDeleteGoal(goal.id)}
-            className="text-danger-color/70 hover:text-danger-color p-2 rounded-lg hover:bg-danger-color/10 transition-all duration-300"
-          >
-            <FaTrash />
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setHistoryGoal(goal);
+                fetchGoalHistory(goal.id);
+              }}
+              className="text-accent-color/80 hover:text-accent-color p-2 rounded-lg hover:bg-accent-color/10 transition-all duration-300"
+              title="Ver historial de aportes"
+            >
+              <FaHistory />
+            </button>
+            <button
+              onClick={() => handleDeleteGoal(goal.id)}
+              className="text-danger-color/70 hover:text-danger-color p-2 rounded-lg hover:bg-danger-color/10 transition-all duration-300"
+            >
+              <FaTrash />
+            </button>
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -404,6 +444,40 @@ const Goals = () => {
             setSelectedGoal(null);
           }}
         />
+      )}
+
+      {historyGoal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-card-bg rounded-xl p-8 max-w-lg w-full mx-4 relative">
+            <button
+              onClick={() => setHistoryGoal(null)}
+              className="absolute top-4 right-4 text-text-secondary hover:text-text-primary"
+            >
+              ✕
+            </button>
+            <h2 className="text-2xl font-bold text-text-primary mb-4 flex items-center gap-2">
+              <FaHistory /> Historial de aportes
+            </h2>
+            <p className="mb-2 text-text-secondary">Meta: <span className="font-semibold text-text-primary">{historyGoal.name}</span></p>
+            {loadingHistory ? (
+              <div className="text-center py-8 text-text-secondary">Cargando historial...</div>
+            ) : errorHistory ? (
+              <div className="text-center py-8 text-danger-color">{errorHistory}</div>
+            ) : history.length === 0 ? (
+              <div className="text-center py-8 text-text-secondary">No hay aportes registrados para esta meta.</div>
+            ) : (
+              <ul className="divide-y divide-border-color/20">
+                {history.map(tx => (
+                  <li key={tx.id} className="py-3 flex justify-between items-center">
+                    <span className="text-text-primary">{tx.date ? new Date(tx.date).toLocaleDateString('es-ES') : ''}</span>
+                    <span className="text-accent-color font-semibold">+{formatCurrency(tx.amount)}</span>
+                    <span className="text-text-secondary text-sm">{tx.description}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
