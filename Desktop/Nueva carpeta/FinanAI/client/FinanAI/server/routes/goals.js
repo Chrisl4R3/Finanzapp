@@ -217,7 +217,13 @@ router.put('/:id/progress', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   console.log('DELETE /goals/:id - Eliminando meta:', req.params.id);
   const { userId } = req;
-  const { id } = req.params;
+  let { id } = req.params;
+  // Limpiar el ID en caso de que venga como '22:1' u otro formato incorrecto
+  if (typeof id === 'string') {
+    id = id.split(':')[0];
+  }
+  id = Number(id);
+  console.log('ID limpio recibido para eliminar:', id, 'Tipo:', typeof id);
 
   try {
     // 1. Obtener la meta y su progreso
