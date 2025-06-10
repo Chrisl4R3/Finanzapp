@@ -8,7 +8,7 @@ router.get('/', async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT * FROM scheduled_transactions WHERE user_id = ? ORDER BY next_execution ASC',
-      [req.session.user.id]
+      [req.userId]
     );
     res.json(rows);
   } catch (error) {
@@ -39,7 +39,7 @@ router.post('/', async (req, res) => {
        (user_id, description, amount, type, category, payment_method, 
         frequency, start_date, end_date, next_execution) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.session.user.id, description, amount, type, category, payment_method, 
+      [req.userId, description, amount, type, category, payment_method, 
        frequency, start_date, end_date, next_execution]
     );
 
@@ -74,7 +74,7 @@ router.put('/:id', async (req, res) => {
     // Verificar que la transacción pertenece al usuario
     const [transaction] = await pool.query(
       'SELECT * FROM scheduled_transactions WHERE id = ? AND user_id = ?',
-      [id, req.session.user.id]
+      [id, req.userId]
     );
 
     if (transaction.length === 0) {
@@ -91,7 +91,7 @@ router.put('/:id', async (req, res) => {
            end_date = ?, status = ?, next_execution = ?
        WHERE id = ? AND user_id = ?`,
       [description, amount, type, category, payment_method, frequency,
-       start_date, end_date, status, next_execution, id, req.session.user.id]
+       start_date, end_date, status, next_execution, id, req.userId]
     );
 
     const [updatedTransaction] = await pool.query(
@@ -114,7 +114,7 @@ router.delete('/:id', async (req, res) => {
     // Verificar que la transacción pertenece al usuario
     const [transaction] = await pool.query(
       'SELECT * FROM scheduled_transactions WHERE id = ? AND user_id = ?',
-      [id, req.session.user.id]
+      [id, req.userId]
     );
 
     if (transaction.length === 0) {
@@ -123,7 +123,7 @@ router.delete('/:id', async (req, res) => {
 
     await pool.query(
       'DELETE FROM scheduled_transactions WHERE id = ? AND user_id = ?',
-      [id, req.session.user.id]
+      [id, req.userId]
     );
 
     res.json({ message: 'Transacción programada eliminada correctamente' });
@@ -142,7 +142,7 @@ router.patch('/:id/status', async (req, res) => {
     // Verificar que la transacción pertenece al usuario
     const [transaction] = await pool.query(
       'SELECT * FROM scheduled_transactions WHERE id = ? AND user_id = ?',
-      [id, req.session.user.id]
+      [id, req.userId]
     );
 
     if (transaction.length === 0) {
@@ -151,7 +151,7 @@ router.patch('/:id/status', async (req, res) => {
 
     await pool.query(
       'UPDATE scheduled_transactions SET status = ? WHERE id = ? AND user_id = ?',
-      [status, id, req.session.user.id]
+      [status, id, req.userId]
     );
 
     const [updatedTransaction] = await pool.query(
