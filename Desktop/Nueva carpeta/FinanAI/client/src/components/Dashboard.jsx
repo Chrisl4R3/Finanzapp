@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getDashboardData, getRecentTransactions, getActiveGoals, getNotifications } from '../auth/auth';
 import {
   Chart as ChartJS,
@@ -37,7 +37,28 @@ const Dashboard = () => {
     activeGoals: [],
     notifications: []
   });
+  const [autoNotifications, setAutoNotifications] = useState([]);
   const { currency, setCurrency, formatCurrency } = useCurrency();
+
+  // Obtener notificaciones inteligentes del backend
+  const fetchAutoNotifications = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch('https://backend-production-cf437.up.railway.app/api/notifications/auto', {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Error al obtener notificaciones inteligentes');
+      const data = await response.json();
+      setAutoNotifications(data);
+    } catch (err) {
+      console.error('Error al obtener notificaciones inteligentes:', err);
+      setAutoNotifications([]);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -75,6 +96,8 @@ const Dashboard = () => {
             activeGoals: goals || [],
             notifications: notifications || []
           });
+          // Obtener notificaciones inteligentes
+          fetchAutoNotifications();
         } catch (err) {
           console.error('Error en la petición:', err);
           if (err.message.includes('401')) {
@@ -92,7 +115,7 @@ const Dashboard = () => {
     };
 
     fetchDashboardData();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchAutoNotifications]);
 
   // Configuración del gráfico de gastos por categoría
   const expensesByCategoryData = {
@@ -316,6 +339,14 @@ const Dashboard = () => {
     });
     return Object.values(groups).sort((a, b) => b.date - a.date);
   };
+
+  // Unir notificaciones normales y automáticas (sin duplicados por mensaje)
+  const allNotifications = [
+    ...(dashboardData.notifications || []),
+    ...autoNotifications.filter(
+      autoN => !(dashboardData.notifications || []).some(n => n.message === autoN.message)
+    )
+  ];
 
   if (isLoading) {
     return (
@@ -669,38 +700,34 @@ const Dashboard = () => {
       {/* Notificaciones */}
       <div className="bg-card-bg rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)] hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.5)] transition-all duration-300">
         <div className="p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-secondary-bg rounded-xl shadow-inner">
-              <svg className="w-5 h-5 text-accent-color" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-bold text-text-primary">Notificaciones</h2>
-          </div>
-          <div className="space-y-4">
-            {notifications.map(notification => (
-              <div 
-                key={notification.id} 
-                className={`p-4 rounded-lg transition-all duration-300 hover:transform hover:-translate-y-1 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.3)] hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)] ${
-                  notification.type === 'Warning' 
-                    ? 'bg-warning-color/10 text-warning-color'
-                    : 'bg-accent-color/10 text-accent-color'
-                }`}
-              >
-                {notification.message}
-              </div>
-            ))}
-            {notifications.length === 0 && (
-              <div className="text-center py-8">
-                <div className="bg-secondary-bg rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center shadow-inner">
-                  <svg className="w-8 h-8 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <p className="text-text-secondary">No hay notificaciones nuevas</p>
-              </div>
-            )}
-          </div>
+          <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
+            <svg className="w-6 h-6 text-accent-color" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" />
+            </svg>
+            Notificaciones
+          </h2>
+          {allNotifications.length === 0 ? (
+            <p className="text-text-secondary">No tienes notificaciones recientes.</p>
+          ) : (
+            <ul className="space-y-3">
+              {allNotifications.slice(0, 10).map((notification, idx) => (
+                <li key={idx} className={`rounded-xl px-4 py-3 shadow-inner flex items-center gap-3 ${
+                  notification.type === 'alert' ? 'bg-red-900/10 border-l-4 border-red-500 text-red-400' :
+                  notification.type === 'warning' ? 'bg-yellow-900/10 border-l-4 border-yellow-500 text-yellow-400' :
+                  notification.type === 'success' ? 'bg-emerald-900/10 border-l-4 border-emerald-500 text-emerald-400' :
+                  'bg-secondary-bg border-l-4 border-accent-color/30 text-text-secondary'
+                }`}>
+                  <span className="text-lg">
+                    {notification.type === 'alert' && '⚠️'}
+                    {notification.type === 'warning' && '🟡'}
+                    {notification.type === 'success' && '🎉'}
+                    {notification.type === 'info' && 'ℹ️'}
+                  </span>
+                  <span className="flex-1">{notification.message}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>
