@@ -415,6 +415,14 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     ];
   }, []);
 
+  // Agrupar por mes (ya viene agrupado del backend)
+  const getMonthTotal = (transactions) => {
+    return transactions.reduce((acc, tx) => {
+      if (tx.type === 'Income') return acc + Number(tx.amount);
+      else return acc - Number(tx.amount);
+    }, 0);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -469,278 +477,21 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Resumen de Transacciones */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-card-bg rounded-xl p-4 shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-success-color/10 flex items-center justify-center">
-              <FiTrendingUp className="w-6 h-6 text-success-color" />
-            </div>
-            <div>
-              <p className="text-text-secondary text-sm">Ingresos Totales</p>
-              <p className="text-success-color text-xl font-bold">{formatCurrency(transactionSummary.totalIncome)}</p>
-            </div>
-          </div>
-          <p className="text-text-secondary text-sm mt-2">
-            {transactionSummary.totalTransactions.income} transacciones
-          </p>
-        </div>
-
-        <div className="bg-card-bg rounded-xl p-4 shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-danger-color/10 flex items-center justify-center">
-              <FiTrendingDown className="w-6 h-6 text-danger-color" />
-            </div>
-            <div>
-              <p className="text-text-secondary text-sm">Gastos Totales</p>
-              <p className="text-danger-color text-xl font-bold">{formatCurrency(transactionSummary.totalExpenses)}</p>
-            </div>
-          </div>
-          <p className="text-text-secondary text-sm mt-2">
-            {transactionSummary.totalTransactions.expenses} transacciones
-          </p>
-        </div>
-
-        <div className="bg-card-bg rounded-xl p-4 shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-accent-color/10 flex items-center justify-center">
-              <FiDollarSign className="w-6 h-6 text-accent-color" />
-            </div>
-            <div>
-              <p className="text-text-secondary text-sm">Balance</p>
-              <p className={`text-xl font-bold ${
-                transactionSummary.totalIncome - transactionSummary.totalExpenses >= 0 
-                ? 'text-success-color' 
-                : 'text-danger-color'
-              }`}>
-                {formatCurrency(transactionSummary.totalIncome - transactionSummary.totalExpenses)}
-              </p>
-            </div>
-          </div>
-          <p className="text-text-secondary text-sm mt-2">
-            {transactionSummary.totalTransactions.income + transactionSummary.totalTransactions.expenses} transacciones totales
-          </p>
-        </div>
-
-        <div className="bg-card-bg rounded-xl p-4 shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center">
-              <FiCalendar className="w-6 h-6 text-purple-500" />
-            </div>
-            <div>
-              <p className="text-text-secondary text-sm">Última Transacción</p>
-              <p className="text-text-primary text-xl font-bold">
-                {new Date(Math.max(...transactions.map(t => new Date(t.date)))).toLocaleDateString('es-ES')}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Barra de búsqueda y filtros */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 flex gap-4">
-              <input
-                type="text"
-            value={searchTermLocal}
-            onChange={(e) => setSearchTermLocal(e.target.value)}
-                placeholder="Buscar transacciones..."
-            className="flex-1 bg-card-bg border-none rounded-xl px-4 py-3 text-text-primary placeholder-text-secondary focus:ring-2 focus:ring-accent-color"
-          />
-          
+      {/* Filtro de categoría arriba a la derecha */}
+      <div className="flex justify-end mb-6">
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-text-secondary">Categoría:</label>
           <select
-            value={localFilters.type}
-            onChange={(e) => setLocalFilters(prev => ({ ...prev, type: e.target.value }))}
-            className="bg-card-bg border-none rounded-xl px-4 py-3 text-text-primary focus:ring-2 focus:ring-accent-color"
+            className="p-2 rounded border border-border-color bg-secondary-bg text-text-primary"
+            value={selectedCategory}
+            onChange={e => setSelectedCategory(e.target.value)}
           >
-            <option value="all">Todos</option>
-            <option value="income">Ingresos</option>
-            <option value="expense">Gastos</option>
+            <option value="">Todas</option>
+            {allCategories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
           </select>
-          </div>
-          
-        <div className="flex gap-2">
-            <button
-            onClick={() => setShowForm(!showForm)}
-            className="px-4 py-2 bg-card-bg hover:bg-accent-color/10 text-text-primary rounded-xl transition-all duration-300 flex items-center gap-2"
-            >
-            <FiPlus className="w-5 h-5" />
-            <span>{showForm ? 'Cancelar' : 'Nueva'}</span>
-            </button>
-            
-            <Link
-            to="/transactions/new"
-            className="px-4 py-2 bg-accent-color hover:bg-accent-color-darker text-white rounded-xl transition-all duration-300 flex items-center gap-2"
-            >
-            <FiPlusCircle className="w-5 h-5" />
-              <span>Nueva Transacción</span>
-            </Link>
-          </div>
         </div>
-
-      {/* Formulario de transacción */}
-      {showForm && (
-        <div className="mb-6 bg-card-bg rounded-xl p-6 shadow-lg">
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm text-text-secondary mb-2">Tipo</label>
-                <select
-                name="type"
-                value={formData.type}
-                onChange={handleChange}
-                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                required
-                >
-                <option value="Income">Ingreso</option>
-                <option value="Expense">Gasto</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm text-text-secondary mb-2">Categoría</label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                required
-              >
-                <option value="">Selecciona una categoría</option>
-                {CATEGORIES[formData.type].map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-                </select>
-              </div>
-
-              <div>
-              <label className="block text-sm text-text-secondary mb-2">Monto</label>
-                <input
-                type="number"
-                name="amount"
-                value={formData.amount}
-                onChange={handleChange}
-                placeholder="Ingresa el monto"
-                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                required
-                step="0.01"
-                min="0"
-                />
-              </div>
-
-              <div>
-              <label className="block text-sm text-text-secondary mb-2">Fecha</label>
-                <input
-                  type="date"
-                name="date"
-                value={formData.date}
-                onChange={handleChange}
-                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                required
-                />
-              </div>
-
-              <div>
-              <label className="block text-sm text-text-secondary mb-2">Descripción</label>
-                  <input
-                type="text"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                placeholder="Descripción de la transacción"
-                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                required
-                  />
-                </div>
-
-            <div>
-              <label className="block text-sm text-text-secondary mb-2">Método de Pago</label>
-              <select
-                name="payment_method"
-                value={formData.payment_method}
-                onChange={handleChange}
-                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                required
-              >
-                {PAYMENT_METHODS.map(method => (
-                  <option key={method} value={method}>{method}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Campo para asignar a meta */}
-            <div className="md:col-span-2 lg:col-span-3">
-              <div className="flex items-center mb-2">
-                <input
-                  type="checkbox"
-                  id="assignToGoal"
-                  name="assignToGoal"
-                  checked={formData.assignToGoal}
-                  onChange={(e) => {
-                    const { checked } = e.target;
-                    setFormData(prev => ({
-                      ...prev,
-                      assignToGoal: checked,
-                      goal_id: checked ? prev.goal_id : '',
-                      type: checked ? 'Income' : prev.type // Forzar tipo a Income si se asigna a meta
-                    }));
-                  }}
-                  className="w-4 h-4 text-accent-color rounded border-border-color focus:ring-accent-color"
-                />
-                <label htmlFor="assignToGoal" className="ml-2 text-sm text-text-secondary">
-                  Asignar a una meta
-                </label>
-              </div>
-
-              {formData.assignToGoal && (
-                <select
-                  name="goal_id"
-                  value={formData.goal_id}
-                  onChange={handleChange}
-                  className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                  required
-                >
-                  <option value="">Selecciona una meta</option>
-                  {goals.map(goal => (
-                    <option key={goal.id} value={goal.id}>
-                      {goal.name} - Progreso: {((goal.progress / goal.target_amount) * 100).toFixed(1)}%
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-4">
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="px-6 py-2 bg-card-bg hover:bg-secondary-bg text-text-secondary rounded-xl transition-all duration-300"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-2 bg-accent-color hover:bg-accent-color-darker text-white rounded-xl transition-all duration-300"
-              >
-                {editingTransaction ? 'Actualizar' : 'Guardar'} Transacción
-              </button>
-            </div>
-          </form>
-          </div>
-        )}
-
-      {/* Filtro de categoría */}
-      <div className="mb-4 flex items-center gap-4">
-        <label className="text-sm text-text-secondary">Filtrar por categoría:</label>
-        <select
-          className="p-2 rounded border border-border-color bg-secondary-bg text-text-primary"
-          value={selectedCategory}
-          onChange={e => setSelectedCategory(e.target.value)}
-        >
-          <option value="">Todas</option>
-          {allCategories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
       </div>
 
       {/* Mostrar agrupadas por mes */}
@@ -756,32 +507,51 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
             <div className="text-center text-text-secondary py-8">No hay transacciones para mostrar.</div>
           ) : (
             groupedTransactions.map(group => (
-              <div key={group.month} className="mb-8">
-                <h2 className="text-xl font-bold text-accent-color mb-4">
-                  {new Date(group.month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
-                </h2>
-                <table className="min-w-full divide-y divide-border-color bg-card-bg rounded-xl shadow-lg overflow-hidden">
-                  <thead className="bg-secondary-bg">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-text-secondary">Fecha</th>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-text-secondary">Descripción</th>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-text-secondary">Categoría</th>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-text-secondary">Monto</th>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-text-secondary">Tipo</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border-color">
-                    {group.transactions.map(tx => (
-                      <tr key={tx.id}>
-                        <td className="px-4 py-2">{new Date(tx.date).toLocaleDateString('es-ES')}</td>
-                        <td className="px-4 py-2">{tx.description}</td>
-                        <td className="px-4 py-2">{tx.category}</td>
-                        <td className={`px-4 py-2 ${tx.type === 'Income' ? 'text-success-color' : 'text-danger-color'}`}>{tx.type === 'Income' ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}</td>
-                        <td className="px-4 py-2">{tx.type}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div key={group.month} className="mb-10">
+                {/* Header del mes */}
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-lg font-semibold text-text-primary">
+                    {new Date(group.month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
+                  </h2>
+                  <span className="text-success-color font-bold">
+                    Total: {getMonthTotal(group.transactions) >= 0 ? '+' : ''}{formatCurrency(getMonthTotal(group.transactions))}
+                  </span>
+                </div>
+                {/* Cards de transacciones */}
+                <div className="flex flex-col gap-3 bg-card-bg rounded-2xl p-4">
+                  {group.transactions.map(tx => (
+                    <div key={tx.id} className="flex items-center justify-between rounded-xl px-4 py-3 shadow-sm bg-secondary-bg hover:bg-secondary-bg/80 transition-all">
+                      {/* Icono y descripción */}
+                      <div className="flex items-center gap-4">
+                        <span className="text-2xl">
+                          {getCategoryIcon(tx.category)}
+                        </span>
+                        <div>
+                          <div className="font-medium text-text-primary text-base">
+                            {tx.description}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs px-2 py-1 rounded bg-background-color text-text-secondary">
+                              {tx.category}
+                            </span>
+                            <span className="text-xs text-text-secondary">
+                              {new Date(tx.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Monto y método de pago */}
+                      <div className="flex flex-col items-end">
+                        <span className={`font-bold text-base ${tx.type === 'Income' ? 'text-success-color' : 'text-danger-color'}`}>
+                          {tx.type === 'Income' ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
+                        </span>
+                        <span className="text-xs mt-1 px-2 py-1 rounded bg-background-color text-text-secondary">
+                          {tx.payment_method}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))
           )}
