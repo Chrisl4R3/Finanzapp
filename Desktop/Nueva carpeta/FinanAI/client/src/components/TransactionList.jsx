@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useCurrency } from '../context/CurrencyContext';
 import { 
   FiDollarSign, 
@@ -82,6 +82,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     assignToGoal: false,
     goal_id: ''
   });
+  const [groupedTransactions, setGroupedTransactions] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
 
   // Calcular resumen de transacciones
   const transactionSummary = transactions.reduce((summary, transaction) => {
@@ -377,6 +379,41 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     };
     return icons[category] || '💰';
   };
+
+  // Nuevo: cargar agrupadas por mes y categoría
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchGroupedTransactions();
+      fetchGoals();
+    }
+  }, [isAuthenticated, selectedCategory]);
+
+  const fetchGroupedTransactions = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      let url = '/transactions/grouped';
+      if (selectedCategory) {
+        url += `?category=${encodeURIComponent(selectedCategory)}`;
+      }
+      const response = await authenticatedFetch(url);
+      const data = await response.json();
+      setGroupedTransactions(data);
+    } catch (err) {
+      setError('Error al cargar transacciones agrupadas: ' + err.message);
+      console.error('Error detallado:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // UI para filtro de categoría
+  const allCategories = useMemo(() => {
+    return [
+      ...CATEGORIES.Income,
+      ...CATEGORIES.Expense
+    ];
+  }, []);
 
   if (isLoading) {
     return (
@@ -690,6 +727,66 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
           </form>
           </div>
         )}
+
+      {/* Filtro de categoría */}
+      <div className="mb-4 flex items-center gap-4">
+        <label className="text-sm text-text-secondary">Filtrar por categoría:</label>
+        <select
+          className="p-2 rounded border border-border-color bg-secondary-bg text-text-primary"
+          value={selectedCategory}
+          onChange={e => setSelectedCategory(e.target.value)}
+        >
+          <option value="">Todas</option>
+          {allCategories.map(cat => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Mostrar agrupadas por mes */}
+      {isLoading ? (
+        <div className="min-h-[40vh] flex items-center justify-center">
+          <FiLoader className="animate-spin w-8 h-8 text-accent-color" />
+        </div>
+      ) : error ? (
+        <div className="min-h-[40vh] flex items-center justify-center text-danger-color">{error}</div>
+      ) : (
+        <div>
+          {groupedTransactions.length === 0 ? (
+            <div className="text-center text-text-secondary py-8">No hay transacciones para mostrar.</div>
+          ) : (
+            groupedTransactions.map(group => (
+              <div key={group.month} className="mb-8">
+                <h2 className="text-xl font-bold text-accent-color mb-4">
+                  {new Date(group.month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
+                </h2>
+                <table className="min-w-full divide-y divide-border-color bg-card-bg rounded-xl shadow-lg overflow-hidden">
+                  <thead className="bg-secondary-bg">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-text-secondary">Fecha</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-text-secondary">Descripción</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-text-secondary">Categoría</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-text-secondary">Monto</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-text-secondary">Tipo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-color">
+                    {group.transactions.map(tx => (
+                      <tr key={tx.id}>
+                        <td className="px-4 py-2">{new Date(tx.date).toLocaleDateString('es-ES')}</td>
+                        <td className="px-4 py-2">{tx.description}</td>
+                        <td className="px-4 py-2">{tx.category}</td>
+                        <td className={`px-4 py-2 ${tx.type === 'Income' ? 'text-success-color' : 'text-danger-color'}`}>{tx.type === 'Income' ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}</td>
+                        <td className="px-4 py-2">{tx.type}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       {/* Lista de transacciones */}
       <div className="bg-card-bg rounded-xl shadow-lg overflow-hidden">

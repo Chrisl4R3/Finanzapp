@@ -358,4 +358,44 @@ router.get('/statistics', async (req, res) => {
   }
 });
 
+// Agrupar transacciones por mes y filtrar por categoría
+router.get('/grouped', async (req, res) => {
+  try {
+    const { category, type, month } = req.query;
+    let query = 'SELECT * FROM transactions WHERE user_id = ?';
+    const params = [req.userId];
+
+    if (category) {
+      query += ' AND category = ?';
+      params.push(category);
+    }
+    if (type) {
+      query += ' AND type = ?';
+      params.push(type);
+    }
+    if (month) {
+      query += " AND DATE_FORMAT(date, '%Y-%m') = ?";
+      params.push(month);
+    }
+    query += ' ORDER BY date DESC';
+
+    const [transactions] = await pool.query(query, params);
+
+    // Agrupar por mes
+    const grouped = {};
+    transactions.forEach(tx => {
+      const monthKey = tx.date ? tx.date.toISOString().slice(0, 7) : '';
+      if (!grouped[monthKey]) grouped[monthKey] = [];
+      grouped[monthKey].push(tx);
+    });
+    const result = Object.entries(grouped).map(([month, transactions]) => ({ month, transactions }));
+    // Ordenar por mes descendente
+    result.sort((a, b) => b.month.localeCompare(a.month));
+    res.json(result);
+  } catch (error) {
+    console.error('Error al agrupar transacciones:', error);
+    res.status(500).json({ message: 'Error al agrupar transacciones' });
+  }
+});
+
 export default router; 
