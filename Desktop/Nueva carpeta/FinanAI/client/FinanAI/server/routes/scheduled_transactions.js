@@ -31,6 +31,21 @@ router.post('/', async (req, res) => {
       end_date
     } = req.body;
 
+    // Validaciones básicas
+    if (!description || !amount || !type || !category || !payment_method || !frequency || !start_date) {
+      return res.status(400).json({ message: 'Todos los campos obligatorios deben estar completos.' });
+    }
+    if (isNaN(Number(amount)) || Number(amount) <= 0) {
+      return res.status(400).json({ message: 'El monto debe ser un número mayor a 0.' });
+    }
+    if (!['Income', 'Expense'].includes(type)) {
+      return res.status(400).json({ message: 'El tipo debe ser Income o Expense.' });
+    }
+    if (!['Daily', 'Weekly', 'Monthly', 'Yearly'].includes(frequency)) {
+      return res.status(400).json({ message: 'La frecuencia no es válida.' });
+    }
+    // Puedes agregar más validaciones según tus categorías y métodos de pago permitidos
+
     // Calcular next_execution basado en start_date
     const next_execution = new Date(start_date);
 
@@ -39,7 +54,7 @@ router.post('/', async (req, res) => {
        (user_id, description, amount, type, category, payment_method, 
         frequency, start_date, end_date, next_execution) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.userId, description, amount, type, category, payment_method, 
+      [req.userId, description, Number(amount), type, category, payment_method, 
        frequency, start_date, end_date, next_execution]
     );
 
