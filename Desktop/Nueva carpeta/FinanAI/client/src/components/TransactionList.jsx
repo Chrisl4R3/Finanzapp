@@ -84,6 +84,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   });
   const [groupedTransactions, setGroupedTransactions] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [searchTermGlobal, setSearchTermGlobal] = useState('');
 
   // Calcular resumen de transacciones
   const transactionSummary = transactions.reduce((summary, transaction) => {
@@ -423,6 +425,29 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     }, 0);
   };
 
+  // Obtener meses únicos de groupedTransactions
+  const availableMonths = useMemo(() => groupedTransactions.map(g => g.month), [groupedTransactions]);
+
+  // Filtrar por mes
+  const filteredByMonth = useMemo(() => {
+    if (!selectedMonth) return groupedTransactions;
+    return groupedTransactions.filter(g => g.month === selectedMonth);
+  }, [groupedTransactions, selectedMonth]);
+
+  // Filtrar por búsqueda global
+  const filterTransactions = (transactions) => {
+    if (!searchTermGlobal.trim()) return transactions;
+    const term = searchTermGlobal.toLowerCase();
+    return transactions.filter(tx =>
+      (tx.description && tx.description.toLowerCase().includes(term)) ||
+      (tx.category && tx.category.toLowerCase().includes(term)) ||
+      (tx.payment_method && tx.payment_method.toLowerCase().includes(term)) ||
+      (tx.type && tx.type.toLowerCase().includes(term)) ||
+      (String(tx.amount).includes(term)) ||
+      (tx.date && new Date(tx.date).toLocaleDateString('es-ES').toLowerCase().includes(term))
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -477,24 +502,33 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Filtro de categoría arriba a la derecha */}
-      <div className="flex justify-end mb-6">
+      {/* Barra de búsqueda y filtro de mes */}
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+        <input
+          type="text"
+          className="w-full md:w-1/2 p-2 rounded border border-border-color bg-secondary-bg text-text-primary"
+          placeholder="Buscar por cualquier dato..."
+          value={searchTermGlobal}
+          onChange={e => setSearchTermGlobal(e.target.value)}
+        />
         <div className="flex items-center gap-2">
-          <label className="text-sm text-text-secondary">Categoría:</label>
+          <label className="text-sm text-text-secondary">Mes:</label>
           <select
             className="p-2 rounded border border-border-color bg-secondary-bg text-text-primary"
-            value={selectedCategory}
-            onChange={e => setSelectedCategory(e.target.value)}
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
           >
-            <option value="">Todas</option>
-            {allCategories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
+            <option value="">Todos</option>
+            {availableMonths.map(month => (
+              <option key={month} value={month}>
+                {new Date(month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
+              </option>
             ))}
           </select>
         </div>
       </div>
 
-      {/* Mostrar agrupadas por mes */}
+      {/* Mostrar agrupadas por mes (filtradas) */}
       {isLoading ? (
         <div className="min-h-[40vh] flex items-center justify-center">
           <FiLoader className="animate-spin w-8 h-8 text-accent-color" />
@@ -503,57 +537,61 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         <div className="min-h-[40vh] flex items-center justify-center text-danger-color">{error}</div>
       ) : (
         <div>
-          {groupedTransactions.length === 0 ? (
+          {filteredByMonth.length === 0 ? (
             <div className="text-center text-text-secondary py-8">No hay transacciones para mostrar.</div>
           ) : (
-            groupedTransactions.map(group => (
-              <div key={group.month} className="mb-10">
-                {/* Header del mes */}
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-lg font-semibold text-text-primary">
-                    {new Date(group.month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
-                  </h2>
-                  <span className="text-success-color font-bold">
-                    Total: {getMonthTotal(group.transactions) >= 0 ? '+' : ''}{formatCurrency(getMonthTotal(group.transactions))}
-                  </span>
-                </div>
-                {/* Cards de transacciones */}
-                <div className="flex flex-col gap-3 bg-card-bg rounded-2xl p-4">
-                  {group.transactions.map(tx => (
-                    <div key={tx.id} className="flex items-center justify-between rounded-xl px-4 py-3 shadow-sm bg-secondary-bg hover:bg-secondary-bg/80 transition-all">
-                      {/* Icono y descripción */}
-                      <div className="flex items-center gap-4">
-                        <span className="text-2xl">
-                          {getCategoryIcon(tx.category)}
-                        </span>
-                        <div>
-                          <div className="font-medium text-text-primary text-base">
-                            {tx.description}
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs px-2 py-1 rounded bg-background-color text-text-secondary">
-                              {tx.category}
-                            </span>
-                            <span className="text-xs text-text-secondary">
-                              {new Date(tx.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-                            </span>
+            filteredByMonth.map(group => {
+              const filteredTxs = filterTransactions(group.transactions);
+              if (filteredTxs.length === 0) return null;
+              return (
+                <div key={group.month} className="mb-10">
+                  {/* Header del mes */}
+                  <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-lg font-semibold text-text-primary">
+                      {new Date(group.month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
+                    </h2>
+                    <span className="text-success-color font-bold">
+                      Total: {getMonthTotal(filteredTxs) >= 0 ? '+' : ''}{formatCurrency(getMonthTotal(filteredTxs))}
+                    </span>
+                  </div>
+                  {/* Cards de transacciones */}
+                  <div className="flex flex-col gap-3 bg-card-bg rounded-2xl p-4">
+                    {filteredTxs.map(tx => (
+                      <div key={tx.id} className="flex items-center justify-between rounded-xl px-4 py-3 shadow-sm bg-secondary-bg hover:bg-secondary-bg/80 transition-all">
+                        {/* Icono y descripción */}
+                        <div className="flex items-center gap-4">
+                          <span className="text-2xl">
+                            {getCategoryIcon(tx.category)}
+                          </span>
+                          <div>
+                            <div className="font-medium text-text-primary text-base">
+                              {tx.description}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs px-2 py-1 rounded bg-background-color text-text-secondary">
+                                {tx.category}
+                              </span>
+                              <span className="text-xs text-text-secondary">
+                                {new Date(tx.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                              </span>
+                            </div>
                           </div>
                         </div>
+                        {/* Monto y método de pago */}
+                        <div className="flex flex-col items-end">
+                          <span className={`font-bold text-base ${tx.type === 'Income' ? 'text-success-color' : 'text-danger-color'}`}>
+                            {tx.type === 'Income' ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
+                          </span>
+                          <span className="text-xs mt-1 px-2 py-1 rounded bg-background-color text-text-secondary">
+                            {tx.payment_method}
+                          </span>
+                        </div>
                       </div>
-                      {/* Monto y método de pago */}
-                      <div className="flex flex-col items-end">
-                        <span className={`font-bold text-base ${tx.type === 'Income' ? 'text-success-color' : 'text-danger-color'}`}>
-                          {tx.type === 'Income' ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
-                        </span>
-                        <span className="text-xs mt-1 px-2 py-1 rounded bg-background-color text-text-secondary">
-                          {tx.payment_method}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
