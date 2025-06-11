@@ -17,8 +17,14 @@ const __dirname = dirname(__filename);
 
 // Configuración de CORS
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:4173', 'https://backend-production-cf437.up.railway.app'],
-  credentials: true
+  origin: [
+    'http://localhost:5173',
+    'https://frontend-production-df22.up.railway.app',
+    'https://backend-production-cf437.up.railway.app'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
 // Middleware para parsear JSON
@@ -48,6 +54,11 @@ app.use('/api/scheduled-transactions', scheduledTransactionsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/goals', goalsRouter);
 app.use('/api/notifications', notificationsRouter);
+
+// Endpoint temporal para probar CORS
+app.get('/cors-test', (req, res) => {
+  res.json({ message: 'CORS funcionando correctamente' });
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
