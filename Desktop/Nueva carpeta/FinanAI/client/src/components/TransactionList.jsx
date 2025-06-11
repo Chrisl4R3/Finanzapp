@@ -510,24 +510,6 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
           <FiPlusCircle className="text-xl" />
           <span>Agregar Transacción</span>
         </button>
-        {/* Modal de formulario de transacción */}
-        {showForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-card-bg rounded-2xl p-6 shadow-lg max-w-lg w-full relative">
-              <button
-                className="absolute top-4 right-4 text-text-secondary hover:text-danger-color text-xl"
-                onClick={() => setShowForm(false)}
-              >
-                ×
-              </button>
-              <TransactionForm
-                onSubmit={handleSubmit}
-                onCancel={() => setShowForm(false)}
-                initialData={editingTransaction}
-              />
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -677,6 +659,23 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
               );
             })
           )}
+        </div>
+      )}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-card-bg rounded-2xl p-6 shadow-lg max-w-lg w-full relative">
+            <button
+              className="absolute top-4 right-4 text-text-secondary hover:text-danger-color text-xl"
+              onClick={() => setShowForm(false)}
+            >
+              ×
+            </button>
+            <TransactionForm
+              onSubmit={handleSubmit}
+              onCancel={() => setShowForm(false)}
+              initialData={editingTransaction}
+            />
+          </div>
         </div>
       )}
     </div>
