@@ -164,22 +164,30 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (dataOrEvent) => {
+    let data;
+    if (dataOrEvent && dataOrEvent.preventDefault) {
+      // Llamado desde un submit tradicional (no debería pasar)
+      dataOrEvent.preventDefault();
+      data = formData;
+    } else {
+      // Llamado desde TransactionForm pasando los datos
+      data = dataOrEvent;
+    }
     try {
       setIsLoading(true);
       setError(null);
 
       // Validaciones básicas
-      if (!formData.type || !formData.category || !formData.amount || !formData.description || !formData.payment_method) {
+      if (!data.type || !data.category || !data.amount || !data.description || !data.payment_method) {
         throw new Error('Todos los campos son requeridos');
       }
 
-      if (formData.assignToGoal && !formData.goal_id) {
+      if (data.assignToGoal && !data.goal_id) {
         throw new Error('Debes seleccionar una meta');
-        }
+      }
 
-      const amount = parseFloat(formData.amount);
+      const amount = parseFloat(data.amount);
       if (isNaN(amount) || amount <= 0) {
         throw new Error('El monto debe ser un número positivo');
       }
@@ -191,29 +199,29 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       const method = editingTransaction ? 'PUT' : 'POST';
 
       const requestData = {
-        type: formData.type,
-        category: formData.category,
+        type: data.type,
+        category: data.category,
         amount: amount,
-        date: formData.date,
-        description: formData.description,
-        payment_method: formData.payment_method,
-        status: formData.status,
-        assignToGoal: formData.assignToGoal,
-        goal_id: formData.assignToGoal ? formData.goal_id : null
+        date: data.date,
+        description: data.description,
+        payment_method: data.payment_method,
+        status: data.status || 'Completed',
+        assignToGoal: data.assignToGoal,
+        goal_id: data.assignToGoal ? data.goal_id : null
       };
 
       const response = await authenticatedFetch(endpoint, {
         method,
-          headers: {
+        headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestData)
-        });
+      });
 
-        if (!response.ok) {
+      if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Error al guardar la transacción');
-        }
+      }
 
       // Limpiar formulario y actualizar lista
       setFormData({
@@ -234,20 +242,17 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       });
       setShowForm(false);
       setEditingTransaction(null);
-      
-      // Actualizar tanto las transacciones como las metas
       await Promise.all([
         fetchTransactions(),
         fetchGoals()
       ]);
-
-      } catch (err) {
+    } catch (err) {
       console.error('Error completo:', err);
       setError('Error al guardar la transacción: ' + err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleDelete = async (id) => {
     const result = await Swal.fire({
@@ -565,12 +570,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
               ×
             </button>
             <TransactionForm
-              onSubmit={async (data) => {
-                await handleSubmit({
-                  preventDefault: () => {},
-                  target: { ...data }
-                });
-              }}
+              onSubmit={handleSubmit}
               onCancel={() => setShowForm(false)}
               initialData={editingTransaction}
             />
