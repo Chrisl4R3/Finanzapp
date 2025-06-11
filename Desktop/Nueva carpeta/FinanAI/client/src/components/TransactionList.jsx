@@ -244,7 +244,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       setEditingTransaction(null);
       await Promise.all([
         fetchTransactions(),
-        fetchGoals()
+        fetchGoals(),
+        fetchGroupedTransactions()
       ]);
     } catch (err) {
       console.error('Error completo:', err);
@@ -483,13 +484,50 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
             Comienza a registrar tus ingresos y gastos para tener un mejor control de tus finanzas.
           </p>
         </div>
-        <Link
-          to="/transactions"
+        <button
           className="flex items-center gap-2 px-6 py-3 bg-accent-color hover:bg-accent-color-darker text-white rounded-xl transition-all duration-300 hover:scale-105"
+          onClick={() => {
+            setShowForm(true);
+            setEditingTransaction(null);
+            setFormData({
+              type: 'Expense',
+              category: '',
+              amount: '',
+              description: '',
+              payment_method: 'Efectivo',
+              date: new Date().toISOString().split('T')[0],
+              status: 'Completed',
+              schedule: null,
+              recurrence: '',
+              is_scheduled: 0,
+              end_date: null,
+              parent_transaction_id: null,
+              assignToGoal: false,
+              goal_id: ''
+            });
+          }}
         >
           <FiPlusCircle className="text-xl" />
           <span>Agregar Transacción</span>
-        </Link>
+        </button>
+        {/* Modal de formulario de transacción */}
+        {showForm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="bg-card-bg rounded-2xl p-6 shadow-lg max-w-lg w-full relative">
+              <button
+                className="absolute top-4 right-4 text-text-secondary hover:text-danger-color text-xl"
+                onClick={() => setShowForm(false)}
+              >
+                ×
+              </button>
+              <TransactionForm
+                onSubmit={handleSubmit}
+                onCancel={() => setShowForm(false)}
+                initialData={editingTransaction}
+              />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -558,25 +596,6 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
           </button>
         </div>
       </div>
-
-      {/* Modal de formulario de transacción */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-card-bg rounded-2xl p-6 shadow-lg max-w-lg w-full relative">
-            <button
-              className="absolute top-4 right-4 text-text-secondary hover:text-danger-color text-xl"
-              onClick={() => setShowForm(false)}
-            >
-              ×
-            </button>
-            <TransactionForm
-              onSubmit={handleSubmit}
-              onCancel={() => setShowForm(false)}
-              initialData={editingTransaction}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Mostrar agrupadas por mes (filtradas) */}
       {isLoading ? (
