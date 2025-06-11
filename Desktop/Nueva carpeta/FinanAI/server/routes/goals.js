@@ -33,6 +33,11 @@ router.post('/:id/contribute', async (req, res) => {
 
     let newProgress = parseFloat(goal.progress || 0) + parseFloat(amount);
     console.log('Nuevo progreso calculado:', newProgress);
+
+    // Nueva validación: solo rechazar si el abono es mayor al objetivo total
+    if (parseFloat(amount) > parseFloat(goal.target_amount)) {
+      return res.status(400).json({ message: `El monto no puede ser mayor al objetivo de la meta (${goal.target_amount})` });
+    }
     
     try {
       // Redondear newProgress a dos decimales para ajustarse al tipo decimal(10,2) de la BD

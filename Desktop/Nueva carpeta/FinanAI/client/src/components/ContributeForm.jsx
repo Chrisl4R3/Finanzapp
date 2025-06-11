@@ -27,9 +27,8 @@ const ContributeForm = ({ goal, onSubmit, onClose }) => {
         throw new Error('Por favor ingresa un monto válido');
       }
 
-      const remainingAmount = goal.target_amount - goal.progress;
-      if (numAmount > remainingAmount) {
-        throw new Error(`El monto no puede ser mayor a ${formatCurrency(remainingAmount)}`);
+      if (numAmount > goal.target_amount) {
+        throw new Error(`El monto no puede ser mayor al objetivo de la meta (${formatCurrency(goal.target_amount)})`);
       }
 
       await onSubmit(numAmount, isDirectContribution);
