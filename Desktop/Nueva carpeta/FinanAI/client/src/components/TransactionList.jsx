@@ -577,14 +577,29 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
                             </div>
                           </div>
                         </div>
-                        {/* Monto y método de pago */}
-                        <div className="flex flex-col items-end">
+                        {/* Monto, método de pago y acciones */}
+                        <div className="flex flex-col items-end gap-2 min-w-[120px]">
                           <span className={`font-bold text-base ${tx.type === 'Income' ? 'text-success-color' : 'text-danger-color'}`}>
                             {tx.type === 'Income' ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
                           </span>
                           <span className="text-xs mt-1 px-2 py-1 rounded bg-background-color text-text-secondary">
                             {tx.payment_method}
                           </span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <button
+                              onClick={() => handleEdit(tx)}
+                              className="text-xs text-accent-color hover:text-accent-color-darker transition-colors"
+                            >
+                              Editar
+                            </button>
+                            <span className="text-border-color">|</span>
+                            <button
+                              onClick={() => handleDelete(tx.id)}
+                              className="text-xs text-danger-color hover:text-danger-color-darker transition-colors"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -595,202 +610,6 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
           )}
         </div>
       )}
-
-      {/* Lista de transacciones */}
-      <div className="bg-card-bg rounded-xl shadow-lg overflow-hidden">
-      <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-border-color">
-            <thead className="bg-secondary-bg">
-              <tr>
-                <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Fecha</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Descripción</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Categoría</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Monto</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Tipo</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Acciones</th>
-            </tr>
-          </thead>
-            <tbody className="divide-y divide-border-color">
-            {currentItems.map((transaction) => (
-              <tr key={transaction.id} className="hover:bg-secondary-bg/50 transition-all duration-300">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-text-primary">
-                        {formatDate(new Date(transaction.date))}
-                      </span>
-                      <span className="text-xs text-text-secondary">
-                        {new Date(transaction.date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{getCategoryIcon(transaction.category)}</span>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-text-primary">{transaction.description}</span>
-                        <span className="text-xs text-text-secondary">{transaction.payment_method}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-secondary-bg text-text-primary">
-                      {transaction.category}
-                    </span>
-                </td>
-                  <td className={`px-6 py-4 text-sm font-medium ${
-                    transaction.type === 'Income' ? 'text-success-color' : 'text-danger-color'
-                }`}>
-                    {transaction.type === 'Income' ? '+' : '-'}
-                  {formatCurrency(Math.abs(transaction.amount))}
-                </td>
-                  <td className="px-6 py-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      transaction.type === 'Income' 
-                      ? 'bg-success-color/10 text-success-color' 
-                      : 'bg-danger-color/10 text-danger-color'
-                  }`}>
-                      {transaction.type === 'Income' ? 'Ingreso' : 'Gasto'}
-                  </span>
-                </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleEdit(transaction)}
-                        className="text-sm text-accent-color hover:text-accent-color-darker transition-colors"
-                      >
-                    Editar
-                  </button>
-                      <span className="text-border-color">|</span>
-                      <button
-                        onClick={() => handleDelete(transaction.id)}
-                        className="text-sm text-danger-color hover:text-danger-color-darker transition-colors"
-                      >
-                    Eliminar
-                  </button>
-                    </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-      </div>
-
-        {/* Mensaje cuando no hay resultados en la búsqueda */}
-        {filteredTransactions.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-text-secondary">No se encontraron transacciones que coincidan con los filtros.</p>
-          </div>
-        )}
-
-        {/* Paginación */}
-        {filteredTransactions.length > 0 && (
-          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
-            <div className="flex items-center gap-2 text-text-secondary text-sm">
-              <span>Mostrar</span>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="bg-secondary-bg border-none rounded-lg px-2 py-1 focus:ring-2 focus:ring-accent-color"
-              >
-                <option value={6}>6</option>
-                <option value={12}>12</option>
-                <option value={24}>24</option>
-                <option value={48}>48</option>
-              </select>
-              <span>por página</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <p className="text-sm text-text-secondary">
-                Mostrando {indexOfFirstItem + 1} a {Math.min(indexOfLastItem, filteredTransactions.length)} de {filteredTransactions.length} transacciones
-              </p>
-              
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => paginate(1)}
-                  disabled={currentPage === 1}
-                  className={`p-2 rounded-lg transition-all duration-300 ${
-                    currentPage === 1
-                      ? 'text-text-secondary cursor-not-allowed'
-                      : 'hover:bg-accent-color/10 text-text-primary'
-                  }`}
-                >
-                  <FiChevronsLeft className="w-4 h-4" />
-                </button>
-                
-                <button
-                  onClick={() => paginate(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className={`p-2 rounded-lg transition-all duration-300 ${
-                    currentPage === 1
-                      ? 'text-text-secondary cursor-not-allowed'
-                      : 'hover:bg-accent-color/10 text-text-primary'
-                  }`}
-                >
-                  <FiChevronLeft className="w-4 h-4" />
-                </button>
-
-                {/* Números de página */}
-                <div className="flex items-center gap-1">
-                  {[...Array(Math.min(3, totalPages))].map((_, index) => {
-                    let pageNumber;
-                    if (totalPages <= 3) {
-                      pageNumber = index + 1;
-                    } else if (currentPage <= 2) {
-                      pageNumber = index + 1;
-                    } else if (currentPage >= totalPages - 1) {
-                      pageNumber = totalPages - 2 + index;
-                    } else {
-                      pageNumber = currentPage - 1 + index;
-                    }
-
-                    return (
-                      <button
-                        key={pageNumber}
-                        onClick={() => paginate(pageNumber)}
-                        className={`w-8 h-8 rounded-lg transition-all duration-300 ${
-                          currentPage === pageNumber
-                            ? 'bg-accent-color text-white'
-                            : 'hover:bg-accent-color/10 text-text-primary'
-                        }`}
-                      >
-                        {pageNumber}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  onClick={() => paginate(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className={`p-2 rounded-lg transition-all duration-300 ${
-                    currentPage === totalPages
-                      ? 'text-text-secondary cursor-not-allowed'
-                      : 'hover:bg-accent-color/10 text-text-primary'
-                  }`}
-                >
-                  <FiChevronRight className="w-4 h-4" />
-                </button>
-
-                <button
-                  onClick={() => paginate(totalPages)}
-                  disabled={currentPage === totalPages}
-                  className={`p-2 rounded-lg transition-all duration-300 ${
-                    currentPage === totalPages
-                      ? 'text-text-secondary cursor-not-allowed'
-                      : 'hover:bg-accent-color/10 text-text-primary'
-                  }`}
-                >
-                  <FiChevronsRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
     </div>
   );
 };
