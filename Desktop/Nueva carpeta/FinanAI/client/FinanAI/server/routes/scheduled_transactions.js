@@ -1,7 +1,10 @@
 import express from 'express';
 import pool from '../config/db.js';
+import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
+
+router.use(verifyToken);
 
 // Obtener todas las transacciones programadas
 router.get('/', async (req, res) => {
