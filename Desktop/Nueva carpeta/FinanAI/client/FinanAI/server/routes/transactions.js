@@ -119,16 +119,10 @@ router.post('/', async (req, res) => {
 
       const goal = goals[0];
       
-      // Validar que no exceda el monto objetivo de la meta
-      const [currentProgress] = await connection.query(
-        'SELECT COALESCE(SUM(amount), 0) as current_amount FROM transactions WHERE goal_id = ?',
-        [goal_id]
-      );
-      
-      const totalAfterContribution = Number(currentProgress[0].current_amount) + Number(amount);
-      if (totalAfterContribution > goal.target_amount) {
+      // Validar que el abono individual no sea mayor al objetivo de la meta
+      if (Number(amount) > goal.target_amount) {
         return res.status(400).json({ 
-          message: 'El monto excede el objetivo de la meta' 
+          message: `El monto no puede ser mayor al objetivo de la meta (${goal.target_amount})` 
         });
       }
     }
