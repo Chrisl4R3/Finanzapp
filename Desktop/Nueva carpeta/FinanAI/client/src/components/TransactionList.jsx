@@ -22,6 +22,7 @@ import { Link } from 'react-router-dom';
 import { authenticatedFetch } from '../auth/auth';
 import { useAuth } from '../contexts/AuthContext';
 import Swal from 'sweetalert2';
+import TransactionForm from './TransactionForm';
 // ... rest of imports ...
 
 const CATEGORIES = {
@@ -502,7 +503,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Barra de búsqueda y filtro de mes */}
+      {/* Barra de búsqueda, filtro de mes y botón agregar */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <input
           type="text"
@@ -525,8 +526,57 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
               </option>
             ))}
           </select>
+          <button
+            className="flex items-center gap-2 px-4 py-2 bg-accent-color text-white rounded-lg hover:bg-accent-color-darker transition-colors ml-2"
+            onClick={() => {
+              setShowForm(true);
+              setEditingTransaction(null);
+              setFormData({
+                type: 'Expense',
+                category: '',
+                amount: '',
+                description: '',
+                payment_method: 'Efectivo',
+                date: new Date().toISOString().split('T')[0],
+                status: 'Completed',
+                schedule: null,
+                recurrence: '',
+                is_scheduled: 0,
+                end_date: null,
+                parent_transaction_id: null,
+                assignToGoal: false,
+                goal_id: ''
+              });
+            }}
+          >
+            <FiPlus /> Nueva transacción
+          </button>
         </div>
       </div>
+
+      {/* Modal de formulario de transacción */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-card-bg rounded-2xl p-6 shadow-lg max-w-lg w-full relative">
+            <button
+              className="absolute top-4 right-4 text-text-secondary hover:text-danger-color text-xl"
+              onClick={() => setShowForm(false)}
+            >
+              ×
+            </button>
+            <TransactionForm
+              onSubmit={async (data) => {
+                await handleSubmit({
+                  preventDefault: () => {},
+                  target: { ...data }
+                });
+              }}
+              onCancel={() => setShowForm(false)}
+              initialData={editingTransaction}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Mostrar agrupadas por mes (filtradas) */}
       {isLoading ? (
