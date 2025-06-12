@@ -17,15 +17,29 @@ const __dirname = dirname(__filename);
 
 // Configuración de CORS
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://frontend-production-df22.up.railway.app',
-    'https://backend-production-cf437.up.railway.app'
-  ],
+  origin: function (origin, callback) {
+    if (!origin || origin === 'https://frontend-production-df22.up.railway.app') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 600,
+  preflightContinue: false
 }));
+
+// Configuración adicional para Railway
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://frontend-production-df22.up.railway.app');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  next();
+});
 
 // Middleware para parsear JSON
 app.use(express.json());

@@ -1,10 +1,7 @@
 const API_URL = 'https://backend-production-cf437.up.railway.app/api';
-const REFRESH_TOKEN_KEY = 'refreshToken';
-const ACCESS_TOKEN_KEY = 'authToken';
 
 // Función auxiliar para obtener el token
-const getStoredToken = () => localStorage.getItem(ACCESS_TOKEN_KEY);
-const getStoredRefreshToken = () => localStorage.getItem(REFRESH_TOKEN_KEY);
+const getStoredToken = () => localStorage.getItem('authToken');
 
 // Función auxiliar para configurar headers
 const getAuthHeaders = () => {
@@ -15,155 +12,42 @@ const getAuthHeaders = () => {
   };
 };
 
-// Función para refrescar el token
-const refreshToken = async () => {
+export const login = async (credentials) => {
   try {
-    const refreshToken = getStoredRefreshToken();
-    if (!refreshToken) {
-      throw new Error('No hay token de refresco disponible');
-    }
-
-    const response = await fetch(`${API_URL}/auth/refresh`, {
+    const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       credentials: 'include',
-      body: JSON.stringify({ refreshToken }),
+      body: JSON.stringify(credentials),
     });
 
     if (!response.ok) {
-      throw new Error('Error al refrescar el token');
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Error en la autenticación');
     }
 
     const data = await response.json();
     if (data.token) {
-      localStorage.setItem(ACCESS_TOKEN_KEY, data.token);
-      return data.token;
+      localStorage.setItem('authToken', data.token);
+      console.log('Token guardado:', data.token);
     }
-    return null;
+    return data;
   } catch (error) {
-    console.error('Error al refrescar token:', error);
-    return null;
+    console.error('Error en login:', error);
+    throw error;
   }
 };
 
-export const isAuthenticated = async () => {
+export const register = async (userData) => {
   try {
-    const token = getStoredToken();
-    if (!token) {
-      return false;
-    }
-
-    // Intentar obtener el usuario actual
-    const response = await fetch(`${API_URL}/auth/verify`, {
-      method: 'GET',
-      headers: getAuthHeaders(),
-      credentials: 'include',
-    });
-
-    if (response.status === 401) {
-      // Intentar refrescar el token
-      const newToken = await refreshToken();
-      if (newToken) {
-        // Reintentar la verificación con el nuevo token
-        const newResponse = await fetch(`${API_URL}/auth/verify`, {
-          method: 'GET',
-          headers: { ...getAuthHeaders(), 'Authorization': `Bearer ${newToken}` },
-          credentials: 'include',
-        });
-        return newResponse.ok;
-      }
-      return false;
-    }
-
-    return response.ok;
-  } catch (error) {
-    console.error('Error verificando autenticación:', error);
-    return false;
-  }
-};
-
-export const logout = async () => {
-  try {
-    // Primero intentar cerrar sesión en el backend
-    const response = await fetch(`${API_URL}/auth/logout`, {
+    const response = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: {
+        'Content-Type': 'application/json',
+      },
       credentials: 'include',
-    });
-
-    // Limpiar tokens y datos locales
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-    sessionStorage.clear();
-    localStorage.clear();
-    
-    return response.ok;
-  } catch (error) {
-    console.error('Error al cerrar sesión:', error);
-    // Aún si hay error, limpiamos los datos locales
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-    sessionStorage.clear();
-    localStorage.clear();
-    throw error;
-  }
-};
-
-export const getCurrentUser = async () => {
-  try {
-    const response = await fetch(`${API_URL}/auth/user`, {
-      method: 'GET',
-      headers: getAuthHeaders(),
-      credentials: 'include',
-    });
-
-    if (response.status === 401) {
-      await refreshToken();
-      const newResponse = await fetch(`${API_URL}/auth/user`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-        credentials: 'include',
-      });
-      return newResponse.json();
-    }
-
-    return response.json();
-  } catch (error) {
-    console.error('Error obteniendo usuario:', error);
-    throw error;
-  }
-};
-
-// Función para manejar peticiones con autenticación
-export const authenticatedFetch = async (endpoint, options = {}) => {
-  const defaultOptions = {
-    credentials: 'include',
-    headers: getAuthHeaders()
-  };
-
-  const mergedOptions = { ...defaultOptions, ...options };
-
-  try {
-    const response = await fetch(`${API_URL}${endpoint}`, mergedOptions);
-
-    if (response.status === 401) {
-      // Intentar refrescar el token
-      const newToken = await refreshToken();
-      if (newToken) {
-        // Reintentar la petición con el nuevo token
-        const newOptions = { ...mergedOptions, headers: { ...mergedOptions.headers, 'Authorization': `Bearer ${newToken}` } };
-        return fetch(`${API_URL}${endpoint}`, newOptions);
-      }
-    }
-
-    return response;
-  } catch (error) {
-    console.error('Error en authenticatedFetch:', error);
-    throw error;
-  }
-};
       body: JSON.stringify(userData),
     });
 
