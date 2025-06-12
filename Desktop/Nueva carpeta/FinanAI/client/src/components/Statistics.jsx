@@ -567,56 +567,100 @@ const Statistics = () => {
         </div>
       </div>
 
-      {/* Días Más Activos */}
+      {/* Pronóstico Financiero */}
       <div className="grid grid-cols-1 gap-6">
         <div className="card p-6">
-          <h3 className="text-lg font-medium text-text-primary mb-4">Días con Mayor Actividad</h3>
+          <h3 className="text-lg font-medium text-text-primary mb-4">Pronóstico Financiero</h3>
           <div className="space-y-4">
-            {stats.mostActiveDays && stats.mostActiveDays.length > 0 ? (
-              (() => {
-                const processedDays = processTopDays(stats.mostActiveDays);
-                
-                if (processedDays.length === 0) {
-                  return (
-                    <div className="text-center py-8">
-                      <p className="text-text-secondary">No hay datos de actividad disponibles</p>
-                    </div>
-                  );
-                }
-
-                return processedDays.map((day, index) => (
-                  <div key={index} className="bg-secondary-bg rounded-lg p-4 hover:bg-opacity-80 transition-all duration-300">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-text-primary font-medium">
-                          {day.formattedDate}
-                        </p>
-                        <p className="text-text-secondary text-sm mt-1">
-                          {day.transactionCount} transacciones
-                        </p>
-                      </div>
-                      <span className={`${day.total >= 0 ? 'amount-positive' : 'amount-negative'} text-lg font-semibold`}>
-                        {formatCurrency(Math.abs(day.total))}
-                      </span>
-                    </div>
-                    <div className="mt-3 w-full bg-card-bg rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          day.total >= 0 ? 'bg-success-color' : 'bg-danger-color'
-                        }`}
-                        style={{
-                          width: `${(day.transactionCount / Math.max(...processedDays.map(d => d.transactionCount))) * 100}%`
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                ));
-              })()
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-text-secondary">No hay datos de actividad disponibles</p>
+            {/* Ingresos Proyectados */}
+            <div className="bg-secondary-bg rounded-lg p-4 hover:bg-opacity-80 transition-all duration-300">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-text-primary font-medium">Ingresos Proyectados</p>
+                  <p className="text-text-secondary text-sm mt-1">Proyección para el próximo mes</p>
+                </div>
+                <span className="amount-positive text-lg font-semibold">
+                  {formatCurrency(stats.forecast?.projected_income || 0)}
+                </span>
               </div>
-            )}
+              <div className="mt-3 w-full bg-card-bg rounded-full h-2">
+                <div
+                  className="h-2 rounded-full bg-success-color transition-all duration-300"
+                  style={{
+                    width: `${(stats.forecast?.projected_income / (stats.forecast?.avg_monthly_income || 1)) * 100}%`
+                  }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Gastos Proyectados */}
+            <div className="bg-secondary-bg rounded-lg p-4 hover:bg-opacity-80 transition-all duration-300">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-text-primary font-medium">Gastos Proyectados</p>
+                  <p className="text-text-secondary text-sm mt-1">Proyección para el próximo mes</p>
+                </div>
+                <span className="amount-negative text-lg font-semibold">
+                  {formatCurrency(stats.forecast?.projected_expense || 0)}
+                </span>
+              </div>
+              <div className="mt-3 w-full bg-card-bg rounded-full h-2">
+                <div
+                  className="h-2 rounded-full bg-danger-color transition-all duration-300"
+                  style={{
+                    width: `${(stats.forecast?.projected_expense / (stats.forecast?.avg_monthly_expense || 1)) * 100}%`
+                  }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Ahorro Proyectado */}
+            <div className="bg-secondary-bg rounded-lg p-4 hover:bg-opacity-80 transition-all duration-300">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-text-primary font-medium">Ahorro Proyectado</p>
+                  <p className="text-text-secondary text-sm mt-1">Diferencia entre ingresos y gastos</p>
+                </div>
+                <span className={`${stats.forecast?.projected_savings >= 0 ? 'amount-positive' : 'amount-negative'} text-lg font-semibold`}>
+                  {formatCurrency(stats.forecast?.projected_savings || 0)}
+                </span>
+              </div>
+              <div className="mt-3 w-full bg-card-bg rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    stats.forecast?.projected_savings >= 0 ? 'bg-success-color' : 'bg-danger-color'
+                  }`}
+                  style={{
+                    width: `${(Math.abs(stats.forecast?.projected_savings) / (stats.forecast?.avg_monthly_income || 1)) * 100}%`
+                  }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Promedios Mensuales */}
+            <div className="bg-secondary-bg rounded-lg p-4 hover:bg-opacity-80 transition-all duration-300">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-text-primary font-medium">Promedio Mensual de Ingresos</p>
+                  <p className="text-text-secondary text-sm mt-1">Promedio basado en datos históricos</p>
+                </div>
+                <span className="amount-positive text-lg font-semibold">
+                  {formatCurrency(stats.forecast?.avg_monthly_income || 0)}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-secondary-bg rounded-lg p-4 hover:bg-opacity-80 transition-all duration-300">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-text-primary font-medium">Promedio Mensual de Gastos</p>
+                  <p className="text-text-secondary text-sm mt-1">Promedio basado en datos históricos</p>
+                </div>
+                <span className="amount-negative text-lg font-semibold">
+                  {formatCurrency(stats.forecast?.avg_monthly_expense || 0)}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

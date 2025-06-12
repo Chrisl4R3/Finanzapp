@@ -365,12 +365,31 @@ router.get('/statistics', async (req, res) => {
       ORDER BY transaction_count DESC
     `, dateParams);
 
+    // Pronóstico de gastos y ahorros
+    const [forecast] = await pool.query(`
+      SELECT 
+        -- Promedio mensual de ingresos y gastos
+        COALESCE(AVG(CASE WHEN type = 'Income' THEN amount ELSE 0 END), 0) as avg_monthly_income,
+        COALESCE(AVG(CASE WHEN type = 'Expense' THEN amount ELSE 0 END), 0) as avg_monthly_expense,
+        -- Proyección para el próximo mes
+        COALESCE(SUM(CASE WHEN type = 'Income' THEN amount ELSE 0 END), 0) as projected_income,
+        COALESCE(SUM(CASE WHEN type = 'Expense' THEN amount ELSE 0 END), 0) as projected_expense,
+        -- Ahorro proyectado
+        COALESCE(SUM(CASE WHEN type = 'Income' THEN amount ELSE -amount END), 0) as projected_savings
+      FROM transactions
+      WHERE user_id = ? ${dateFilter}
+      GROUP BY DATE_FORMAT(date, '%Y-%m')
+      ORDER BY date DESC
+      LIMIT 1
+    `, dateParams);
+
     res.json({
       summary: summary[0],
       categoryAnalysis,
       monthlyTrends,
       paymentMethods,
-      topDays
+      topDays,
+      forecast: forecast[0]
     });
   } catch (error) {
     console.error('Error al obtener estadísticas:', error);
