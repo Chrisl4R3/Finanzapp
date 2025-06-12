@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/db.js';
 import { verifyToken } from '../middleware/auth.js';
+import { getUserBalance } from '../utils/balance.js';
 
 const router = express.Router();
 
@@ -104,6 +105,16 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ 
         message: `Método de pago inválido. Métodos válidos: ${validPaymentMethods.join(', ')}` 
       });
+    }
+
+    // Validar saldo disponible si es un gasto
+    if (type === 'Expense') {
+      const currentBalance = await getUserBalance(req.userId);
+      if (currentBalance < amount) {
+        return res.status(400).json({
+          message: `Saldo insuficiente. Su saldo actual es ${currentBalance} y está intentando gastar ${amount}`
+        });
+      }
     }
 
     // Si es una transacción asignada a meta, validar que la meta exista
