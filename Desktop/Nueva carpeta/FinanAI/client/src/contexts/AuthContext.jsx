@@ -34,13 +34,19 @@ export const AuthProvider = ({ children }) => {
 
   // Verificar la sesión periódicamente
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (isAuthenticated) {
+    let interval;
+    
+    if (isAuthenticated) {
+      interval = setInterval(() => {
         checkAuth();
-      }
-    }, 60000); // Verificar cada minuto
+      }, 60000); // Verificar cada minuto
+    }
 
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
   }, [isAuthenticated]);
 
   const login = (userData) => {

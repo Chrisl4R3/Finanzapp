@@ -15,6 +15,17 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Configuración de cache
+app.use((req, res, next) => {
+  if (req.method === 'GET') {
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+  }
+  next();
+});
+
+// Compresión de respuestas
+app.use(compression());
+
 // Configuración de CORS para Railway
 const corsOptions = {
   origin: function (origin, callback) {

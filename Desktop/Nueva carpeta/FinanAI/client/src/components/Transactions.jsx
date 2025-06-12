@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import TransactionList from './TransactionList';
 import ScheduledTransactions from './ScheduledTransactions';
 import { FiList, FiClock, FiPlus } from 'react-icons/fi';
+import Swal from 'sweetalert2';
 
 const CATEGORIES = {
   Income: ['Salario', 'Regalo', 'Otros-Ingreso'],
@@ -181,13 +182,15 @@ const Transactions = () => {
 
       const data = await response.json();
 
-      // Si hay saldo insuficiente, mostrar notificación y redirigir
+      // Si hay saldo insuficiente, mostrar SweetAlert y redirigir
       if (response.status === 400 && data.message === 'Saldo insuficiente') {
-        // Mostrar notificación
-        const notification = {
-          type: 'warning',
-          message: `No tienes suficiente saldo para este gasto. Saldo actual: ${data.currentBalance}`
-        };
+        // Mostrar SweetAlert
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Saldo insuficiente',
+          text: `No tienes suficiente saldo para este gasto. Saldo actual: ${data.currentBalance}`,
+          confirmButtonText: 'Ir al balance'
+        });
         
         // Redirigir al dashboard de balance
         navigate(data.redirect || '/dashboard/balance');
