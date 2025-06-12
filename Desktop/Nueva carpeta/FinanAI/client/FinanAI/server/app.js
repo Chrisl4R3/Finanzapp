@@ -15,13 +15,13 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Configuración de CORS
-app.use(cors({
+// Configuración de CORS para Railway
+const corsOptions = {
   origin: function (origin, callback) {
     if (!origin || origin === 'https://frontend-production-df22.up.railway.app') {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true,
@@ -29,15 +29,27 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
   maxAge: 600,
-  preflightContinue: false
-}));
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
 
-// Configuración adicional para Railway
+// Middleware de CORS
+app.use(cors(corsOptions));
+
+// Manejar peticiones OPTIONS
+app.options('*', cors(corsOptions));
+
+// Middleware adicional para Railway
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://frontend-production-df22.up.railway.app');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  // Asegurar que las peticiones OPTIONS se manejen correctamente
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Origin', 'https://frontend-production-df22.up.railway.app');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.status(204).end();
+    return;
+  }
   next();
 });
 
