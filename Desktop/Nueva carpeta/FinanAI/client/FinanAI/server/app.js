@@ -36,15 +36,16 @@ const sessionStore = new MySQLStoreSession({}, pool);
 
 app.use(session({
   key: 'finanzapp_session',
-  secret: 'your_secret_key',
+  secret: process.env.SESSION_SECRET || 'your_secret_key',
   store: sessionStore,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    maxAge: 1000 * 60 * 60 * 24, // 24 horas
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 días
     httpOnly: true,
-    secure: true, // Siempre true en producción
-    sameSite: 'none' // Cambiado a 'none' para permitir solicitudes cross-site
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    domain: process.env.NODE_ENV === 'production' ? '.up.railway.app' : undefined
   }
 }));
 
