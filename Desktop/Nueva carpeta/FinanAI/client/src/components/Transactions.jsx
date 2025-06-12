@@ -181,6 +181,19 @@ const Transactions = () => {
 
       const data = await response.json();
 
+      // Si hay saldo insuficiente, mostrar notificación y redirigir
+      if (response.status === 400 && data.message === 'Saldo insuficiente') {
+        // Mostrar notificación
+        const notification = {
+          type: 'warning',
+          message: `No tienes suficiente saldo para este gasto. Saldo actual: ${data.currentBalance}`
+        };
+        
+        // Redirigir al dashboard de balance
+        navigate(data.redirect || '/dashboard/balance');
+        return;
+      }
+
       // Limpiar formulario y actualizar lista
       setFormData({
         type: 'Expense',

@@ -111,8 +111,17 @@ router.post('/', async (req, res) => {
     if (type === 'Expense') {
       const currentBalance = await getUserBalance(req.userId);
       if (currentBalance < amount) {
+        // Crear notificación
+        await pool.query(
+          'INSERT INTO notifications (user_id, message, type) VALUES (?, ?, ?)',
+          [req.userId, `No tienes suficiente saldo para este gasto. Saldo actual: ${currentBalance}`, 'warning']
+        );
+        
+        // Redirigir al usuario a la vista de saldo
         return res.status(400).json({
-          message: `Saldo insuficiente. Su saldo actual es ${currentBalance} y está intentando gastar ${amount}`
+          message: 'Saldo insuficiente',
+          currentBalance: currentBalance,
+          redirect: '/dashboard/balance'
         });
       }
     }
