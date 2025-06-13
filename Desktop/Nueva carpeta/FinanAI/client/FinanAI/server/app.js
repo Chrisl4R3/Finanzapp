@@ -17,8 +17,9 @@ const __dirname = dirname(__filename);
 
 // Configuración de CORS simplificada y robusta
 const allowedOrigins = [
-  'https://frontend-production-df22.up.railway.app',
-  'http://localhost:3000'  // Para desarrollo local
+  'https://frontend-production-df22.up.railway.app',  // Frontend en Railway
+  'http://localhost:3000',  // Para desarrollo local del frontend
+  'http://localhost:5000'   // Para desarrollo local del backend
 ];
 
 // Middleware de CORS personalizado

@@ -1,7 +1,7 @@
 // Configuración de la API
 export const API_CONFIG = {
-  // URL base de la API
-  BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+  // URL base de la API - Usar la variable de entorno o la URL de Railway
+  BASE_URL: process.env.REACT_APP_API_URL || 'https://backend-production-cf437.up.railway.app/api',
   
   // Configuración de endpoints
   ENDPOINTS: {
