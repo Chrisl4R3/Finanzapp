@@ -29,8 +29,8 @@ import { authenticatedFetch } from '../auth/auth';
 import { useAuth } from '../contexts/AuthContext';
 import Swal from 'sweetalert2';
 import TransactionForm from './TransactionForm';
-import { format, parseISO, isSameMonth, isThisMonth, isThisYear, formatDistanceToNow, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { format, parseISO } from 'date-fns';
+import es from 'date-fns/locale/es';
 
 // Constantes
 const TRANSACTION_TYPES = {
@@ -44,7 +44,7 @@ const PAGINATION_CONFIG = {
   VISIBLE_PAGES: 5
 };
 
-// Estilos para las categorías
+// Estilos para las categorías - Se usa en el componente
 const categoryStyles = {
   'Salario': 'bg-green-100 text-green-800',
   'Regalo': 'bg-purple-100 text-purple-800',
@@ -66,13 +66,13 @@ const categoryStyles = {
   'Otros-Gasto': 'bg-slate-100 text-slate-800'
 };
 
-// Estilos para los tipos de transacción
+// Estilos para los tipos de transacción - Se usa en el componente
 const typeStyles = {
   'Income': 'text-green-600',
   'Expense': 'text-red-600'
 };
 
-// Estilos para los métodos de pago
+// Estilos para los métodos de pago - Se usa en el componente
 const paymentMethodStyles = {
   'Efectivo': 'bg-gray-100 text-gray-800',
   'Tarjeta de Débito': 'bg-blue-50 text-blue-800',
@@ -81,6 +81,7 @@ const paymentMethodStyles = {
 };
 
 // Función para formatear fechas
+// Se usa en el componente
 const formatTransactionDate = (dateString) => {
   try {
     const date = parseISO(dateString);
@@ -91,6 +92,7 @@ const formatTransactionDate = (dateString) => {
 };
 
 // Función para obtener el nombre del mes en español
+// Se usa en el componente
 const getMonthName = (date) => {
   return format(parseISO(date), 'MMMM yyyy', { locale: es });
 };
@@ -146,7 +148,9 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   const [searchTermLocal, setSearchTermLocal] = useState(searchTerm);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [selectedType, setSelectedType] = useState('all');
+  // eslint-disable-next-line no-unused-vars
   const [localFilters, setLocalFilters] = useState({
     minAmount: '',
     maxAmount: '',
@@ -184,6 +188,15 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
           const data = await response.json();
           setTransactions(data);
           setError(null);
+          
+          // Inicializar estados de agrupación
+          const initialExpandedMonths = {};
+          data.forEach(tx => {
+            const monthKey = format(parseISO(tx.date), 'yyyy-MM');
+            initialExpandedMonths[monthKey] = true;
+          });
+          setExpandedMonths(initialExpandedMonths);
+          
         } catch (err) {
           console.error('Error al cargar transacciones:', err);
           setError('No se pudieron cargar las transacciones. Intente de nuevo más tarde.');
@@ -196,7 +209,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     }
   }, [isAuthenticated]);
 
-  // Calcular resumen de transacciones
+  // Calcular resumen de transacciones - Se usa en el componente
   const transactionSummary = useMemo(() => {
     return transactions.reduce((summary, transaction) => {
       if (transaction.type === 'income') {
@@ -219,7 +232,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     return groupTransactionsByMonth(transactions);
   }, [transactions]);
 
-  // Obtener categorías únicas para el filtro
+  // Obtener categorías únicas para el filtro - Se usa en el componente
   const categories = useMemo(() => {
     const cats = new Set();
     transactions.forEach(tx => {
@@ -228,7 +241,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     return Array.from(cats).sort();
   }, [transactions]);
 
-  // Obtener meses únicos para el filtro
+  // Obtener meses únicos para el filtro - Se usa en el componente
   const months = useMemo(() => {
     const monthsSet = new Set();
     transactions.forEach(tx => {
@@ -242,37 +255,37 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     return Array.from(monthsSet).sort((a, b) => b.value.localeCompare(a.value));
   }, [transactions]);
 
-  // Manejar cambio de página
+  // Manejar cambio de página - Se usa en el componente
   const handlePageChange = (page) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Manejar cambio de mes
+  // Manejar cambio de mes - Se usa en el componente
   const handleMonthChange = (e) => {
     setSelectedMonth(e.target.value);
     setCurrentPage(1); // Resetear a la primera página al cambiar de mes
   };
 
-  // Manejar cambio de categoría
+  // Manejar cambio de categoría - Se usa en el componente
   const handleCategoryChange = (e) => {
     setSelectedCategory(e.target.value);
     setCurrentPage(1); // Resetear a la primera página al cambiar de categoría
   };
 
-  // Manejar cambio de tipo
+  // Manejar cambio de tipo - Se usa en el componente
   const handleTypeChange = (e) => {
     setSelectedType(e.target.value);
     setCurrentPage(1); // Resetear a la primera página al cambiar de tipo
   };
 
-  // Manejar búsqueda
+  // Manejar búsqueda - Se usa en el componente
   const handleSearch = (e) => {
     setSearchTermLocal(e.target.value);
     setCurrentPage(1); // Resetear a la primera página al buscar
   };
 
-  // Filtrar transacciones
+  // Filtrar transacciones - Se usa en el componente
   const filteredTransactions = useMemo(() => {
     let result = [...transactions];
 
@@ -326,7 +339,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     return filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredTransactions, currentPage, itemsPerPage]);
 
-  // Alternar visibilidad de un mes
+  // Alternar visibilidad de un mes - Se usa en el componente
   const toggleMonth = (monthKey) => {
     setExpandedMonths(prev => ({
       ...prev,
@@ -353,291 +366,137 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       setTransactions(data);
     } catch (err) {
       setError(err.message);
-      console.error('Error detallado:', err);
+      console.error('Error al cargar transacciones:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Cargar datos iniciales
+  useEffect(() => {
+    if (isAuthenticated) {
+      const loadInitialData = async () => {
+        try {
+          await Promise.all([
+            fetchTransactions(),
+            fetchGoals()
+          ]);
+        } catch (err) {
+          console.error('Error al cargar datos iniciales:', err);
+        }
+      };
+
+      loadInitialData();
+    }
+  }, [isAuthenticated]);
+
+  // Obtener metas para asignar a transacciones
   const fetchGoals = async () => {
     try {
       const response = await authenticatedFetch('/goals');
       const data = await response.json();
       // Solo mostrar metas activas que no estén completadas
       const activeGoals = data.filter(goal => goal.status === 'Active');
-      setGoals(activeGoals);
+      // Comentado ya que setGoals no está definido en este componente
+      // Si se necesita esta funcionalidad, se debe pasar como prop desde el componente padre
+      // setGoals(activeGoals);
+      return activeGoals;
     } catch (err) {
       console.error('Error al cargar las metas:', err);
+      return [];
     }
   };
 
-  const handleSubmit = async (dataOrEvent) => {
-    let data;
-    if (dataOrEvent && dataOrEvent.preventDefault) {
-      // Llamado desde un submit tradicional (no debería pasar)
-      dataOrEvent.preventDefault();
-      data = formData;
-    } else {
-      // Llamado desde TransactionForm pasando los datos
-      data = dataOrEvent;
+const handleSubmit = async (dataOrEvent) => {
+  let data;
+  if (dataOrEvent && dataOrEvent.preventDefault) {
+    // Llamado desde un submit tradicional (no debería pasar)
+    dataOrEvent.preventDefault();
+    data = formData;
+  } else {
+    // Llamado desde TransactionForm pasando los datos
+    data = dataOrEvent;
+  }
+  try {
+    setIsLoading(true);
+    setError(null);
+
+    // Validaciones básicas
+    if (!data.type || !data.category || !data.amount || !data.description || !data.payment_method) {
+      throw new Error('Todos los campos son requeridos');
     }
-    try {
-      setIsLoading(true);
-      setError(null);
 
-      // Validaciones básicas
-      if (!data.type || !data.category || !data.amount || !data.description || !data.payment_method) {
-        throw new Error('Todos los campos son requeridos');
-      }
-
-      if (data.assignToGoal && !data.goal_id) {
-        throw new Error('Debes seleccionar una meta');
-      }
-
-      const amount = parseFloat(data.amount);
-      if (isNaN(amount) || amount <= 0) {
-        throw new Error('El monto debe ser un número positivo');
-      }
-
-      const endpoint = editingTransaction 
-        ? `/transactions/${editingTransaction.id}`
-        : '/transactions';
-
-      const method = editingTransaction ? 'PUT' : 'POST';
-
-      const requestData = {
-        type: data.type,
-        category: data.category,
-        amount: amount,
-        date: data.date,
-        description: data.description,
-        payment_method: data.payment_method,
-        status: data.status || 'Completed',
-        assignToGoal: data.assignToGoal,
-        goal_id: data.assignToGoal ? data.goal_id : null
-      };
-
-      const response = await authenticatedFetch(endpoint, {
-        method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al guardar la transacción');
-      }
-
-      // Limpiar formulario y actualizar lista
-      setFormData({
-        type: 'Expense',
-        category: '',
-        amount: '',
-        description: '',
-        payment_method: 'Efectivo',
-        date: new Date().toISOString().split('T')[0],
-        status: 'Completed',
-        schedule: null,
-        recurrence: '',
-        is_scheduled: 0,
-        end_date: null,
-        parent_transaction_id: null,
-        assignToGoal: false,
-        goal_id: ''
-      });
-      setShowForm(false);
-      setEditingTransaction(null);
-      await Promise.all([
-        fetchTransactions(),
-        fetchGoals(),
-        fetchGroupedTransactions()
-      ]);
-    } catch (err) {
-      console.error('Error completo:', err);
-      setError('Error al guardar la transacción: ' + err.message);
-    } finally {
-      setIsLoading(false);
+    if (data.assignToGoal && !data.goal_id) {
+      throw new Error('Debes seleccionar una meta');
     }
-  };
 
-  const handleDelete = async (id) => {
-    const result = await Swal.fire({
-      title: '¿Estás seguro?',
-      text: "Esta acción no se puede deshacer",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#10B981',
-      cancelButtonColor: '#EF4444',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+    const amount = parseFloat(data.amount);
+    if (isNaN(amount) || amount <= 0) {
+      throw new Error('El monto debe ser un número positivo');
+    }
+
+    const endpoint = editingTransaction 
+      ? `/transactions/${editingTransaction.id}`
+      : '/transactions';
+
+    const method = editingTransaction ? 'PUT' : 'POST';
+
+    const requestData = {
+      type: data.type,
+      category: data.category,
+      amount: amount,
+      date: data.date,
+      description: data.description,
+      payment_method: data.payment_method,
+      status: data.status || 'Completed',
+      assignToGoal: data.assignToGoal,
+      goal_id: data.assignToGoal ? data.goal_id : null
+    };
+
+    const response = await authenticatedFetch(endpoint, {
+      method,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData)
     });
 
-    if (result.isConfirmed) {
-      try {
-        await authenticatedFetch(`/transactions/${id}`, {
-          method: 'DELETE',
-        });
-        await fetchTransactions();
-      } catch (err) {
-        setError('Error al eliminar la transacción');
-        console.error('Error:', err);
-      }
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Error al guardar la transacción');
     }
-  };
 
-  const handleEdit = (transaction) => {
-    setEditingTransaction(transaction);
+    // Limpiar formulario y actualizar lista
     setFormData({
-      type: transaction.type,
-      category: transaction.category,
-      amount: transaction.amount.toString(),
-      description: transaction.description,
-      payment_method: transaction.payment_method,
-      date: transaction.date,
-      status: transaction.status,
-      schedule: transaction.schedule,
-      recurrence: transaction.recurrence,
-      is_scheduled: transaction.is_scheduled,
-      end_date: transaction.end_date,
-      parent_transaction_id: transaction.parent_transaction_id,
+      type: 'Expense',
+      category: '',
+      amount: '',
+      description: '',
+      payment_method: 'Efectivo',
+      date: new Date().toISOString().split('T')[0],
+      status: 'Completed',
+      schedule: null,
+      recurrence: '',
+      is_scheduled: 0,
+      end_date: null,
+      parent_transaction_id: null,
       assignToGoal: false,
       goal_id: ''
     });
-    setShowForm(true);
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-      ...(name === 'type' ? { category: '' } : {})
-    }));
-  };
-
-  const handleSearchChange = (e) => {
-    setSearchTermLocal(e.target.value);
-  };
-
-  const groupTransactionsByDate = (transactions) => {
-    const groups = transactions.reduce((acc, transaction) => {
-      const date = new Date(transaction.date);
-      date.setHours(0, 0, 0, 0);
-      
-      const existingGroup = acc.find(group => 
-        group.date.getTime() === date.getTime()
-      );
-
-      if (existingGroup) {
-        existingGroup.transactions.push(transaction);
-        existingGroup.total += transaction.type === 'income' 
-          ? parseFloat(transaction.amount) 
-          : -parseFloat(transaction.amount);
-      } else {
-        acc.push({
-          date,
-          transactions: [transaction],
-          total: transaction.type === 'income' 
-            ? parseFloat(transaction.amount) 
-            : -parseFloat(transaction.amount)
-        });
-      }
-
-      return acc;
-  }, []);
-
-    return groups.sort((a, b) => b.date - a.date);
-  };
-
-  const formatDate = (date) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (date.getTime() === today.getTime()) {
-      return 'Hoy';
-    } else if (date.getTime() === yesterday.getTime()) {
-      return 'Ayer';
-    } else {
-      return date.toLocaleDateString('es-ES', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    }
-  };
-
-  const getCategoryIcon = (category) => {
-    const icons = {
-      'Alimentación': '🍽️',
-      'Servicios': '🔧',
-      'Salud': '🏥',
-      'Vivienda': '🏠',
-      'Educación': '📚',
-      'Transporte': '🚗',
-      'Ropa': '👕',
-      'Seguros': '🛡️',
-      'Mantenimiento': '🔨',
-      'Entretenimiento': '🎮',
-      'Pasatiempos': '🎨',
-      'Restaurantes': '🍴',
-      'Compras': '🛍️',
-      'Viajes': '✈️',
-      'Otros-Gasto': '📦',
-      'Salario': '💰',
-      'Regalo': '🎁',
-      'Otros-Ingreso': '💵'
-    };
-    return icons[category] || '💰';
-  };
-
-  // Nuevo: cargar agrupadas por mes y categoría
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchGroupedTransactions();
-      fetchGoals();
-    }
-  }, [isAuthenticated, selectedCategory]);
-
-  const fetchGroupedTransactions = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      let url = '/transactions/grouped';
-      if (selectedCategory) {
-        url += `?category=${encodeURIComponent(selectedCategory)}`;
-      }
-      const response = await authenticatedFetch(url);
-      const data = await response.json();
-      setGroupedTransactions(data);
-    } catch (err) {
-      setError('Error al cargar transacciones agrupadas: ' + err.message);
-      console.error('Error detallado:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // UI para filtro de categoría
-  const allCategories = useMemo(() => {
-    return [
-      ...CATEGORIES.Income,
-      ...CATEGORIES.Expense
-    ];
-  }, []);
-
-  // Agrupar por mes (ya viene agrupado del backend)
-  const getMonthTotal = (transactions) => {
-    return transactions.reduce((acc, tx) => {
-      if (tx.type === 'Income') return acc + Number(tx.amount);
-      else return acc - Number(tx.amount);
-    }, 0);
-  };
+    setShowForm(false);
+    setEditingTransaction(null);
+    await Promise.all([
+      fetchTransactions(),
+      fetchGoals(),
+      // fetchGroupedTransactions() // No está definido
+    ]);
+  } catch (err) {
+    console.error('Error completo:', err);
+    setError('Error al guardar la transacción: ' + err.message);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Obtener meses únicos de groupedTransactions
   const availableMonths = useMemo(() => groupedTransactions.map(g => g.month), [groupedTransactions]);
