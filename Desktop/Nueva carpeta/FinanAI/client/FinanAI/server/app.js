@@ -15,6 +15,27 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Configuración de CORS más robusta
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permitir el frontend de Railway
+    if (origin === 'https://frontend-production-df22.up.railway.app') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  maxAge: 3600,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+
 // Configuración de cache
 app.use((req, res, next) => {
   if (req.method === 'GET') {
@@ -26,23 +47,11 @@ app.use((req, res, next) => {
 // Compresión de respuestas
 app.use(compression());
 
-// Configuración de CORS para Railway
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin || origin === 'https://frontend-production-df22.up.railway.app') {
-      callback(null, true);
-    } else {
-      callback(null, false);
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  maxAge: 600,
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-};
+// Actualizar la configuración de CORS existente
+corsOptions.methods.push('PATCH');
+corsOptions.allowedHeaders.push('X-Requested-With');
+corsOptions.exposedHeaders.push('Content-Range', 'X-Content-Range');
+corsOptions.maxAge = 600;
 
 // Middleware de CORS
 app.use(cors(corsOptions));

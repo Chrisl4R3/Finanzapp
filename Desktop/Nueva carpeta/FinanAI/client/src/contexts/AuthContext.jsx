@@ -7,47 +7,99 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState('');
 
-  const checkAuth = async () => {
-    try {
-      const userData = await getCurrentUser();
-      if (userData) {
-        setUser(userData);
-        setIsAuthenticated(true);
-      } else {
+  const API_URL = 'https://example.com/api'; // Reemplazar con la URL de la API
+
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        // Intentar obtener el token de refresco
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) {
+          throw new Error('No hay token de refresco disponible');
+        }
+
+        // Verificar la sesión
+        const response = await fetch(`${API_URL}/auth/verify`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${refreshToken}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
+          setIsAuthenticated(true);
+          setAuthError('');
+        } else if (response.status === 401) {
+          // Intentar refrescar el token
+          try {
+            const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify({ refreshToken })
+            });
+
+            if (refreshResponse.ok) {
+              const refreshData = await refreshResponse.json();
+              if (refreshData.token) {
+                localStorage.setItem('authToken', refreshData.token);
+                // Intentar verificar la sesión nuevamente
+                const verifyResponse = await fetch(`${API_URL}/auth/verify`, {
+                  method: 'GET',
+                  credentials: 'include',
+                  headers: {
+                    'Authorization': `Bearer ${refreshData.token}`
+                  }
+                });
+                if (verifyResponse.ok) {
+                  const verifyData = await verifyResponse.json();
+                  setUser(verifyData.user);
+                  setIsAuthenticated(true);
+                  setAuthError('');
+                } else {
+                  throw new Error('No se pudo verificar la sesión después del refresco');
+                }
+              }
+            } else {
+              throw new Error('No se pudo refrescar el token');
+            }
+          } catch (refreshError) {
+            console.error('Error al refrescar el token:', refreshError);
+            throw refreshError;
+          }
+        } else {
+          throw new Error('Error al verificar la sesión');
+        }
+      } catch (error) {
+        console.error('Error en la verificación de sesión:', error);
         setUser(null);
         setIsAuthenticated(false);
-      }
-    } catch (error) {
-      console.error('Error al verificar la autenticación:', error);
-      setUser(null);
-      setIsAuthenticated(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Verificar la sesión al cargar la aplicación
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  // Verificar la sesión periódicamente
-  useEffect(() => {
-    let interval;
-    
-    if (isAuthenticated) {
-      interval = setInterval(() => {
-        checkAuth();
-      }, 60000); // Verificar cada minuto
-    }
-
-    return () => {
-      if (interval) {
-        clearInterval(interval);
+        setAuthError('Sesión expirada. Por favor, inicia sesión nuevamente.');
+        // Limpiar tokens locales
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
       }
     };
-  }, [isAuthenticated]);
+
+    checkSession();
+
+    // Verificar sesión cada 3 minutos
+    const intervalId = setInterval(checkSession, 3 * 60 * 1000);
+
+    return () => {
+      clearInterval(intervalId);
+      // Limpiar tokens locales al desmontar
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+    };
+  }, [API_URL]);
 
   const login = (userData) => {
     console.log('Login ejecutado con:', userData);
