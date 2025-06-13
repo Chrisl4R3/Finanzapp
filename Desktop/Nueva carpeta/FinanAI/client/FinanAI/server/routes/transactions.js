@@ -376,8 +376,14 @@ router.get('/statistics', async (req, res) => {
         COALESCE(SUM(CASE WHEN type = 'Expense' THEN amount ELSE 0 END), 0) as projected_expense,
         -- Ahorro proyectado
         COALESCE(SUM(CASE WHEN type = 'Income' THEN amount ELSE -amount END), 0) as projected_savings
-      FROM transactions
-      WHERE user_id = ? ${dateFilter}
+      FROM (
+        SELECT 
+          type,
+          amount,
+          date
+        FROM transactions
+        WHERE user_id = ? ${dateFilter}
+      ) as t
       GROUP BY DATE_FORMAT(date, '%Y-%m')
       ORDER BY date DESC
       LIMIT 1
