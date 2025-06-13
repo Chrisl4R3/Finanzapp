@@ -371,7 +371,6 @@ router.get('/statistics', async (req, res) => {
       monthlyTrends,
       paymentMethods,
       topDays
-      topDays
     });
   } catch (error) {
     console.error('Error al obtener estadísticas:', error);
