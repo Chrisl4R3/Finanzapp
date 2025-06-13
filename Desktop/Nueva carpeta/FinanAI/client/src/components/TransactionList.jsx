@@ -134,29 +134,100 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   const { formatCurrency } = useCurrency();
   const { isAuthenticated } = useAuth();
   
-  // Estados principales
+  // Estados de datos
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
   // Estados para la paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(PAGINATION_CONFIG.ITEMS_PER_PAGE);
+  const [itemsPerPage] = useState(5); // 5 transacciones por página
   const [expandedMonths, setExpandedMonths] = useState({});
   
   // Estados para los filtros
   const [searchTermLocal, setSearchTermLocal] = useState(searchTerm);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  // eslint-disable-next-line no-unused-vars
   const [selectedType, setSelectedType] = useState('all');
-  // eslint-disable-next-line no-unused-vars
   const [localFilters, setLocalFilters] = useState({
     minAmount: '',
     maxAmount: '',
     startDate: '',
     endDate: ''
   });
+  
+  // Obtener categorías únicas para el filtro
+  const availableCategories = useMemo(() => {
+    const cats = new Set();
+    transactions.forEach(tx => tx.category && cats.add(tx.category));
+    return Array.from(cats).sort();
+  }, [transactions]);
+  
+  // Obtener meses únicos para el filtro
+  const availableMonths = useMemo(() => {
+    const monthSet = new Set();
+    transactions.forEach(tx => {
+      if (tx.date) {
+        const date = new Date(tx.date);
+        const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        monthSet.add(monthYear);
+      }
+    });
+    return Array.from(monthSet).sort().reverse();
+  }, [transactions]);
+  
+  // Filtrar transacciones - Se usa en el componente
+  const filteredTransactionsList = useMemo(() => {
+    let result = [...transactions];
+    
+    // Aplicar búsqueda
+    if (searchTermLocal) {
+      const searchLower = searchTermLocal.toLowerCase();
+      result = result.filter(tx => 
+        tx.description?.toLowerCase().includes(searchLower) ||
+        (tx.category && tx.category.toLowerCase().includes(searchLower)) ||
+        (tx.payment_method && tx.payment_method.toLowerCase().includes(searchLower))
+      );
+    }
+    
+    // Aplicar filtros
+    if (selectedCategory) {
+      result = result.filter(tx => tx.category === selectedCategory);
+    }
+    
+    if (localFilters && localFilters.type !== 'all') {
+      result = result.filter(tx => tx.type === localFilters.type);
+    }
+    
+    if (selectedType !== 'all') {
+      result = result.filter(tx => tx.type === selectedType);
+    }
+    
+    // Filtrar por mes
+    if (selectedMonth) {
+      result = result.filter(tx => {
+        const txDate = new Date(tx.date);
+        const txMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
+        return txMonth === selectedMonth;
+      });
+    }
+      
+      return result;
+    }, [transactions, searchTermLocal, selectedCategory, selectedType, selectedMonth, localFilters]);
+
+  // Calcular páginas totales
+  const totalPagesCount = Math.ceil(groupedTransactionsList.length / itemsPerPage);
+  
+  // Obtener transacciones para la página actual
+  const currentItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return groupedTransactionsList.slice(startIndex, startIndex + itemsPerPage);
+  }, [groupedTransactionsList, currentPage, itemsPerPage]);
+  
+  // Resetear a la primera página cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTermLocal, selectedCategory, selectedType, selectedMonth]);
   
   // Estados para el formulario
   const [showForm, setShowForm] = useState(false);
@@ -181,31 +252,31 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   // Obtener transacciones al cargar el componente
   useEffect(() => {
     if (isAuthenticated) {
-      const fetchTransactions = async () => {
+      const loadTransactions = async () => {
+        setIsLoading(true);
         try {
-          setIsLoading(true);
-          const response = await authenticatedFetch('/transactions');
-          const data = await response.json();
-          setTransactions(data);
-          setError(null);
-          
-          // Inicializar estados de agrupación
-          const initialExpandedMonths = {};
-          data.forEach(tx => {
-            const monthKey = format(parseISO(tx.date), 'yyyy-MM');
-            initialExpandedMonths[monthKey] = true;
-          });
-          setExpandedMonths(initialExpandedMonths);
-          
+          const response = await authenticatedFetch('/api/transactions');
+          if (response.ok) {
+            const data = await response.json();
+            setTransactions(data);
+            // Inicializar expandedMonths con todos los meses colapsados
+            const transactionMonths = groupTransactionsByMonth(data).map(g => g.month);
+            const initialExpanded = {};
+            transactionMonths.forEach(month => {
+              initialExpanded[month] = false;
+            });
+            setExpandedMonths(initialExpanded);
+          } else {
+            throw new Error('Error al cargar las transacciones');
+          }
         } catch (err) {
-          console.error('Error al cargar transacciones:', err);
-          setError('No se pudieron cargar las transacciones. Intente de nuevo más tarde.');
+          setError(err.message || 'Error al cargar las transacciones');
         } finally {
           setIsLoading(false);
         }
       };
       
-      fetchTransactions();
+      loadTransactions();
     }
   }, [isAuthenticated]);
 
@@ -225,11 +296,6 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       totalExpenses: 0,
       totalTransactions: { income: 0, expenses: 0 }
     });
-  }, [transactions]);
-
-  // Agrupar transacciones por mes
-  const groupedTransactions = useMemo(() => {
-    return groupTransactionsByMonth(transactions);
   }, [transactions]);
 
   // Obtener categorías únicas para el filtro - Se usa en el componente
@@ -279,43 +345,20 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     setCurrentPage(1); // Resetear a la primera página al cambiar de tipo
   };
 
-  // Manejar búsqueda - Se usa en el componente
-  const handleSearch = (e) => {
-    setSearchTermLocal(e.target.value);
-    setCurrentPage(1); // Resetear a la primera página al buscar
-  };
-
-  // Filtrar transacciones - Se usa en el componente
-  const filteredTransactions = useMemo(() => {
+  // Aplicar filtros adicionales
+  const applyAdditionalFilters = (transactions) => {
     let result = [...transactions];
-
-    // Aplicar búsqueda
-    if (searchTermLocal) {
-      const searchLower = searchTermLocal.toLowerCase();
-      result = result.filter(tx => 
-        tx.description?.toLowerCase().includes(searchLower) ||
-        (tx.category && tx.category.toLowerCase().includes(searchLower)) ||
-        (tx.payment_method && tx.payment_method.toLowerCase().includes(searchLower))
-      );
-    }
-
-    // Aplicar filtros
-    if (localFilters.type !== 'all') {
-      result = result.filter(tx => tx.type === localFilters.type);
-    }
-    if (localFilters.category) {
-      result = result.filter(tx => tx.category === localFilters.category);
-    }
-    if (localFilters.minAmount) {
+    
+    if (localFilters?.minAmount) {
       result = result.filter(tx => parseFloat(tx.amount) >= parseFloat(localFilters.minAmount));
     }
-    if (localFilters.maxAmount) {
+    if (localFilters?.maxAmount) {
       result = result.filter(tx => parseFloat(tx.amount) <= parseFloat(localFilters.maxAmount));
     }
-    if (localFilters.startDate) {
+    if (localFilters?.startDate) {
       result = result.filter(tx => new Date(tx.date) >= new Date(localFilters.startDate));
     }
-    if (localFilters.endDate) {
+    if (localFilters?.endDate) {
       const endDate = new Date(localFilters.endDate);
       endDate.setHours(23, 59, 59, 999);
       result = result.filter(tx => new Date(tx.date) <= endDate);
@@ -323,21 +366,21 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
     // Ordenar por fecha (más reciente primero)
     return result.sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [transactions, searchTermLocal, localFilters]);
+  };
 
   // Agrupar transacciones por mes
   const transactionsByMonth = useMemo(() => {
-    return groupTransactionsByMonth(filteredTransactions);
-  }, [filteredTransactions]);
+    return groupTransactionsByMonth(filteredTransactionsList);
+  }, [filteredTransactionsList]);
 
   // Calcular el total de páginas
-  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredTransactionsList.length / itemsPerPage);
 
   // Obtener transacciones para la página actual
   const paginatedTransactions = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredTransactions, currentPage, itemsPerPage]);
+    return filteredTransactionsList.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTransactionsList, currentPage, itemsPerPage]);
 
   // Alternar visibilidad de un mes - Se usa en el componente
   const toggleMonth = (monthKey) => {
@@ -483,41 +526,59 @@ const handleSubmit = async (dataOrEvent) => {
       assignToGoal: false,
       goal_id: ''
     });
-    setShowForm(false);
-    setEditingTransaction(null);
-    await Promise.all([
-      fetchTransactions(),
-      fetchGoals(),
-      // fetchGroupedTransactions() // No está definido
-    ]);
   } catch (err) {
-    console.error('Error completo:', err);
-    setError('Error al guardar la transacción: ' + err.message);
+    setError(err.message);
   } finally {
     setIsLoading(false);
   }
 };
 
-  // Obtener meses únicos de groupedTransactions
-  const availableMonths = useMemo(() => groupedTransactions.map(g => g.month), [groupedTransactions]);
-
-  // Filtrar por mes
+  // Obtener transacciones agrupadas por mes
+  const groupedTransactionsList = useMemo(() => {
+    const grouped = {};
+    filteredTransactionsList.forEach(tx => {
+      const date = new Date(tx.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (!grouped[monthKey]) {
+        grouped[monthKey] = [];
+      }
+      grouped[monthKey].push(tx);
+    });
+    
+    // Convertir a array y ordenar por mes (más reciente primero)
+    return Object.entries(grouped)
+      .map(([month, transactions]) => ({
+        month,
+        transactions: [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date))
+      }))
+      .sort((a, b) => b.month.localeCompare(a.month));
+  }, [filteredTransactionsList]);
+  
+  // Obtener meses únicos para el filtro
+  const availableMonthsList = useMemo(() => 
+    [...new Set(transactions.map(tx => {
+      const date = new Date(tx.date);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }))].sort().reverse()
+  , [transactions]);
+  
+  // Filtrar por mes seleccionado
   const filteredByMonth = useMemo(() => {
-    if (!selectedMonth) return groupedTransactions;
-    return groupedTransactions.filter(g => g.month === selectedMonth);
-  }, [groupedTransactions, selectedMonth]);
+    if (!selectedMonth) return groupedTransactionsList;
+    return groupedTransactionsList.filter(g => g.month === selectedMonth);
+  }, [groupedTransactionsList, selectedMonth]);
 
-  // Filtrar por búsqueda global
-  const filterTransactions = (transactions) => {
-    if (!searchTermGlobal.trim()) return transactions;
-    const term = searchTermGlobal.toLowerCase();
-    return transactions.filter(tx =>
+  // Función auxiliar para filtrar transacciones por búsqueda
+  const filterTransactionsBySearch = (txs, searchTerm) => {
+    if (!searchTerm?.trim()) return txs;
+    const term = searchTerm.toLowerCase();
+    return txs.filter(tx =>
       (tx.description && tx.description.toLowerCase().includes(term)) ||
       (tx.category && tx.category.toLowerCase().includes(term)) ||
       (tx.payment_method && tx.payment_method.toLowerCase().includes(term)) ||
       (tx.type && tx.type.toLowerCase().includes(term)) ||
       (String(tx.amount).includes(term)) ||
-      (tx.date && new Date(tx.date).toLocaleDateString('es-ES').toLowerCase().includes(term))
+      (tx.date && new Date(tx.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).toLowerCase().includes(term))
     );
   };
 
@@ -582,147 +643,264 @@ const handleSubmit = async (dataOrEvent) => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Barra de búsqueda, filtro de mes y botón agregar */}
-      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-        <input
-          type="text"
-          className="w-full md:w-1/2 p-2 rounded border border-border-color bg-secondary-bg text-text-primary"
-          placeholder="Buscar por cualquier dato..."
-          value={searchTermGlobal}
-          onChange={e => setSearchTermGlobal(e.target.value)}
-        />
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-text-secondary">Mes:</label>
-          <select
-            className="p-2 rounded border border-border-color bg-secondary-bg text-text-primary"
-            value={selectedMonth}
-            onChange={e => setSelectedMonth(e.target.value)}
-          >
-            <option value="">Todos</option>
-            {availableMonths.map(month => (
-              <option key={month} value={month}>
-                {new Date(month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
-              </option>
-            ))}
-          </select>
-          <button
-            className="flex items-center gap-2 px-4 py-2 bg-accent-color text-white rounded-lg hover:bg-accent-color-darker transition-colors ml-2"
-            onClick={() => {
-              setShowForm(true);
-              setEditingTransaction(null);
-              setFormData({
-                type: 'Expense',
-                category: '',
-                amount: '',
-                description: '',
-                payment_method: 'Efectivo',
-                date: new Date().toISOString().split('T')[0],
-                status: 'Completed',
-                schedule: null,
-                recurrence: '',
-                is_scheduled: 0,
-                end_date: null,
-                parent_transaction_id: null,
-                assignToGoal: false,
-                goal_id: ''
-              });
-            }}
-          >
-            <FiPlus /> Nueva transacción
-          </button>
+      {/* Barra de búsqueda y filtros */}
+      <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          {/* Búsqueda */}
+          <div className="md:col-span-2">
+            <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
+            <div className="relative">
+              <input
+                type="text"
+                id="search"
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
+                placeholder="Buscar por descripción o categoría..."
+                value={searchTermLocal}
+                onChange={e => setSearchTermLocal(e.target.value)}
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          </div>
+          {/* Filtro de categoría */}
+          <div>
+            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+            <select
+              id="category"
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
+              value={selectedCategory}
+              onChange={e => setSelectedCategory(e.target.value)}
+            >
+              <option value="">Todas las categorías</option>
+              {availableCategories.map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Filtro de tipo */}
+          <div>
+            <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+            <select
+              id="type"
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
+              value={selectedType}
+              onChange={e => setSelectedType(e.target.value)}
+            >
+              <option value="all">Todos</option>
+              <option value="Income">Ingresos</option>
+              <option value="Expense">Gastos</option>
+            </select>
+          </div>
         </div>
-      </div>
-
-      {/* Mostrar agrupadas por mes (filtradas) */}
-      {isLoading ? (
-        <div className="min-h-[40vh] flex items-center justify-center">
-          <FiLoader className="animate-spin w-8 h-8 text-accent-color" />
+          
+          <div className="flex justify-between items-center">
+            {/* Filtro de mes */}
+            <div className="flex items-center gap-2">
+              <label htmlFor="month" className="text-sm font-medium text-gray-700">Mes:</label>
+              <select
+                id="month"
+                className="px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
+                value={selectedMonth}
+                onChange={e => setSelectedMonth(e.target.value)}
+              >
+                <option value="">Todos los meses</option>
+                {availableMonthsList.map(month => (
+                  <option key={month} value={month}>
+                    {new Date(month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Botón para agregar transacción */}
+            <button
+              className="flex items-center gap-2 px-4 py-2.5 bg-accent-color hover:bg-accent-color-darker text-white rounded-lg transition-all duration-200 hover:shadow-md"
+              onClick={() => {
+                setShowForm(true);
+                setEditingTransaction(null);
+                setFormData({
+                  type: 'Expense',
+                  category: '',
+                  amount: '',
+                  description: '',
+                  payment_method: 'Efectivo',
+                  date: new Date().toISOString().split('T')[0],
+                  status: 'Completed',
+                  schedule: null,
+                  recurrence: '',
+                  is_scheduled: 0,
+                  end_date: null,
+                  parent_transaction_id: null,
+                  assignToGoal: false,
+                  goal_id: ''
+                });
+              }}
+            >
+              <FiPlus className="text-lg" />
+              <span>Nueva Transacción</span>
+            </button>
+          </div>
         </div>
-      ) : error ? (
-        <div className="min-h-[40vh] flex items-center justify-center text-danger-color">{error}</div>
-      ) : (
-        <div>
-          {filteredByMonth.length === 0 ? (
-            <div className="text-center text-text-secondary py-8">No hay transacciones para mostrar.</div>
-          ) : (
-            filteredByMonth.map(group => {
-              const filteredTxs = filterTransactions(group.transactions);
-              if (filteredTxs.length === 0) return null;
-              return (
-                <div key={group.month} className="mb-10">
-                  {/* Header del mes */}
-                  <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-lg font-semibold text-text-primary">
-                      {new Date(group.month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
-                    </h2>
-                    <span className="text-success-color font-bold">
-                      Total: {getMonthTotal(filteredTxs) >= 0 ? '+' : ''}{formatCurrency(getMonthTotal(filteredTxs))}
-                    </span>
-                  </div>
-                  {/* Cards de transacciones */}
-                  <div className="flex flex-col gap-3 bg-card-bg rounded-2xl p-4">
-                    {filteredTxs.map(tx => (
-                      <div key={tx.id} className="flex items-center justify-between rounded-xl px-4 py-3 shadow-sm bg-secondary-bg hover:bg-secondary-bg/80 transition-all">
-                        {/* Icono y descripción */}
-                        <div className="flex items-center gap-4">
-                          <span className="text-2xl">
-                            {getCategoryIcon(tx.category)}
-                          </span>
-                          <div>
-                            <div className="font-medium text-text-primary text-base">
-                              {tx.description}
+)}
+      {/* Lista de transacciones */}
+      {<div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        {isLoading ? (
+          <div className="min-h-[40vh] flex items-center justify-center">
+            <FiLoader className="animate-spin w-8 h-8 text-accent-color" />
+          </div>
+        ) : error ? (
+          <div className="min-h-[40vh] flex items-center justify-center text-danger-color">{error}</div>
+        ) : (
+          <div>
+            {currentItems.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                No se encontraron transacciones con los filtros actuales.
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {currentItems.map(group => {
+                const totalAmount = group.transactions.reduce((sum, tx) => {
+                  return tx.type === 'Income' ? sum + parseFloat(tx.amount) : sum - parseFloat(tx.amount);
+                }, 0);
+                
+                return (
+                  <div key={group.month} className="mb-10">
+                    {/* Header del mes */}
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="text-lg font-semibold text-text-primary">
+                        {new Date(group.month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
+                      </h2>
+                      <span className="text-success-color font-bold">
+                        Total: {getMonthTotal(group.transactions) >= 0 ? '+' : ''}{formatCurrency(getMonthTotal(group.transactions))}
+                      </span>
+                    </div>
+                    {/* Cards de transacciones */}
+                    <div className="flex flex-col gap-3 bg-card-bg rounded-2xl p-4">
+                      {group.transactions.map(tx => (
+                        <div key={tx.id} className="flex items-center justify-between rounded-xl px-4 py-3 shadow-sm bg-secondary-bg hover:bg-secondary-bg/80 transition-all">
+                          {/* Icono y descripción */}
+                          <div className="flex items-center gap-4">
+                            <span className="text-2xl">
+                              {getCategoryIcon(tx.category)}
+                            </span>
+                            <div>
+                              <div className="font-medium text-text-primary text-base">
+                                {tx.description}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs px-2 py-1 rounded bg-background-color text-text-secondary">
+                                  {tx.category}
+                                </span>
+                                <span className="text-xs text-text-secondary">
+                                  {new Date(tx.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                </span>
+                              </div>
                             </div>
+                          </div>
+                          {/* Monto, método de pago y acciones */}
+                          <div className="flex flex-col items-end gap-2 min-w-[120px]">
+                            <span className={`font-bold text-base ${tx.type === 'Income' ? 'text-success-color' : 'text-danger-color'}`}>
+                              {tx.type === 'Income' ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
+                            </span>
+                            <span className="text-xs mt-1 px-2 py-1 rounded bg-background-color text-text-secondary">
+                              {tx.payment_method}
+                            </span>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs px-2 py-1 rounded bg-background-color text-text-secondary">
-                                {tx.category}
-                              </span>
-                              <span className="text-xs text-text-secondary">
-                                {new Date(tx.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-                              </span>
+                              <button
+                                onClick={() => handleEdit(tx)}
+                                className="text-xs text-accent-color hover:text-accent-color-darker transition-colors"
+                              >
+                                Editar
+                              </button>
+                              <span className="text-border-color">|</span>
+                              <button
+                                onClick={() => handleDelete(tx.id)}
+                                className="text-xs text-danger-color hover:text-danger-color-darker transition-colors"
+                              >
+                                Eliminar
+                              </button>
                             </div>
                           </div>
                         </div>
-                        {/* Monto, método de pago y acciones */}
-                        <div className="flex flex-col items-end gap-2 min-w-[120px]">
-                          <span className={`font-bold text-base ${tx.type === 'Income' ? 'text-success-color' : 'text-danger-color'}`}>
-                            {tx.type === 'Income' ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
-                          </span>
-                          <span className="text-xs mt-1 px-2 py-1 rounded bg-background-color text-text-secondary">
-                            {tx.payment_method}
-                          </span>
-                          <div className="flex items-center gap-2 mt-1">
-                            <button
-                              onClick={() => handleEdit(tx)}
-                              className="text-xs text-accent-color hover:text-accent-color-darker transition-colors"
-                            >
-                              Editar
-                            </button>
-                            <span className="text-border-color">|</span>
-                            <button
-                              onClick={() => handleDelete(tx.id)}
-                              className="text-xs text-danger-color hover:text-danger-color-darker transition-colors"
-                            >
-                              Eliminar
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })
-          )}
+                );
+              })}
+            </div>)}
         </div>
       )}
+      {/* Controles de paginación */}
+      {totalPagesCount > 1 && (
+        <div className="flex justify-center mt-6">
+          <nav className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              «
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              ‹
+            </button>
+            
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`px-3 py-1.5 rounded-md border ${
+                    currentPage === pageNum 
+                      ? 'bg-accent-color text-white border-accent-color' 
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPagesCount, p + 1))}
+              disabled={currentPage === totalPagesCount}
+              className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              »
+            </button>
+          </nav>
+        </div>
+      )}
+
+      {/* Transaction Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-card-bg rounded-2xl p-6 shadow-lg max-w-lg w-full relative">
+          <div className="bg-white rounded-2xl p-6 shadow-lg max-w-lg w-full relative">
             <button
-              className="absolute top-4 right-4 text-text-secondary hover:text-danger-color text-xl"
+              className="absolute top-4 right-4 text-gray-500 hover:text-danger-color text-xl"
               onClick={() => setShowForm(false)}
             >
-              ×
+              X
             </button>
             <TransactionForm
               onSubmit={handleSubmit}
@@ -736,6 +914,4 @@ const handleSubmit = async (dataOrEvent) => {
   );
 };
 
-export default TransactionList; 
-
-
+export default TransactionList;
