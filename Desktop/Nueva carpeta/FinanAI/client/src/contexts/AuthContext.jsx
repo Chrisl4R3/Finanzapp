@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { getCurrentUser, logout as authLogout } from '../auth/auth';
 
 export const AuthContext = createContext();
@@ -8,12 +8,25 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState('');
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-  // Función para verificar la autenticación
-  const checkAuth = async () => {
+  // Clear auth state and tokens
+  const clearAuth = useCallback(() => {
+    setUser(null);
+    setIsAuthenticated(false);
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  }, []);
+
+  // Check authentication status
+  const checkAuth = useCallback(async () => {
     try {
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) return false;
+
       const response = await fetch(`${API_URL}/auth/verify`, {
         method: 'GET',
+        headers: { 'Authorization': `Bearer ${accessToken}` },
         credentials: 'include'
       });
 
@@ -23,142 +36,127 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(true);
         setAuthError('');
         return true;
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
-        setAuthError('No se pudo verificar la sesión');
-        return false;
       }
+      return false;
     } catch (error) {
-      setIsAuthenticated(false);
-      setUser(null);
-      setAuthError(error.message);
+      console.error('Error verifying auth:', error);
       return false;
     }
-  };
+  }, [API_URL]);
 
-  const API_URL = 'https://example.com/api'; // Reemplazar con la URL de la API
+  // Refresh token
+  const refreshToken = useCallback(async () => {
+    try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
 
+      const response = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ refreshToken })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('accessToken', data.accessToken);
+        if (data.refreshToken) {
+          localStorage.setItem('refreshToken', data.refreshToken);
+        }
+        return data.accessToken;
+      }
+      throw new Error('Failed to refresh token');
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      clearAuth();
+      throw error;
+    }
+  }, [API_URL, clearAuth]);
+
+  // Initialize auth state
   useEffect(() => {
-    const checkSession = async () => {
+    let isMounted = true;
+    
+    const initializeAuth = async () => {
       try {
-        // Intentar obtener el token de refresco
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) {
-          throw new Error('No hay token de refresco disponible');
+        setIsLoading(true);
+        const accessToken = localStorage.getItem('accessToken');
+        
+        // If no access token, clear auth state
+        if (!accessToken) {
+          clearAuth();
+          return;
         }
 
-        // Verificar la sesión
-        const response = await fetch(`${API_URL}/auth/verify`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Authorization': `Bearer ${refreshToken}`
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data.user);
-          setIsAuthenticated(true);
-          setAuthError('');
-        } else if (response.status === 401) {
-          // Intentar refrescar el token
+        // Try to verify with current token
+        const isVerified = await checkAuth();
+        
+        // If not verified, try to refresh
+        if (!isVerified) {
           try {
-            const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              credentials: 'include',
-              body: JSON.stringify({ refreshToken })
-            });
-
-            if (refreshResponse.ok) {
-              const refreshData = await refreshResponse.json();
-              if (refreshData.token) {
-                localStorage.setItem('authToken', refreshData.token);
-                // Intentar verificar la sesión nuevamente
-                const verifyResponse = await fetch(`${API_URL}/auth/verify`, {
-                  method: 'GET',
-                  credentials: 'include',
-                  headers: {
-                    'Authorization': `Bearer ${refreshData.token}`
-                  }
-                });
-                if (verifyResponse.ok) {
-                  const verifyData = await verifyResponse.json();
-                  setUser(verifyData.user);
-                  setIsAuthenticated(true);
-                  setAuthError('');
-                } else {
-                  throw new Error('No se pudo verificar la sesión después del refresco');
-                }
-              }
-            } else {
-              throw new Error('No se pudo refrescar el token');
-            }
-          } catch (refreshError) {
-            console.error('Error al refrescar el token:', refreshError);
-            throw refreshError;
+            await refreshToken();
+            await checkAuth();
+          } catch (error) {
+            console.error('Failed to refresh session:', error);
+            clearAuth();
           }
-        } else {
-          throw new Error('Error al verificar la sesión');
         }
       } catch (error) {
-        console.error('Error en la verificación de sesión:', error);
-        setUser(null);
-        setIsAuthenticated(false);
-        setAuthError('Sesión expirada. Por favor, inicia sesión nuevamente.');
-        // Limpiar tokens locales
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('refreshToken');
+        console.error('Auth initialization error:', error);
+        clearAuth();
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    checkSession();
+    initializeAuth();
 
-    // Verificar sesión cada 3 minutos
-    const intervalId = setInterval(checkSession, 3 * 60 * 1000);
+    // Set up periodic check (every 5 minutes)
+    const intervalId = setInterval(checkAuth, 5 * 60 * 1000);
 
     return () => {
+      isMounted = false;
       clearInterval(intervalId);
-      // Limpiar tokens locales al desmontar
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('refreshToken');
     };
-  }, [API_URL]);
+  }, [checkAuth, refreshToken, clearAuth]);
 
-  const login = (userData) => {
-    console.log('Login ejecutado con:', userData);
+  const login = useCallback((userData, tokens) => {
+    if (tokens) {
+      localStorage.setItem('accessToken', tokens.accessToken);
+      if (tokens.refreshToken) {
+        localStorage.setItem('refreshToken', tokens.refreshToken);
+      }
+    }
     setUser(userData);
     setIsAuthenticated(true);
-  };
+    setAuthError('');
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await authLogout();
-      setUser(null);
-      setIsAuthenticated(false);
-      // Redirigir al login se maneja en el componente que llama a logout
     } catch (error) {
-      console.error('Error durante el logout:', error);
-      // Aún así, limpiamos el estado local
-      setUser(null);
-      setIsAuthenticated(false);
+      console.error('Error during logout:', error);
+    } finally {
+      clearAuth();
+      // Redirect to login will be handled by ProtectedRoute
     }
-  };
+  }, [clearAuth]);
 
   const value = {
     user,
     isAuthenticated,
     isLoading,
+    authError,
     login,
     logout,
-    checkAuth // Exportamos checkAuth para poder usarlo en otros componentes
+    checkAuth,
+    refreshToken
   };
-
-  console.log('Estado actual de autenticación:', { isAuthenticated, user });
 
   if (isLoading) {
     return (
@@ -175,7 +173,7 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// Hook personalizado para usar la autenticación
+// Custom hook to use the auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
