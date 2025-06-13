@@ -9,6 +9,34 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState('');
 
+  // Función para verificar la autenticación
+  const checkAuth = async () => {
+    try {
+      const response = await fetch(`${API_URL}/auth/verify`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+        setIsAuthenticated(true);
+        setAuthError('');
+        return true;
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
+        setAuthError('No se pudo verificar la sesión');
+        return false;
+      }
+    } catch (error) {
+      setIsAuthenticated(false);
+      setUser(null);
+      setAuthError(error.message);
+      return false;
+    }
+  };
+
   const API_URL = 'https://example.com/api'; // Reemplazar con la URL de la API
 
   useEffect(() => {
