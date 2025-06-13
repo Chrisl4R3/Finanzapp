@@ -80,54 +80,61 @@ router.post('/login', async (req, res) => {
     console.log('Usuarios encontrados:', users.length);
 
     if (users.length === 0) {
-      console.log('No se encontró usuario con esa cédula');
-      return res.status(401).json({ message: 'Credenciales inválidas' });
+      console.log('No se encontró usuario con la cédula:', cedula);
+      return res.status(401).json({ 
+        success: false,
+        error: 'auth/user-not-found',
+        message: 'No existe un usuario con esta cédula' 
+      });
     }
 
     const user = users[0];
-    console.log('Usuario encontrado:', { id: user.id, cedula: user.cedula });
+    console.log('Usuario encontrado:', { 
+      id: user.id, 
+      cedula: user.cedula,
+      email: user.email
+    });
 
     // Verificar contraseña
     const validPassword = await bcrypt.compare(password, user.password);
     console.log('Contraseña válida:', validPassword);
 
     if (!validPassword) {
-      console.log('Contraseña incorrecta');
-      return res.status(401).json({ message: 'Credenciales inválidas' });
+      console.log('Contraseña incorrecta para el usuario:', user.cedula);
+      return res.status(401).json({ 
+        success: false,
+        error: 'auth/wrong-password',
+        message: 'Contraseña incorrecta' 
+      });
     }
 
     // Generar token JWT
     const token = jwt.sign(
-      { userId: user.id },
+      { 
+        userId: user.id,
+        cedula: user.cedula,
+        email: user.email
+      },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
 
-    // Guardar datos del usuario en la sesión
-    req.session.user = {
+    // Guardar en sesión
+    const userData = {
       id: user.id,
       cedula: user.cedula,
-      name: user.name,
+      name: user.name || 'Usuario',
       email: user.email
     };
 
-    // Guardar la sesión
-    req.session.save((err) => {
-      if (err) {
-        console.error('Error al guardar la sesión:', err);
-        return res.status(500).json({ message: 'Error al iniciar sesión' });
-      }
+    req.session.user = userData;
+    console.log('Sesión guardada:', req.session.user);
 
-      res.json({
-        message: 'Inicio de sesión exitoso',
-        user: {
-          id: user.id,
-          cedula: user.cedula,
-          name: user.name,
-          email: user.email
-        },
-        token // Incluir el token en la respuesta
-      });
+    res.json({
+      success: true,
+      message: 'Inicio de sesión exitoso',
+      token,
+      user: userData
     });
   } catch (error) {
     console.error('Error en login:', error);

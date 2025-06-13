@@ -207,6 +207,8 @@ export const AuthProvider = ({ children }) => {
   const login = useCallback(async (cedula, password) => {
     try {
       setAuthError('');
+      console.log('Intentando iniciar sesión con cédula:', cedula);
+      
       const response = await fetch(`${API_BASE_URL}${AUTH.LOGIN}`, {
         method: 'POST',
         headers: { 
@@ -218,13 +220,25 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ cedula, password })
       });
 
+      // Obtener el texto de la respuesta para depuración
+      const responseText = await response.text();
+      console.log('Respuesta del servidor:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: responseText
+      });
+
       if (!response.ok) {
         let errorMessage = 'Error en el inicio de sesión';
         try {
-          const errorData = await response.json();
+          // Intentar analizar el JSON de la respuesta
+          const errorData = JSON.parse(responseText);
           errorMessage = errorData.message || errorMessage;
+          console.error('Error de autenticación:', errorData);
         } catch (e) {
-          console.error('Error al procesar la respuesta de error:', e);
+          console.error('Error al analizar la respuesta de error:', e, 'Respuesta:', responseText);
+          errorMessage = responseText || 'Error desconocido del servidor';
         }
         throw new Error(errorMessage);
       }
