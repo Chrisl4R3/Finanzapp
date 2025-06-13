@@ -220,33 +220,34 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ cedula, password })
       });
 
-      // Obtener el texto de la respuesta para depuración
+      // Primero obtener el texto de la respuesta
       const responseText = await response.text();
+      
+      // Intentar analizar el JSON de la respuesta
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Error al analizar la respuesta JSON:', e);
+        throw new Error('Error en el formato de la respuesta del servidor');
+      }
+
       console.log('Respuesta del servidor:', {
         status: response.status,
         statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        body: responseText
+        success: data.success,
+        message: data.message
       });
 
       if (!response.ok) {
-        let errorMessage = 'Error en el inicio de sesión';
-        try {
-          // Intentar analizar el JSON de la respuesta
-          const errorData = JSON.parse(responseText);
-          errorMessage = errorData.message || errorMessage;
-          console.error('Error de autenticación:', errorData);
-        } catch (e) {
-          console.error('Error al analizar la respuesta de error:', e, 'Respuesta:', responseText);
-          errorMessage = responseText || 'Error desconocido del servidor';
-        }
+        const errorMessage = data.message || 'Error en el inicio de sesión';
+        console.error('Error de autenticación:', data);
         throw new Error(errorMessage);
       }
-
-      const data = await response.json();
       
       // Verificar que la respuesta contenga el token y los datos del usuario
       if (!data.token || !data.user) {
+        console.error('Respuesta del servidor incompleta:', data);
         throw new Error('Respuesta del servidor inválida');
       }
 
