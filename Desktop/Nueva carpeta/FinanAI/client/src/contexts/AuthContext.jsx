@@ -18,23 +18,80 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('refreshToken');
   }, []);
 
+  // Función para realizar peticiones autenticadas con manejo de errores
+  const fetchWithAuth = useCallback(async (url, options = {}) => {
+    const accessToken = localStorage.getItem('accessToken');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+      ...options.headers
+    };
+
+    try {
+      const response = await fetch(`${API_URL}${url}`, {
+        ...options,
+        headers,
+        credentials: 'include',
+        mode: 'cors'
+      });
+
+      // Si el token expiró, intentar refrescarlo
+      if (response.status === 401) {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (refreshToken) {
+          try {
+            const refreshResponse = await fetch(`${API_URL}/auth/refresh-token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refreshToken }),
+              credentials: 'include',
+              mode: 'cors'
+            });
+
+            if (refreshResponse.ok) {
+              const { accessToken: newAccessToken } = await refreshResponse.json();
+              localStorage.setItem('accessToken', newAccessToken);
+              // Reintentar la petición original con el nuevo token
+              headers.Authorization = `Bearer ${newAccessToken}`;
+              const retryResponse = await fetch(`${API_URL}${url}`, {
+                ...options,
+                headers,
+                credentials: 'include',
+                mode: 'cors'
+              });
+              return retryResponse;
+            }
+          } catch (error) {
+            console.error('Error refreshing token:', error);
+            clearAuth();
+            window.location.href = '/login';
+            throw error;
+          }
+        } else {
+          clearAuth();
+          window.location.href = '/login';
+          throw new Error('No refresh token available');
+        }
+      }
+
+      return response;
+    } catch (error) {
+      console.error('Fetch error:', error);
+      throw error;
+    }
+  }, [API_URL, clearAuth]);
+
   // Check authentication status
   const checkAuth = useCallback(async () => {
     try {
       const accessToken = localStorage.getItem('accessToken');
       if (!accessToken) return false;
 
-      const response = await fetch(`${API_URL}/auth/verify`, {
-        method: 'GET',
-        headers: { 
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        mode: 'cors'
+      const response = await fetchWithAuth('/auth/verify', {
+        method: 'GET'
       });
 
-      if (response.ok) {
+      if (response && response.ok) {
         const data = await response.json();
         setUser(data.user);
         setIsAuthenticated(true);
@@ -46,7 +103,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Error verifying auth:', error);
       return false;
     }
-  }, [API_URL]);
+  }, [fetchWithAuth]);
 
   // Refresh token
   const refreshToken = useCallback(async () => {
@@ -56,11 +113,10 @@ export const AuthProvider = ({ children }) => {
         throw new Error('No refresh token available');
       }
 
-      const response = await fetch(`${API_URL}/auth/refresh`, {
+      const response = await fetchWithAuth('/auth/refresh-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ refreshToken })
+        body: JSON.stringify({ refreshToken }),
       });
 
       if (response.ok) {
@@ -77,7 +133,62 @@ export const AuthProvider = ({ children }) => {
       clearAuth();
       throw error;
     }
-  }, [API_URL, clearAuth]);
+  }, [fetchWithAuth, clearAuth]);
+
+  // Login - Maneja tanto el login con credenciales como la autenticación directa
+  const login = useCallback(async (emailOrUserData, passwordOrTokens) => {
+    // Si el segundo parámetro es un objeto, asumimos que es un login directo con tokens
+    if (typeof emailOrUserData === 'object' && emailOrUserData !== null) {
+      const { user: userData, tokens } = emailOrUserData;
+      if (tokens) {
+        localStorage.setItem('accessToken', tokens.accessToken);
+        if (tokens.refreshToken) {
+          localStorage.setItem('refreshToken', tokens.refreshToken);
+        }
+      }
+      setUser(userData);
+      setIsAuthenticated(true);
+      setAuthError('');
+      return { success: true };
+    }
+
+    // Si no, es un login tradicional con email/contraseña
+    try {
+      const response = await fetchWithAuth('/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: emailOrUserData, password: passwordOrTokens }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error en el inicio de sesión');
+      }
+
+      const data = await response.json();
+      
+      if (data.accessToken) {
+        localStorage.setItem('accessToken', data.accessToken);
+        if (data.refreshToken) {
+          localStorage.setItem('refreshToken', data.refreshToken);
+        }
+        setUser(data.user);
+        setIsAuthenticated(true);
+        setAuthError('');
+        return { success: true };
+      } else {
+        throw new Error('No se recibió el token de acceso');
+      }
+    } catch (error) {
+      console.error('Error en login:', error);
+      const errorMessage = error.message || 'Error de conexión';
+      setAuthError(errorMessage);
+      clearAuth();
+      return { success: false, error: errorMessage };
+    }
+  }, [fetchWithAuth, clearAuth]);
 
   // Initialize auth state
   useEffect(() => {
@@ -128,17 +239,7 @@ export const AuthProvider = ({ children }) => {
     };
   }, [checkAuth, refreshToken, clearAuth]);
 
-  const login = useCallback((userData, tokens) => {
-    if (tokens) {
-      localStorage.setItem('accessToken', tokens.accessToken);
-      if (tokens.refreshToken) {
-        localStorage.setItem('refreshToken', tokens.refreshToken);
-      }
-    }
-    setUser(userData);
-    setIsAuthenticated(true);
-    setAuthError('');
-  }, []);
+  // La función login consolidada maneja ambos casos de uso
 
   const logout = useCallback(async () => {
     try {
