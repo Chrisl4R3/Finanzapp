@@ -26,8 +26,12 @@ export const AuthProvider = ({ children }) => {
 
       const response = await fetch(`${API_URL}/auth/verify`, {
         method: 'GET',
-        headers: { 'Authorization': `Bearer ${accessToken}` },
-        credentials: 'include'
+        headers: { 
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        mode: 'cors'
       });
 
       if (response.ok) {
