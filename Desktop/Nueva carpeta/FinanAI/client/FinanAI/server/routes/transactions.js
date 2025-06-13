@@ -379,11 +379,13 @@ router.get('/statistics', async (req, res) => {
           -- Suma total de gastos
           COALESCE(SUM(CASE WHEN type = 'Expense' THEN amount ELSE 0 END), 0) as projected_expense,
           -- Ahorro proyectado (ingresos - gastos)
-          COALESCE(SUM(CASE WHEN type = 'Income' THEN amount ELSE -amount END), 0) as projected_savings
+          COALESCE(SUM(CASE WHEN type = 'Income' THEN amount ELSE -amount END), 0) as projected_savings,
+          -- Agregamos la fecha formateada para el ordenamiento
+          DATE_FORMAT(MAX(date), '%Y-%m') as month_year
         FROM transactions
         WHERE user_id = ? ${dateFilter}
         GROUP BY DATE_FORMAT(date, '%Y-%m')
-        ORDER BY date DESC
+        ORDER BY month_year DESC
         LIMIT 1
       `, dateParams);
 
