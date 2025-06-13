@@ -365,44 +365,13 @@ router.get('/statistics', async (req, res) => {
       ORDER BY transaction_count DESC
     `, dateParams);
 
-    // Pronóstico de gastos y ahorros
-    try {
-      console.log('Parámetros de consulta:', dateParams);
-      const [forecast] = await pool.query(`
-        SELECT 
-          -- Promedio mensual de ingresos
-          COALESCE(AVG(CASE WHEN type = 'Income' THEN amount ELSE 0 END), 0) as avg_monthly_income,
-          -- Promedio mensual de gastos
-          COALESCE(AVG(CASE WHEN type = 'Expense' THEN amount ELSE 0 END), 0) as avg_monthly_expense,
-          -- Suma total de ingresos
-          COALESCE(SUM(CASE WHEN type = 'Income' THEN amount ELSE 0 END), 0) as projected_income,
-          -- Suma total de gastos
-          COALESCE(SUM(CASE WHEN type = 'Expense' THEN amount ELSE 0 END), 0) as projected_expense,
-          -- Ahorro proyectado (ingresos - gastos)
-          COALESCE(SUM(CASE WHEN type = 'Income' THEN amount ELSE -amount END), 0) as projected_savings,
-          -- Agregamos la fecha formateada para el ordenamiento
-          DATE_FORMAT(MAX(date), '%Y-%m') as month_year
-        FROM transactions
-        WHERE user_id = ? ${dateFilter}
-        GROUP BY DATE_FORMAT(date, '%Y-%m')
-        ORDER BY month_year DESC
-        LIMIT 1
-      `, dateParams);
-
-      console.log('Resultado de la consulta:', forecast);
-      return forecast;
-    } catch (error) {
-      console.error('Error en la consulta de pronóstico:', error);
-      throw error;
-    }
-
     res.json({
       summary: summary[0],
       categoryAnalysis,
       monthlyTrends,
       paymentMethods,
-      topDays,
-      forecast: forecast[0]
+      topDays
+      topDays
     });
   } catch (error) {
     console.error('Error al obtener estadísticas:', error);

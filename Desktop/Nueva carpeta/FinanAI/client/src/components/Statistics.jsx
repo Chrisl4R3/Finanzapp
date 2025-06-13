@@ -648,27 +648,6 @@ const Statistics = () => {
               </div>
             </div>
 
-            {/* Gastos Proyectados */}
-            <div className="bg-secondary-bg rounded-lg p-4 hover:bg-opacity-80 transition-all duration-300">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-text-primary font-medium">Gastos Proyectados</p>
-                  <p className="text-text-secondary text-sm mt-1">Proyección para el próximo mes</p>
-                </div>
-                <span className="amount-negative text-lg font-semibold">
-                  {formatCurrency(stats.forecast?.projected_expense || 0)}
-                </span>
-              </div>
-              <div className="mt-3 w-full bg-card-bg rounded-full h-2">
-                <div
-                  className="h-2 rounded-full bg-danger-color transition-all duration-300"
-                  style={{
-                    width: `${(stats.forecast?.projected_expense / (stats.forecast?.avg_monthly_expense || 1)) * 100}%`
-                  }}
-                ></div>
-              </div>
-            </div>
-
             {/* Ahorro Proyectado */}
             <div className="bg-secondary-bg rounded-lg p-4 hover:bg-opacity-80 transition-all duration-300">
               <div className="flex justify-between items-center">
