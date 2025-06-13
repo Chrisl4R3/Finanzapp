@@ -33,24 +33,34 @@ ChartJS.register(
 const Statistics = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { currency, setCurrency, formatCurrency } = useCurrency();
-  const [dateRange, setDateRange] = useState({
-    startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0]
+  const { formatCurrency } = useCurrency();
+  const [dateRange, setDateRange] = useState(() => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(endDate.getMonth() - 1);
+    return {
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0]
+    };
   });
+
+  // Estado inicial optimizado
   const [stats, setStats] = useState({
     summary: {
-      totalIncome: 0,
-      totalExpenses: 0,
-      balance: 0,
-      averageIncome: 0,
-      averageExpense: 0,
+      totalIncome: '0.00',
+      totalExpenses: '0.00',
+      balance: '0.00',
+      averageIncome: '0.00',
+      averageExpense: '0.00',
       transactionCount: 0
     },
     trends: [],
     categoryDistribution: [],
     mostActiveDays: []
   });
+
+  // Memoizar el formateo de fechas
+  const dateRangeString = `${dateRange.startDate}_${dateRange.endDate}`;
 
   // Colores para gráficos
   const chartColors = {
@@ -72,47 +82,69 @@ const Statistics = () => {
     ]
   };
 
-  // Opciones comunes para los gráficos
-  const commonOptions = {
+  // Opciones optimizadas para los gráficos
+  const commonOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
+    animation: {
+      duration: 300, // Reducir la duración de las animaciones
+      animateScale: true,
+      animateRotate: true
+    },
+    interaction: {
+      intersect: false,
+      mode: 'index'
+    },
     plugins: {
       legend: {
+        display: true,
+        position: 'top',
         labels: {
           color: 'rgba(255, 255, 255, 0.9)',
           font: {
             size: 12,
             family: "'Inter', sans-serif"
-          }
+          },
+          padding: 20
         }
       },
       tooltip: {
+        enabled: true,
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         titleColor: 'rgba(255, 255, 255, 0.9)',
         bodyColor: 'rgba(255, 255, 255, 0.9)',
-        padding: 12,
+        padding: 10,
         boxPadding: 6,
         usePointStyle: true,
         bodyFont: {
-          family: "'Inter', sans-serif"
+          family: "'Inter', sans-serif",
+          size: 12
         },
         titleFont: {
           family: "'Inter', sans-serif",
+          size: 12,
           weight: '600'
+        },
+        callbacks: {
+          label: function(context) {
+            return ` ${context.dataset.label}: ${formatCurrency(parseFloat(context.raw))}`;
+          }
         }
       }
     },
     scales: {
       x: {
         grid: {
-          color: 'rgba(255, 255, 255, 0.1)'
+          display: false
         },
         ticks: {
-          color: 'rgba(255, 255, 255, 0.9)',
+          color: 'rgba(255, 255, 255, 0.7)',
           font: {
-            size: 11,
+            size: 10,
             family: "'Inter', sans-serif"
-          }
+          },
+          maxRotation: 45,
+          minRotation: 45
         }
       },
       y: {
@@ -120,22 +152,24 @@ const Statistics = () => {
           color: 'rgba(255, 255, 255, 0.1)'
         },
         ticks: {
-          color: 'rgba(255, 255, 255, 0.9)',
+          color: 'rgba(255, 255, 255, 0.7)',
           font: {
-            size: 11,
+            size: 10,
             family: "'Inter', sans-serif"
           },
-          callback: (value) => `$${value.toLocaleString()}`
+          callback: (value) => formatCurrency(value)
         }
       }
     }
-  };
+  }), [formatCurrency]);
 
-  useEffect(() => {
-    fetchStatistics();
-  }, [dateRange]);
+  // Usar useCallback para memoizar la función de fetch
+  const fetchStatistics = useCallback(async () => {
+    if (!dateRange.startDate || !dateRange.endDate) return;
 
-  const fetchStatistics = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout de 10 segundos
+
     try {
       setIsLoading(true);
       setError(null);
