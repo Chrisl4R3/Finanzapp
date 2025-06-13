@@ -366,28 +366,33 @@ router.get('/statistics', async (req, res) => {
     `, dateParams);
 
     // Pronóstico de gastos y ahorros
-    const [forecast] = await pool.query(`
-      SELECT 
-        -- Promedio mensual de ingresos y gastos
-        COALESCE(AVG(CASE WHEN type = 'Income' THEN amount ELSE 0 END), 0) as avg_monthly_income,
-        COALESCE(AVG(CASE WHEN type = 'Expense' THEN amount ELSE 0 END), 0) as avg_monthly_expense,
-        -- Proyección para el próximo mes
-        COALESCE(SUM(CASE WHEN type = 'Income' THEN amount ELSE 0 END), 0) as projected_income,
-        COALESCE(SUM(CASE WHEN type = 'Expense' THEN amount ELSE 0 END), 0) as projected_expense,
-        -- Ahorro proyectado
-        COALESCE(SUM(CASE WHEN type = 'Income' THEN amount ELSE -amount END), 0) as projected_savings
-      FROM (
+    try {
+      console.log('Parámetros de consulta:', dateParams);
+      const [forecast] = await pool.query(`
         SELECT 
-          type,
-          amount,
-          date
+          -- Promedio mensual de ingresos
+          COALESCE(AVG(CASE WHEN type = 'Income' THEN amount ELSE 0 END), 0) as avg_monthly_income,
+          -- Promedio mensual de gastos
+          COALESCE(AVG(CASE WHEN type = 'Expense' THEN amount ELSE 0 END), 0) as avg_monthly_expense,
+          -- Suma total de ingresos
+          COALESCE(SUM(CASE WHEN type = 'Income' THEN amount ELSE 0 END), 0) as projected_income,
+          -- Suma total de gastos
+          COALESCE(SUM(CASE WHEN type = 'Expense' THEN amount ELSE 0 END), 0) as projected_expense,
+          -- Ahorro proyectado (ingresos - gastos)
+          COALESCE(SUM(CASE WHEN type = 'Income' THEN amount ELSE -amount END), 0) as projected_savings
         FROM transactions
         WHERE user_id = ? ${dateFilter}
-      ) as t
-      GROUP BY DATE_FORMAT(date, '%Y-%m')
-      ORDER BY date DESC
-      LIMIT 1
-    `, dateParams);
+        GROUP BY DATE_FORMAT(date, '%Y-%m')
+        ORDER BY date DESC
+        LIMIT 1
+      `, dateParams);
+
+      console.log('Resultado de la consulta:', forecast);
+      return forecast;
+    } catch (error) {
+      console.error('Error en la consulta de pronóstico:', error);
+      throw error;
+    }
 
     res.json({
       summary: summary[0],
