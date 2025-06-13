@@ -81,85 +81,112 @@ export const AuthProvider = ({ children }) => {
     }
   }, [API_URL, clearAuth]);
 
-  // Check authentication status
+  // Verificar el estado de autenticación
   const checkAuth = useCallback(async () => {
     try {
       const accessToken = localStorage.getItem('accessToken');
       if (!accessToken) return false;
 
-      const response = await fetchWithAuth('/auth/verify', {
-        method: 'GET'
+      const response = await fetch(`${API_URL}/auth/verify`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        mode: 'cors'
       });
 
       if (response && response.ok) {
         const data = await response.json();
-        setUser(data.user);
-        setIsAuthenticated(true);
-        setAuthError('');
-        return true;
+        if (data.user) {
+          setUser({
+            id: data.user.id,
+            cedula: data.user.cedula,
+            name: data.user.name,
+            email: data.user.email
+          });
+          setIsAuthenticated(true);
+          setAuthError('');
+          return true;
+        }
       }
+      
+      // Si la verificación falla, limpiar el estado
+      clearAuth();
       return false;
     } catch (error) {
-      console.error('Error verifying auth:', error);
+      console.error('Error verificando autenticación:', error);
+      clearAuth();
       return false;
     }
-  }, [fetchWithAuth]);
+  }, [API_URL, clearAuth]);
 
-  // Refresh token
+  // Refrescar el token de acceso
   const refreshToken = useCallback(async () => {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) {
-        throw new Error('No refresh token available');
+        throw new Error('No hay token de refresco disponible');
       }
 
-      const response = await fetchWithAuth('/auth/refresh-token', {
+      const response = await fetch(`${API_URL}/auth/refresh-token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${refreshToken}`
+        },
+        credentials: 'include',
+        mode: 'cors',
+        body: JSON.stringify({ refreshToken })
       });
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem('accessToken', data.accessToken);
-        if (data.refreshToken) {
-          localStorage.setItem('refreshToken', data.refreshToken);
+        
+        if (data.accessToken) {
+          localStorage.setItem('accessToken', data.accessToken);
+          
+          // Actualizar el token de refresco si se proporciona uno nuevo
+          if (data.refreshToken) {
+            localStorage.setItem('refreshToken', data.refreshToken);
+          }
+          
+          // Actualizar el estado del usuario si se proporciona
+          if (data.user) {
+            setUser({
+              id: data.user.id,
+              cedula: data.user.cedula,
+              name: data.user.name,
+              email: data.user.email
+            });
+            setIsAuthenticated(true);
+          }
+          
+          return data.accessToken;
         }
-        return data.accessToken;
       }
-      throw new Error('Failed to refresh token');
+      
+      // Si llegamos aquí, algo salió mal
+      throw new Error('No se pudo refrescar el token');
     } catch (error) {
-      console.error('Error refreshing token:', error);
+      console.error('Error al refrescar el token:', error);
       clearAuth();
       throw error;
     }
-  }, [fetchWithAuth, clearAuth]);
+  }, [API_URL, clearAuth]);
 
-  // Login - Maneja tanto el login con credenciales como la autenticación directa
-  const login = useCallback(async (emailOrUserData, passwordOrTokens) => {
-    // Si el segundo parámetro es un objeto, asumimos que es un login directo con tokens
-    if (typeof emailOrUserData === 'object' && emailOrUserData !== null) {
-      const { user: userData, tokens } = emailOrUserData;
-      if (tokens) {
-        localStorage.setItem('accessToken', tokens.accessToken);
-        if (tokens.refreshToken) {
-          localStorage.setItem('refreshToken', tokens.refreshToken);
-        }
-      }
-      setUser(userData);
-      setIsAuthenticated(true);
-      setAuthError('');
-      return { success: true };
-    }
-
-    // Si no, es un login tradicional con email/contraseña
+  // Login - Maneja el inicio de sesión con cédula y contraseña
+  const login = useCallback(async (cedula, password) => {
     try {
-      const response = await fetchWithAuth('/auth/login', {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email: emailOrUserData, password: passwordOrTokens }),
+        body: JSON.stringify({ cedula, password }),
+        credentials: 'include',
+        mode: 'cors'
       });
 
       if (!response.ok) {
@@ -169,18 +196,25 @@ export const AuthProvider = ({ children }) => {
 
       const data = await response.json();
       
-      if (data.accessToken) {
-        localStorage.setItem('accessToken', data.accessToken);
-        if (data.refreshToken) {
-          localStorage.setItem('refreshToken', data.refreshToken);
+      if (data.token) {
+        localStorage.setItem('accessToken', data.token);
+        
+        // Actualizar el estado del usuario con los datos recibidos
+        if (data.user) {
+          setUser({
+            id: data.user.id,
+            cedula: data.user.cedula,
+            name: data.user.name,
+            email: data.user.email
+          });
+          setIsAuthenticated(true);
+          setAuthError('');
+          return { success: true };
         }
-        setUser(data.user);
-        setIsAuthenticated(true);
-        setAuthError('');
-        return { success: true };
-      } else {
-        throw new Error('No se recibió el token de acceso');
       }
+      
+      // Si llegamos aquí, algo salió mal
+      throw new Error('Respuesta inesperada del servidor');
     } catch (error) {
       console.error('Error en login:', error);
       const errorMessage = error.message || 'Error de conexión';
@@ -188,38 +222,42 @@ export const AuthProvider = ({ children }) => {
       clearAuth();
       return { success: false, error: errorMessage };
     }
-  }, [fetchWithAuth, clearAuth]);
+  }, [API_URL, clearAuth]);
 
-  // Initialize auth state
+  // Inicializar el estado de autenticación al cargar el componente
   useEffect(() => {
     let isMounted = true;
     
     const initializeAuth = async () => {
       try {
         setIsLoading(true);
-        const accessToken = localStorage.getItem('accessToken');
         
-        // If no access token, clear auth state
+        // Verificar si hay un token de acceso
+        const accessToken = localStorage.getItem('accessToken');
         if (!accessToken) {
           clearAuth();
           return;
         }
 
-        // Try to verify with current token
+        // Intentar verificar el token actual
         const isVerified = await checkAuth();
         
-        // If not verified, try to refresh
+        // Si la verificación falla, intentar refrescar el token
         if (!isVerified) {
           try {
-            await refreshToken();
-            await checkAuth();
+            const newToken = await refreshToken();
+            if (newToken) {
+              await checkAuth();
+            } else {
+              clearAuth();
+            }
           } catch (error) {
-            console.error('Failed to refresh session:', error);
+            console.error('Error al refrescar la sesión:', error);
             clearAuth();
           }
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        console.error('Error en la inicialización de autenticación:', error);
         clearAuth();
       } finally {
         if (isMounted) {
@@ -230,8 +268,12 @@ export const AuthProvider = ({ children }) => {
 
     initializeAuth();
 
-    // Set up periodic check (every 5 minutes)
-    const intervalId = setInterval(checkAuth, 5 * 60 * 1000);
+    // Configurar verificación periódica (cada 5 minutos)
+    const intervalId = setInterval(() => {
+      checkAuth().catch(error => {
+        console.error('Error en verificación periódica de autenticación:', error);
+      });
+    }, 5 * 60 * 1000);
 
     return () => {
       isMounted = false;
