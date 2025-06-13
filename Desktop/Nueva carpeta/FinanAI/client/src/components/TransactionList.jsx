@@ -16,59 +16,149 @@ import {
   FiChevronRight,
   FiChevronsLeft,
   FiChevronsRight,
-  FiPlus
+  FiPlus,
+  FiChevronUp,
+  FiChevronDown,
+  FiEdit2,
+  FiTrash2,
+  FiChevronUp as FiChevronUpIcon,
+  FiChevronDown as FiChevronDownIcon
 } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import { authenticatedFetch } from '../auth/auth';
 import { useAuth } from '../contexts/AuthContext';
 import Swal from 'sweetalert2';
 import TransactionForm from './TransactionForm';
-// ... rest of imports ...
+import { format, parseISO, isSameMonth, isThisMonth, isThisYear, formatDistanceToNow, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
+import { es } from 'date-fns/locale';
 
-const CATEGORIES = {
-  Income: ['Salario', 'Regalo', 'Otros-Ingreso'],
-  Expense: [
-    'Alimentación',
-    'Servicios',
-    'Salud',
-    'Vivienda',
-    'Educación',
-    'Transporte',
-    'Ropa',
-    'Seguros',
-    'Mantenimiento',
-    'Entretenimiento',
-    'Pasatiempos',
-    'Restaurantes',
-    'Compras',
-    'Viajes',
-    'Otros-Gasto'
-  ]
+// Constantes
+const TRANSACTION_TYPES = {
+  INCOME: 'Income',
+  EXPENSE: 'Expense'
 };
 
-const PAYMENT_METHODS = ['Efectivo', 'Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia Bancaria'];
+// Configuración de paginación
+const PAGINATION_CONFIG = {
+  ITEMS_PER_PAGE: 10,
+  VISIBLE_PAGES: 5
+};
+
+// Estilos para las categorías
+const categoryStyles = {
+  'Salario': 'bg-green-100 text-green-800',
+  'Regalo': 'bg-purple-100 text-purple-800',
+  'Otros-Ingreso': 'bg-blue-100 text-blue-800',
+  'Alimentación': 'bg-red-100 text-red-800',
+  'Servicios': 'bg-yellow-100 text-yellow-800',
+  'Salud': 'bg-pink-100 text-pink-800',
+  'Vivienda': 'bg-indigo-100 text-indigo-800',
+  'Educación': 'bg-teal-100 text-teal-800',
+  'Transporte': 'bg-cyan-100 text-cyan-800',
+  'Ropa': 'bg-orange-100 text-orange-800',
+  'Seguros': 'bg-amber-100 text-amber-800',
+  'Mantenimiento': 'bg-lime-100 text-lime-800',
+  'Entretenimiento': 'bg-emerald-100 text-emerald-800',
+  'Pasatiempos': 'bg-sky-100 text-sky-800',
+  'Restaurantes': 'bg-rose-100 text-rose-800',
+  'Compras': 'bg-fuchsia-100 text-fuchsia-800',
+  'Viajes': 'bg-violet-100 text-violet-800',
+  'Otros-Gasto': 'bg-slate-100 text-slate-800'
+};
+
+// Estilos para los tipos de transacción
+const typeStyles = {
+  'Income': 'text-green-600',
+  'Expense': 'text-red-600'
+};
+
+// Estilos para los métodos de pago
+const paymentMethodStyles = {
+  'Efectivo': 'bg-gray-100 text-gray-800',
+  'Tarjeta de Débito': 'bg-blue-50 text-blue-800',
+  'Tarjeta de Crédito': 'bg-purple-50 text-purple-800',
+  'Transferencia Bancaria': 'bg-cyan-50 text-cyan-800'
+};
+
+// Función para formatear fechas
+const formatTransactionDate = (dateString) => {
+  try {
+    const date = parseISO(dateString);
+    return format(date, "PPP", { locale: es });
+  } catch (error) {
+    return dateString;
+  }
+};
+
+// Función para obtener el nombre del mes en español
+const getMonthName = (date) => {
+  return format(parseISO(date), 'MMMM yyyy', { locale: es });
+};
+
+// Función para agrupar transacciones por mes
+const groupTransactionsByMonth = (transactions) => {
+  const groups = {};
+  
+  transactions.forEach(transaction => {
+    const date = parseISO(transaction.date);
+    const monthKey = format(date, 'yyyy-MM');
+    const monthName = format(date, 'MMMM yyyy', { locale: es });
+    
+    if (!groups[monthKey]) {
+      groups[monthKey] = {
+        month: monthName,
+        date: date,
+        transactions: [],
+        totalIncome: 0,
+        totalExpense: 0
+      };
+    }
+    
+    groups[monthKey].transactions.push(transaction);
+    
+    if (transaction.type === 'Income') {
+      groups[monthKey].totalIncome += parseFloat(transaction.amount);
+    } else {
+      groups[monthKey].totalExpense += parseFloat(transaction.amount);
+    }
+  });
+  
+  // Ordenar los meses de más reciente a más antiguo
+  return Object.values(groups).sort((a, b) => b.date - a.date);
+};
 
 const TransactionList = ({ searchTerm = '', filters = {} }) => {
+  // Estados principales
   const { formatCurrency } = useCurrency();
   const { isAuthenticated } = useAuth();
+  
+  // Estados principales
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Estados para la paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [showForm, setShowForm] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState(null);
+  const [itemsPerPage] = useState(PAGINATION_CONFIG.ITEMS_PER_PAGE);
+  const [expandedMonths, setExpandedMonths] = useState({});
+  
+  // Estados para los filtros
   const [searchTermLocal, setSearchTermLocal] = useState(searchTerm);
-  const [goals, setGoals] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedType, setSelectedType] = useState('all');
   const [localFilters, setLocalFilters] = useState({
-    type: 'all',
     minAmount: '',
     maxAmount: '',
     startDate: '',
     endDate: ''
   });
+  
+  // Estados para el formulario
+  const [showForm, setShowForm] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
   const [formData, setFormData] = useState({
-    type: 'Expense',
+    type: TRANSACTION_TYPES.EXPENSE,
     category: '',
     amount: '',
     description: '',
@@ -83,61 +173,178 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     assignToGoal: false,
     goal_id: ''
   });
-  const [groupedTransactions, setGroupedTransactions] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState('');
-  const [searchTermGlobal, setSearchTermGlobal] = useState('');
-
-  // Calcular resumen de transacciones
-  const transactionSummary = transactions.reduce((summary, transaction) => {
-    if (transaction.type === 'income') {
-      summary.totalIncome += parseFloat(transaction.amount);
-      summary.totalTransactions.income++;
-    } else {
-      summary.totalExpenses += parseFloat(transaction.amount);
-      summary.totalTransactions.expenses++;
-    }
-    return summary;
-  }, {
-    totalIncome: 0,
-    totalExpenses: 0,
-    totalTransactions: { income: 0, expenses: 0 }
-  });
-
+  
+  // Obtener transacciones al cargar el componente
   useEffect(() => {
     if (isAuthenticated) {
+      const fetchTransactions = async () => {
+        try {
+          setIsLoading(true);
+          const response = await authenticatedFetch('/transactions');
+          const data = await response.json();
+          setTransactions(data);
+          setError(null);
+        } catch (err) {
+          console.error('Error al cargar transacciones:', err);
+          setError('No se pudieron cargar las transacciones. Intente de nuevo más tarde.');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
       fetchTransactions();
-      fetchGoals();
     }
   }, [isAuthenticated]);
 
-  // Ordenar transacciones por fecha más reciente
-  useEffect(() => {
-    const sortedTransactions = [...transactions].sort((a, b) => 
-      new Date(b.date) - new Date(a.date)
-    );
-    setTransactions(sortedTransactions);
-  }, [transactions.length]);
+  // Calcular resumen de transacciones
+  const transactionSummary = useMemo(() => {
+    return transactions.reduce((summary, transaction) => {
+      if (transaction.type === 'income') {
+        summary.totalIncome += parseFloat(transaction.amount);
+        summary.totalTransactions.income++;
+      } else {
+        summary.totalExpenses += parseFloat(transaction.amount);
+        summary.totalTransactions.expenses++;
+      }
+      return summary;
+    }, {
+      totalIncome: 0,
+      totalExpenses: 0,
+      totalTransactions: { income: 0, expenses: 0 }
+    });
+  }, [transactions]);
 
-  const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = transaction.description.toLowerCase().includes(searchTermLocal.toLowerCase()) ||
-                         transaction.category.toLowerCase().includes(searchTermLocal.toLowerCase());
-    
-    const matchesType = localFilters.type === 'all' || transaction.type === localFilters.type;
-    
-    const amount = parseFloat(transaction.amount);
-    const matchesAmount = (!localFilters.minAmount || amount >= parseFloat(localFilters.minAmount)) &&
-                         (!localFilters.maxAmount || amount <= parseFloat(localFilters.maxAmount));
-    
-    const date = new Date(transaction.date);
-    const matchesDate = (!localFilters.startDate || date >= new Date(localFilters.startDate)) &&
-                       (!localFilters.endDate || date <= new Date(localFilters.endDate));
+  // Agrupar transacciones por mes
+  const groupedTransactions = useMemo(() => {
+    return groupTransactionsByMonth(transactions);
+  }, [transactions]);
 
-    return matchesSearch && matchesType && matchesAmount && matchesDate;
-  });
+  // Obtener categorías únicas para el filtro
+  const categories = useMemo(() => {
+    const cats = new Set();
+    transactions.forEach(tx => {
+      if (tx.category) cats.add(tx.category);
+    });
+    return Array.from(cats).sort();
+  }, [transactions]);
 
-    const fetchTransactions = async () => {
-      try {
+  // Obtener meses únicos para el filtro
+  const months = useMemo(() => {
+    const monthsSet = new Set();
+    transactions.forEach(tx => {
+      if (tx.date) {
+        const date = parseISO(tx.date);
+        const monthKey = format(date, 'yyyy-MM');
+        const monthName = format(date, 'MMMM yyyy', { locale: es });
+        monthsSet.add({ value: monthKey, label: monthName });
+      }
+    });
+    return Array.from(monthsSet).sort((a, b) => b.value.localeCompare(a.value));
+  }, [transactions]);
+
+  // Manejar cambio de página
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Manejar cambio de mes
+  const handleMonthChange = (e) => {
+    setSelectedMonth(e.target.value);
+    setCurrentPage(1); // Resetear a la primera página al cambiar de mes
+  };
+
+  // Manejar cambio de categoría
+  const handleCategoryChange = (e) => {
+    setSelectedCategory(e.target.value);
+    setCurrentPage(1); // Resetear a la primera página al cambiar de categoría
+  };
+
+  // Manejar cambio de tipo
+  const handleTypeChange = (e) => {
+    setSelectedType(e.target.value);
+    setCurrentPage(1); // Resetear a la primera página al cambiar de tipo
+  };
+
+  // Manejar búsqueda
+  const handleSearch = (e) => {
+    setSearchTermLocal(e.target.value);
+    setCurrentPage(1); // Resetear a la primera página al buscar
+  };
+
+  // Filtrar transacciones
+  const filteredTransactions = useMemo(() => {
+    let result = [...transactions];
+
+    // Aplicar búsqueda
+    if (searchTermLocal) {
+      const searchLower = searchTermLocal.toLowerCase();
+      result = result.filter(tx => 
+        tx.description?.toLowerCase().includes(searchLower) ||
+        (tx.category && tx.category.toLowerCase().includes(searchLower)) ||
+        (tx.payment_method && tx.payment_method.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Aplicar filtros
+    if (localFilters.type !== 'all') {
+      result = result.filter(tx => tx.type === localFilters.type);
+    }
+    if (localFilters.category) {
+      result = result.filter(tx => tx.category === localFilters.category);
+    }
+    if (localFilters.minAmount) {
+      result = result.filter(tx => parseFloat(tx.amount) >= parseFloat(localFilters.minAmount));
+    }
+    if (localFilters.maxAmount) {
+      result = result.filter(tx => parseFloat(tx.amount) <= parseFloat(localFilters.maxAmount));
+    }
+    if (localFilters.startDate) {
+      result = result.filter(tx => new Date(tx.date) >= new Date(localFilters.startDate));
+    }
+    if (localFilters.endDate) {
+      const endDate = new Date(localFilters.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      result = result.filter(tx => new Date(tx.date) <= endDate);
+    }
+
+    // Ordenar por fecha (más reciente primero)
+    return result.sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [transactions, searchTermLocal, localFilters]);
+
+  // Agrupar transacciones por mes
+  const transactionsByMonth = useMemo(() => {
+    return groupTransactionsByMonth(filteredTransactions);
+  }, [filteredTransactions]);
+
+  // Calcular el total de páginas
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+
+  // Obtener transacciones para la página actual
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTransactions, currentPage, itemsPerPage]);
+
+  // Alternar visibilidad de un mes
+  const toggleMonth = (monthKey) => {
+    setExpandedMonths(prev => ({
+      ...prev,
+      [monthKey]: !prev[monthKey]
+    }));
+  };
+
+  // Expandir/colapsar todos los meses
+  const toggleAllMonths = (expand) => {
+    const newState = {};
+    transactionsByMonth.forEach(month => {
+      newState[month.month] = expand;
+    });
+    setExpandedMonths(newState);
+  };
+
+  const fetchTransactions = async () => {
+    try {
       setIsLoading(true);
       setError(null);
 
@@ -513,18 +720,6 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
       </div>
     );
   }
-
-  // Lógica de paginación
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredTransactions.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
-
-  const paginate = (pageNumber) => {
-    if (pageNumber > 0 && pageNumber <= totalPages) {
-      setCurrentPage(pageNumber);
-    }
-  };
 
   return (
     <div className="container mx-auto px-4 py-8">
