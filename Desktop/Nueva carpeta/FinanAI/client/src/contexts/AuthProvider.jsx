@@ -5,7 +5,7 @@ import {
   API_ENDPOINTS, 
   AUTH_CONFIG, 
   DEFAULT_HEADERS,
-  fetchConfig 
+  authFetchConfig 
 } from '../config/api';
 
 const AuthProvider = ({ children }) => {
@@ -32,10 +32,10 @@ const AuthProvider = ({ children }) => {
   const verifyToken = useCallback(async (token) => {
     try {
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.VERIFY}`, {
-        ...fetchConfig,
+        ...authFetchConfig,
         method: 'GET',
         headers: {
-          ...fetchConfig.headers,
+          ...authFetchConfig.headers,
           'Authorization': `Bearer ${token}`
         }
       });
@@ -97,10 +97,10 @@ const AuthProvider = ({ children }) => {
       console.log('Refrescando token...');
       
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.REFRESH_TOKEN}`, {
-        ...fetchConfig,
+        ...authFetchConfig,
         method: 'POST',
         headers: {
-          ...fetchConfig.headers,
+          ...authFetchConfig.headers,
           'Authorization': `Bearer ${refreshToken}`
         },
         body: JSON.stringify({ refreshToken })
@@ -166,7 +166,7 @@ const AuthProvider = ({ children }) => {
       }
 
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGIN}`, {
-        ...fetchConfig,
+        ...authFetchConfig,
         method: 'POST',
         body: JSON.stringify({ cedula, password })
       });

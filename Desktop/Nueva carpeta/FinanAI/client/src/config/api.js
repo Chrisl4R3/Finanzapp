@@ -35,7 +35,23 @@ export const DEFAULT_HEADERS = {
 const fetchConfig = {
   credentials: 'include', // Incluir credenciales (cookies) en todas las solicitudes
   mode: 'cors',
-  headers: DEFAULT_HEADERS
+  headers: DEFAULT_HEADERS,
+  // Asegurar que las cookies se envíen en solicitudes cross-origin
+  // y que se respeten las políticas de SameSite
+  // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch#sending_a_request_with_credentials_included
+  // https://web.dev/samesite-cookies-explained/
 };
 
-export { fetchConfig };
+// Configuración específica para solicitudes con credenciales
+const authFetchConfig = {
+  ...fetchConfig,
+  headers: {
+    ...DEFAULT_HEADERS,
+    // Asegurarse de incluir el token de autorización si está disponible
+    'Authorization': localStorage.getItem('finanzapp_access_token') 
+      ? `Bearer ${localStorage.getItem('finanzapp_access_token')}` 
+      : ''
+  }
+};
+
+export { fetchConfig, authFetchConfig };
