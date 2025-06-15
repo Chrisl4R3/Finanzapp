@@ -176,13 +176,14 @@ const AuthProvider = ({ children }) => {
       }
 
       // Verificar que la respuesta contenga el token de acceso
-      if (!data.accessToken) {
+      if (!data.token) {
         console.error('No se recibió un token de acceso en la respuesta');
+        console.log('Datos de respuesta completos:', data);
         throw new Error('Error en la autenticación: no se recibió token de acceso');
       }
 
       // Guardar el token de acceso y el token de refresco
-      localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, data.accessToken);
+      localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, data.token);
       
       if (data.refreshToken) {
         localStorage.setItem(AUTH_CONFIG.REFRESH_TOKEN_KEY, data.refreshToken);
