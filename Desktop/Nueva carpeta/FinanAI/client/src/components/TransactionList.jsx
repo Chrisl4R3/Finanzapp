@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { FiDollarSign, FiPlusCircle, FiAlertCircle, FiLoader, FiSearch, FiPlus } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import { authenticatedFetch } from '../auth/auth';
-import { useAuth } from '../contexts/AuthContext';
+import useAuth from '../hooks/useAuth';
 import { useCurrency } from '../context/CurrencyContext';
 import Swal from 'sweetalert2';
 import TransactionForm from './TransactionForm';

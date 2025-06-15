@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { authenticatedFetch } from '../auth/auth';
-import { useAuth } from '../contexts/AuthContext';
+import useAuth from '../hooks/useAuth';
 import { useCurrency } from '../context/CurrencyContext';
-import { useNavigate } from 'react-router-dom';
 import TransactionList from './TransactionList';
 import ScheduledTransactions from './ScheduledTransactions';
 import { FiList, FiClock, FiPlus } from 'react-icons/fi';
@@ -32,19 +31,18 @@ const CATEGORIES = {
 const PAYMENT_METHODS = ['Efectivo', 'Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia Bancaria'];
 
 const Transactions = () => {
-  const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { formatCurrency } = useCurrency();
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [editingTransaction, setEditingTransaction] = useState(null);
+  const [_error, setError] = useState(null); 
+  const [_editingTransaction, setEditingTransaction] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('regular');
   
-  const [formData, setFormData] = useState({
+  const [_formData, setFormData] = useState({
     type: 'Expense',
     category: '',
     amount: '',
@@ -54,11 +52,28 @@ const Transactions = () => {
     status: 'Completed'
   });
 
+  const fetchTransactions = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const response = await authenticatedFetch('/transactions');
+      const data = await response.json();
+      setTransactions(data);
+      setFilteredTransactions(data);
+    } catch (err) {
+      setError('Error al cargar las transacciones: ' + err.message);
+      console.error('Error detallado:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) {
-    fetchTransactions();
+      fetchTransactions();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchTransactions]);
 
   useEffect(() => {
     if (!transactions.length) return;
@@ -76,41 +91,15 @@ const Transactions = () => {
              date.includes(searchTermLower) ||
              description.includes(searchTermLower) ||
              category.includes(searchTermLower) ||
-             paymentMethod.includes(searchTermLower) ||
+             type.includes(searchTermLower) ||
              paymentMethod.includes(searchTermLower);
     });
 
     setFilteredTransactions(filtered);
   }, [searchTerm, transactions]);
 
-  const fetchTransactions = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const response = await authenticatedFetch('/transactions');
-      const data = await response.json();
-      setTransactions(data);
-      setFilteredTransactions(data);
-    } catch (err) {
-      setError('Error al cargar las transacciones: ' + err.message);
-      console.error('Error detallado:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-      ...(name === 'type' ? { category: '' } : {})
-    }));
   };
 
   const handleEdit = (transaction) => {
@@ -145,79 +134,6 @@ const Transactions = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Validaciones
-      if (!formData.type || !formData.category || !formData.amount || !formData.date || !formData.description || !formData.payment_method) {
-        throw new Error('Todos los campos son requeridos');
-      }
-
-      const amount = parseFloat(formData.amount);
-      if (isNaN(amount) || amount <= 0) {
-        throw new Error('El monto debe ser un número positivo');
-      }
-
-      if (!CATEGORIES[formData.type].includes(formData.category)) {
-        throw new Error(`Categoría inválida para ${formData.type}`);
-      }
-
-      const endpoint = editingTransaction 
-        ? `/transactions/${editingTransaction.id}`
-        : '/transactions';
-
-      const method = editingTransaction ? 'PUT' : 'POST';
-
-      const response = await authenticatedFetch(endpoint, {
-        method,
-        body: JSON.stringify({
-          ...formData,
-          amount
-        })
-      });
-
-      const data = await response.json();
-
-      // Si hay saldo insuficiente, mostrar SweetAlert y redirigir
-      if (response.status === 400 && data.message === 'Saldo insuficiente') {
-        // Mostrar SweetAlert
-        await Swal.fire({
-          icon: 'warning',
-          title: 'Saldo insuficiente',
-          text: `No tienes suficiente saldo para este gasto. Saldo actual: ${data.currentBalance}`,
-          confirmButtonText: 'Ir al balance'
-        });
-        
-        // Redirigir al dashboard de balance
-        navigate(data.redirect || '/dashboard/balance');
-        return;
-      }
-
-      // Limpiar formulario y actualizar lista
-      setFormData({
-        type: 'Expense',
-        category: '',
-        amount: '',
-        date: new Date().toISOString().split('T')[0],
-        description: '',
-        payment_method: 'Efectivo',
-        status: 'Completed'
-      });
-      setShowForm(false);
-      setEditingTransaction(null);
-      await fetchTransactions();
-    } catch (err) {
-      setError('Error al guardar la transacción: ' + err.message);
-      console.error('Error detallado:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Función para agrupar transacciones por fecha
   const groupTransactionsByDate = (transactions) => {
     const groups = {};
@@ -238,7 +154,7 @@ const Transactions = () => {
     });
     return Object.entries(groups)
       .sort(([dateA], [dateB]) => new Date(dateB) - new Date(dateA))
-      .map(([_, group]) => group);
+      .map(([, group]) => group);
   };
 
   // Función para formatear la fecha

@@ -2,7 +2,7 @@ import { useNavigate, NavLink } from 'react-router-dom';
 import { logout } from '../auth/auth';
 import { FiHome, FiDollarSign, FiTarget, FiBarChart2, FiLogOut, FiUser, FiChevronDown } from 'react-icons/fi';
 import { useState, useRef, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import useAuth from '../hooks/useAuth';
 
 const Navbar = () => {
   const navigate = useNavigate();

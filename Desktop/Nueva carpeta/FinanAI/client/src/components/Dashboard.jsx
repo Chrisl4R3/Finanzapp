@@ -12,7 +12,7 @@ import {
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { useCurrency } from '../context/CurrencyContext';
-import { useAuth } from '../contexts/AuthContext';
+import useAuth from '../hooks/useAuth';
 
 // Registrar componentes de Chart.js
 ChartJS.register(
