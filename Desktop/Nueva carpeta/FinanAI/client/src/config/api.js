@@ -28,5 +28,18 @@ export const AUTH_CONFIG = {
 // Headers por defecto
 export const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
-  'Accept': 'application/json'
+  'Accept': 'application/json',
+  'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Allow-Origin': window.location.origin,
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
 };
+
+// Configuración común para fetch
+const fetchConfig = {
+  credentials: 'include', // Incluir credenciales (cookies) en todas las solicitudes
+  mode: 'cors',
+  headers: DEFAULT_HEADERS
+};
+
+export { fetchConfig };

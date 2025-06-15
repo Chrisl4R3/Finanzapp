@@ -4,7 +4,8 @@ import {
   API_BASE_URL, 
   API_ENDPOINTS, 
   AUTH_CONFIG, 
-  DEFAULT_HEADERS 
+  DEFAULT_HEADERS,
+  fetchConfig 
 } from '../config/api';
 
 const AuthProvider = ({ children }) => {
@@ -27,6 +28,32 @@ const AuthProvider = ({ children }) => {
   // Usar useRef para la función refreshToken para evitar dependencias circulares
   const refreshTokenRef = useRef(null);
 
+  // Función para verificar el token
+  const verifyToken = useCallback(async (token) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.VERIFY}`, {
+        ...fetchConfig,
+        method: 'GET',
+        headers: {
+          ...fetchConfig.headers,
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+        setIsAuthenticated(true);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error al verificar el token:', error);
+      return false;
+    }
+  }, []);
+
+  // Verificar el estado de autenticación
   const checkAuth = useCallback(async () => {
     try {
       const accessToken = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
@@ -39,32 +66,23 @@ const AuthProvider = ({ children }) => {
 
       console.log('Verificando token de acceso...');
       
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.VERIFY}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          ...DEFAULT_HEADERS
-        },
-        credentials: 'include',
-        mode: 'cors'
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-        setIsAuthenticated(true);
+      // Verificar el token actual
+      const isTokenValid = await verifyToken(accessToken);
+      
+      if (isTokenValid) {
         return true;
-      } else {
-        // Si el token no es válido, intentar refrescarlo
-        console.log('Token inválido o expirado, intentando refrescar...');
-        return await refreshTokenRef.current();
       }
+      
+      // Si el token no es válido, intentar refrescarlo
+      console.log('Token inválido o expirado, intentando refrescar...');
+      return await refreshTokenRef.current();
+      
     } catch (error) {
       console.error('Error al verificar la autenticación:', error);
       clearAuth();
       return false;
     }
-  }, [clearAuth]);
+  }, [clearAuth, verifyToken]);
 
   // Refrescar el token
   const refreshTokenFn = useCallback(async () => {
@@ -79,13 +97,12 @@ const AuthProvider = ({ children }) => {
       console.log('Refrescando token...');
       
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.REFRESH_TOKEN}`, {
+        ...fetchConfig,
         method: 'POST',
         headers: {
-          ...DEFAULT_HEADERS,
+          ...fetchConfig.headers,
           'Authorization': `Bearer ${refreshToken}`
         },
-        credentials: 'include',
-        mode: 'cors',
         body: JSON.stringify({ refreshToken })
       });
 
@@ -149,10 +166,8 @@ const AuthProvider = ({ children }) => {
       }
 
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGIN}`, {
+        ...fetchConfig,
         method: 'POST',
-        headers: DEFAULT_HEADERS,
-        credentials: 'include',
-        mode: 'cors',
         body: JSON.stringify({ cedula, password })
       });
 
