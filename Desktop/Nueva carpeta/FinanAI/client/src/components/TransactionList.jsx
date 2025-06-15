@@ -665,36 +665,38 @@ const handleSubmit = async (dataOrEvent) => {
               </div>
             </div>
           </div>
-          </div>
-          {/* Filtro de categoría */}
-          <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-            <select
-              id="category"
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
-              value={selectedCategory}
-              onChange={e => setSelectedCategory(e.target.value)}
-            >
-              <option value="">Todas las categorías</option>
-              {availableCategories.map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
-          </div>
           
-          {/* Filtro de tipo */}
-          <div>
-            <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
-            <select
-              id="type"
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
-              value={selectedType}
-              onChange={e => setSelectedType(e.target.value)}
-            >
-              <option value="all">Todos</option>
-              <option value="Income">Ingresos</option>
-              <option value="Expense">Gastos</option>
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Filtro de categoría */}
+            <div>
+              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+              <select
+                id="category"
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
+                value={selectedCategory}
+                onChange={e => setSelectedCategory(e.target.value)}
+              >
+                <option value="">Todas las categorías</option>
+                {availableCategories.map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Filtro de tipo */}
+            <div>
+              <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+              <select
+                id="type"
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
+                value={selectedType}
+                onChange={e => setSelectedType(e.target.value)}
+              >
+                <option value="all">Todos</option>
+                <option value="Income">Ingresos</option>
+                <option value="Expense">Gastos</option>
+              </select>
+            </div>
           </div>
         </div>
           
@@ -746,8 +748,9 @@ const handleSubmit = async (dataOrEvent) => {
             </button>
           </div>
         </div>
-      {/* Lista de transacciones */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+
+        {/* Lista de transacciones */}
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="min-h-[40vh] flex items-center justify-center">
             <FiLoader className="animate-spin w-8 h-8 text-accent-color" />
@@ -830,71 +833,33 @@ const handleSubmit = async (dataOrEvent) => {
                     </div>
                   </div>
                 );
-              })}
-            </div>)}
+                })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-      {/* Controles de paginación */}
+      {/* Simple pagination controls */}
       {totalPagesCount > 1 && (
-        <div className="flex justify-center mt-6">
-          <nav className="flex items-center gap-1">
-            <button
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-              className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-            >
-              «
-            </button>
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-            >
-              ‹
-            </button>
-            
-            {Array.from({ length: Math.min(5, totalPagesCount) }, (_, i) => {
-              let pageNum;
-              if (totalPagesCount <= 5) {
-                pageNum = i + 1;
-              } else if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPagesCount - 2) {
-                pageNum = totalPagesCount - 4 + i;
-              } else {
-                pageNum = currentPage - 2 + i;
-              }
-              
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => setCurrentPage(pageNum)}
-                  className={`px-3 py-1.5 rounded-md border ${
-                    currentPage === pageNum 
-                      ? 'bg-accent-color text-white border-accent-color' 
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-            
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPagesCount, p + 1))}
-              disabled={currentPage === totalPagesCount}
-              className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-            >
-              ›
-            </button>
-            <button
-              onClick={() => setCurrentPage(totalPagesCount)}
-              disabled={currentPage === totalPagesCount}
-              className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-            >
-              »
-            </button>
-          </nav>
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 mx-1 border rounded disabled:opacity-50"
+          >
+            Anterior
+          </button>
+          <span className="px-4 py-2">
+            Página {currentPage} de {totalPagesCount}
+          </span>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPagesCount, p + 1))}
+            disabled={currentPage === totalPagesCount}
+            className="px-4 py-2 mx-1 border rounded disabled:opacity-50"
+          >
+            Siguiente
+          </button>
         </div>
       )}
 
