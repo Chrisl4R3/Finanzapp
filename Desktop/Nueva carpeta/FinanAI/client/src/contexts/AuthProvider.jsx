@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AuthContext } from './AuthContext';
+import AuthContext from './AuthContext';
 import { 
   API_BASE_URL, 
   API_ENDPOINTS, 

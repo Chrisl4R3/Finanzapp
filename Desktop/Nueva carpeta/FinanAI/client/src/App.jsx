@@ -10,7 +10,8 @@ import Profile from './components/Profile';
 import Layout from './components/Layout';
 import './App.css';
 import { CurrencyProvider } from './context/CurrencyContext';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import AuthProvider from './contexts/AuthProvider';
+import useAuth from './hooks/useAuth';
 import { useLocation } from 'react-router-dom';
 
 function App() {
