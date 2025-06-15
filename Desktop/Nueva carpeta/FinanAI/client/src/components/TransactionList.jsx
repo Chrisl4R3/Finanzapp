@@ -16,28 +16,42 @@ import {
   FiChevronRight,
   FiChevronsLeft,
   FiChevronsRight,
-  FiPlus,
-  FiChevronUp,
-  FiChevronDown,
-  FiEdit2,
-  FiTrash2,
-  FiChevronUp as FiChevronUpIcon,
-  FiChevronDown as FiChevronDownIcon
+  FiPlus
 } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import { authenticatedFetch } from '../auth/auth';
 import { useAuth } from '../contexts/AuthContext';
 import Swal from 'sweetalert2';
 import TransactionForm from './TransactionForm';
+<<<<<<< HEAD
 import { format, parseISO } from 'date-fns';
 import es from 'date-fns/locale/es';
+=======
+// ... rest of imports ...
+>>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
 
-// Constantes
-const TRANSACTION_TYPES = {
-  INCOME: 'Income',
-  EXPENSE: 'Expense'
+const CATEGORIES = {
+  Income: ['Salario', 'Regalo', 'Otros-Ingreso'],
+  Expense: [
+    'Alimentación',
+    'Servicios',
+    'Salud',
+    'Vivienda',
+    'Educación',
+    'Transporte',
+    'Ropa',
+    'Seguros',
+    'Mantenimiento',
+    'Entretenimiento',
+    'Pasatiempos',
+    'Restaurantes',
+    'Compras',
+    'Viajes',
+    'Otros-Gasto'
+  ]
 };
 
+<<<<<<< HEAD
 // Configuración de paginación
 const PAGINATION_CONFIG = {
   ITEMS_PER_PAGE: 10,
@@ -128,33 +142,42 @@ const groupTransactionsByMonth = (transactions) => {
   // Ordenar los meses de más reciente a más antiguo
   return Object.values(groups).sort((a, b) => b.date - a.date);
 };
+=======
+const PAYMENT_METHODS = ['Efectivo', 'Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia Bancaria'];
+>>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
 
 const TransactionList = ({ searchTerm = '', filters = {} }) => {
-  // Estados principales
   const { formatCurrency } = useCurrency();
   const { isAuthenticated } = useAuth();
+<<<<<<< HEAD
   
   // Estados de datos
+=======
+>>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Estados para la paginación
   const [currentPage, setCurrentPage] = useState(1);
+<<<<<<< HEAD
   const [itemsPerPage] = useState(5); // 5 transacciones por página
   const [expandedMonths, setExpandedMonths] = useState({});
   
   // Estados para los filtros
+=======
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [showForm, setShowForm] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+>>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
   const [searchTermLocal, setSearchTermLocal] = useState(searchTerm);
-  const [selectedMonth, setSelectedMonth] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedType, setSelectedType] = useState('all');
+  const [goals, setGoals] = useState([]);
   const [localFilters, setLocalFilters] = useState({
+    type: 'all',
     minAmount: '',
     maxAmount: '',
     startDate: '',
     endDate: ''
   });
+<<<<<<< HEAD
   
   // Obtener categorías únicas para el filtro
   const availableCategories = useMemo(() => {
@@ -232,8 +255,10 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   // Estados para el formulario
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
+=======
+>>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
   const [formData, setFormData] = useState({
-    type: TRANSACTION_TYPES.EXPENSE,
+    type: 'Expense',
     category: '',
     amount: '',
     description: '',
@@ -248,10 +273,30 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     assignToGoal: false,
     goal_id: ''
   });
-  
-  // Obtener transacciones al cargar el componente
+  const [groupedTransactions, setGroupedTransactions] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [searchTermGlobal, setSearchTermGlobal] = useState('');
+
+  // Calcular resumen de transacciones
+  const transactionSummary = transactions.reduce((summary, transaction) => {
+    if (transaction.type === 'income') {
+      summary.totalIncome += parseFloat(transaction.amount);
+      summary.totalTransactions.income++;
+    } else {
+      summary.totalExpenses += parseFloat(transaction.amount);
+      summary.totalTransactions.expenses++;
+    }
+    return summary;
+  }, {
+    totalIncome: 0,
+    totalExpenses: 0,
+    totalTransactions: { income: 0, expenses: 0 }
+  });
+
   useEffect(() => {
     if (isAuthenticated) {
+<<<<<<< HEAD
       const loadTransactions = async () => {
         setIsLoading(true);
         try {
@@ -401,6 +446,40 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
   const fetchTransactions = async () => {
     try {
+=======
+      fetchTransactions();
+      fetchGoals();
+    }
+  }, [isAuthenticated]);
+
+  // Ordenar transacciones por fecha más reciente
+  useEffect(() => {
+    const sortedTransactions = [...transactions].sort((a, b) => 
+      new Date(b.date) - new Date(a.date)
+    );
+    setTransactions(sortedTransactions);
+  }, [transactions.length]);
+
+  const filteredTransactions = transactions.filter(transaction => {
+    const matchesSearch = transaction.description.toLowerCase().includes(searchTermLocal.toLowerCase()) ||
+                         transaction.category.toLowerCase().includes(searchTermLocal.toLowerCase());
+    
+    const matchesType = localFilters.type === 'all' || transaction.type === localFilters.type;
+    
+    const amount = parseFloat(transaction.amount);
+    const matchesAmount = (!localFilters.minAmount || amount >= parseFloat(localFilters.minAmount)) &&
+                         (!localFilters.maxAmount || amount <= parseFloat(localFilters.maxAmount));
+    
+    const date = new Date(transaction.date);
+    const matchesDate = (!localFilters.startDate || date >= new Date(localFilters.startDate)) &&
+                       (!localFilters.endDate || date <= new Date(localFilters.endDate));
+
+    return matchesSearch && matchesType && matchesAmount && matchesDate;
+  });
+
+    const fetchTransactions = async () => {
+      try {
+>>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
       setIsLoading(true);
       setError(null);
 
@@ -640,6 +719,18 @@ const handleSubmit = async (dataOrEvent) => {
       </div>
     );
   }
+
+  // Lógica de paginación
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredTransactions.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+
+  const paginate = (pageNumber) => {
+    if (pageNumber > 0 && pageNumber <= totalPages) {
+      setCurrentPage(pageNumber);
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
