@@ -746,9 +746,8 @@ const handleSubmit = async (dataOrEvent) => {
             </button>
           </div>
         </div>
-)}
       {/* Lista de transacciones */}
-      {<div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="min-h-[40vh] flex items-center justify-center">
             <FiLoader className="animate-spin w-8 h-8 text-accent-color" />
@@ -834,7 +833,7 @@ const handleSubmit = async (dataOrEvent) => {
               })}
             </div>)}
         </div>
-      )}
+      </div>
       {/* Controles de paginación */}
       {totalPagesCount > 1 && (
         <div className="flex justify-center mt-6">
@@ -854,14 +853,14 @@ const handleSubmit = async (dataOrEvent) => {
               ‹
             </button>
             
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            {Array.from({ length: Math.min(5, totalPagesCount) }, (_, i) => {
               let pageNum;
-              if (totalPages <= 5) {
+              if (totalPagesCount <= 5) {
                 pageNum = i + 1;
               } else if (currentPage <= 3) {
                 pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
+              } else if (currentPage >= totalPagesCount - 2) {
+                pageNum = totalPagesCount - 4 + i;
               } else {
                 pageNum = currentPage - 2 + i;
               }
@@ -886,6 +885,13 @@ const handleSubmit = async (dataOrEvent) => {
               disabled={currentPage === totalPagesCount}
               className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             >
+              ›
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPagesCount)}
+              disabled={currentPage === totalPagesCount}
+              className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
               »
             </button>
           </nav>
@@ -900,7 +906,7 @@ const handleSubmit = async (dataOrEvent) => {
               className="absolute top-4 right-4 text-gray-500 hover:text-danger-color text-xl"
               onClick={() => setShowForm(false)}
             >
-              X
+              ×
             </button>
             <TransactionForm
               onSubmit={handleSubmit}
