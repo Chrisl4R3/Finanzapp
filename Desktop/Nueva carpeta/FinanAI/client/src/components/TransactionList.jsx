@@ -24,8 +24,12 @@ import { useAuth } from '../contexts/AuthContext';
 import Swal from 'sweetalert2';
 import TransactionForm from './TransactionForm';
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { format, parseISO } from 'date-fns';
 import es from 'date-fns/locale/es';
+=======
+// ... rest of imports ...
+>>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
 =======
 // ... rest of imports ...
 >>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
@@ -51,6 +55,7 @@ const CATEGORIES = {
   ]
 };
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 // Configuración de paginación
 const PAGINATION_CONFIG = {
@@ -145,13 +150,19 @@ const groupTransactionsByMonth = (transactions) => {
 =======
 const PAYMENT_METHODS = ['Efectivo', 'Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia Bancaria'];
 >>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
+=======
+const PAYMENT_METHODS = ['Efectivo', 'Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia Bancaria'];
+>>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
 
 const TransactionList = ({ searchTerm = '', filters = {} }) => {
   const { formatCurrency } = useCurrency();
   const { isAuthenticated } = useAuth();
 <<<<<<< HEAD
+<<<<<<< HEAD
   
   // Estados de datos
+=======
+>>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
 =======
 >>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
   const [transactions, setTransactions] = useState([]);
@@ -159,10 +170,16 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 <<<<<<< HEAD
+<<<<<<< HEAD
   const [itemsPerPage] = useState(5); // 5 transacciones por página
   const [expandedMonths, setExpandedMonths] = useState({});
   
   // Estados para los filtros
+=======
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [showForm, setShowForm] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+>>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
 =======
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showForm, setShowForm] = useState(false);
@@ -177,6 +194,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     startDate: '',
     endDate: ''
   });
+<<<<<<< HEAD
 <<<<<<< HEAD
   
   // Obtener categorías únicas para el filtro
@@ -257,6 +275,8 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
   const [editingTransaction, setEditingTransaction] = useState(null);
 =======
 >>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
+=======
+>>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
   const [formData, setFormData] = useState({
     type: 'Expense',
     category: '',
@@ -296,6 +316,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
   useEffect(() => {
     if (isAuthenticated) {
+<<<<<<< HEAD
 <<<<<<< HEAD
       const loadTransactions = async () => {
         setIsLoading(true);
@@ -446,6 +467,40 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
   const fetchTransactions = async () => {
     try {
+=======
+      fetchTransactions();
+      fetchGoals();
+    }
+  }, [isAuthenticated]);
+
+  // Ordenar transacciones por fecha más reciente
+  useEffect(() => {
+    const sortedTransactions = [...transactions].sort((a, b) => 
+      new Date(b.date) - new Date(a.date)
+    );
+    setTransactions(sortedTransactions);
+  }, [transactions.length]);
+
+  const filteredTransactions = transactions.filter(transaction => {
+    const matchesSearch = transaction.description.toLowerCase().includes(searchTermLocal.toLowerCase()) ||
+                         transaction.category.toLowerCase().includes(searchTermLocal.toLowerCase());
+    
+    const matchesType = localFilters.type === 'all' || transaction.type === localFilters.type;
+    
+    const amount = parseFloat(transaction.amount);
+    const matchesAmount = (!localFilters.minAmount || amount >= parseFloat(localFilters.minAmount)) &&
+                         (!localFilters.maxAmount || amount <= parseFloat(localFilters.maxAmount));
+    
+    const date = new Date(transaction.date);
+    const matchesDate = (!localFilters.startDate || date >= new Date(localFilters.startDate)) &&
+                       (!localFilters.endDate || date <= new Date(localFilters.endDate));
+
+    return matchesSearch && matchesType && matchesAmount && matchesDate;
+  });
+
+    const fetchTransactions = async () => {
+      try {
+>>>>>>> parent of 1e8b447 (Poniendo transacciones lindo)
 =======
       fetchTransactions();
       fetchGoals();
