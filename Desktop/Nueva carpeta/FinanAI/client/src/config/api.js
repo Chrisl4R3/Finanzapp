@@ -12,9 +12,7 @@ export const fetchConfig = {
     'Accept': 'application/json',
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
-    'Expires': '0',
-    'X-Requested-With': 'XMLHttpRequest',
-    'Access-Control-Allow-Credentials': 'true'
+    'Expires': '0'
   }
 };
 

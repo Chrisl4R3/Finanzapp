@@ -1,42 +1,78 @@
 const API_URL = 'https://backend-production-cf437.up.railway.app/api';
 
 // Función auxiliar para obtener el token
-const getStoredToken = () => localStorage.getItem('authToken');
-
-// Función auxiliar para configurar headers
-const getAuthHeaders = () => {
-  const token = getStoredToken();
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': token ? `Bearer ${token}` : ''
-  };
+export const getStoredToken = () => {
+  const token = localStorage.getItem('authToken');
+  return token || null;
 };
 
 export const login = async (credentials) => {
   try {
+    console.log('=== login ===');
+    console.log('Iniciando proceso de login...');
+    console.log('URL de login:', `${API_URL}/auth/login`);
+    
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       credentials: 'include',
+      mode: 'cors',
       body: JSON.stringify(credentials),
     });
 
+    console.log('Respuesta recibida:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error en la autenticación');
+      let errorMessage = 'Error en la autenticación';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+        console.error('Error del servidor:', errorData);
+      } catch (e) {
+        console.error('No se pudo analizar la respuesta de error:', e);
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
+    console.log('Login exitoso, datos recibidos:', data);
+    
     if (data.token) {
       localStorage.setItem('authToken', data.token);
-      console.log('Token guardado:', data.token);
+      console.log('Token guardado en localStorage');
     }
+    
     return data;
   } catch (error) {
-    console.error('Error en login:', error);
-    throw error;
+    console.error('Error en login:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      ...(error.response && {
+        response: {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          headers: Object.fromEntries(error.response.headers.entries())
+        }
+      })
+    });
+    
+    // Limpiar credenciales en caso de error
+    localStorage.removeItem('authToken');
+    
+    // Lanzar un error más descriptivo
+    const errorMessage = error.message || 'Error de conexión. Por favor, verifica tu conexión e inténtalo de nuevo.';
+    const loginError = new Error(errorMessage);
+    loginError.name = 'LoginError';
+    throw loginError;
   }
 };
 
@@ -69,69 +105,138 @@ export const register = async (userData) => {
 };
 
 export const isAuthenticated = async () => {
+  const token = getStoredToken();
+  if (!token) {
+    console.log('No se encontró token en localStorage');
+    return false;
+  }
+
   try {
+    console.log('Verificando autenticación...');
     const response = await fetch(`${API_URL}/auth/verify`, {
       method: 'GET',
       credentials: 'include',
-      headers: getAuthHeaders()
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    console.log('Respuesta de verificación:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
     });
     
     if (!response.ok) {
+      console.log('La verificación falló con estado:', response.status);
       return false;
     }
     
     const data = await response.json();
+    console.log('Datos de verificación:', data);
+    
     return data.isAuthenticated === true;
   } catch (error) {
-    console.error('Error verificando autenticación:', error);
+    console.error('Error verificando autenticación:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
     return false;
   }
 };
 
 export const logout = async () => {
+  const token = getStoredToken();
+  
+  // Limpiar datos locales primero para asegurar que no haya estado inconsistente
+  localStorage.removeItem('authToken');
+  sessionStorage.clear();
+  localStorage.clear();
+  
+  if (!token) {
+    console.log('No hay token para cerrar sesión en el servidor');
+    return true;
+  }
+  
   try {
+    console.log('Cerrando sesión en el servidor...');
     const response = await fetch(`${API_URL}/auth/logout`, {
       method: 'POST',
       credentials: 'include',
-      headers: getAuthHeaders()
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    console.log('Respuesta de cierre de sesión:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
     });
 
     if (!response.ok) {
-      throw new Error('Error al cerrar sesión');
+      console.warn('El servidor reportó un error al cerrar sesión, pero la sesión local se ha limpiado');
     }
-
-    // Limpiar datos locales
-    localStorage.removeItem('authToken');
-    sessionStorage.clear();
-    localStorage.clear();
     
     return true;
   } catch (error) {
-    console.error('Error al cerrar sesión:', error);
-    // Aún si hay error, limpiamos los datos locales
-    localStorage.removeItem('authToken');
-    sessionStorage.clear();
-    localStorage.clear();
-    throw error;
+    console.error('Error al cerrar sesión en el servidor (sesión local ya limpiada):', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
+    // No relanzamos el error ya que ya limpiamos el estado local
+    return true;
   }
 };
 
 export const getCurrentUser = async () => {
+  const token = getStoredToken();
+  if (!token) {
+    console.log('No se puede obtener el usuario actual: no hay token');
+    return null;
+  }
+
   try {
+    console.log('Obteniendo información del usuario actual...');
     const response = await fetch(`${API_URL}/auth/verify`, {
       method: 'GET',
       credentials: 'include',
-      headers: getAuthHeaders()
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    console.log('Respuesta de verificación de usuario:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
     });
 
     if (!response.ok) {
-      throw new Error('No se pudo obtener el usuario actual');
+      console.error('Error al obtener el usuario actual:', await response.text());
+      return null;
     }
 
     const data = await response.json();
-    return data.user;
+    console.log('Datos del usuario:', data.user);
+    return data.user || null;
   } catch (error) {
-    console.error('Error al obtener usuario actual:', error);
+    console.error('Error al obtener usuario actual:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
     return null;
   }
 };

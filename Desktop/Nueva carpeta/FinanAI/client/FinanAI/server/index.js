@@ -13,19 +13,21 @@ import pool from './config/db.js';
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = !isProduction;
 
-// Configuración de CORS
+// Configuración de CORS - Lista de orígenes permitidos
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'https://frontend-production-df22.up.railway.app',
-  'https://backend-production-cf437.up.railway.app'
+  'https://backend-production-cf437.up.railway.app',
+  'http://localhost:3000',
+  'http://localhost:5173' // Añadido para desarrollo con Vite
 ].filter(Boolean);
 
 // Mostrar configuración al iniciar
 console.log('=== Configuración del Servidor en Railway ===');
 console.log('Entorno:', isProduction ? 'PRODUCCIÓN' : 'desarrollo');
-console.log('URL del Frontend:', process.env.FRONTEND_URL);
-console.log('URL del Backend:', process.env.BACKEND_URL);
-console.log('Orígenes permitidos:', allowedOrigins);
+console.log('URL del Frontend:', process.env.FRONTEND_URL || 'No definida');
+console.log('URL del Backend:', process.env.BACKEND_URL || 'No definida');
+console.log('Orígenes permitidos:', allowedOrigins.length > 0 ? allowedOrigins : 'Ninguno definido');
 console.log('Dominio de cookies:', process.env.COOKIE_DOMAIN || 'No definido');
 console.log('Cookies seguras:', process.env.COOKIE_SECURE === 'true' ? 'Sí' : 'No');
 console.log('===========================================');
@@ -70,16 +72,65 @@ const sessionConfig = {
   rolling: true, // Renovar la cookie en cada petición
   unset: 'destroy',
   // Configuración de regeneración de ID de sesión
-  genid: function(req) {
-    return require('crypto').randomBytes(16).toString('hex');
+  genid: async function() {
+    const crypto = await import('crypto');
+    return crypto.randomBytes(16).toString('hex');
   }
 };
 
+// Configuración de CORS
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permitir peticiones sin origen (como aplicaciones móviles o curl)
+    if (!origin) return callback(null, true);
+    
+    // En desarrollo, permitir todos los orígenes
+    if (!isProduction) {
+      console.log(`Permitiendo origen (modo desarrollo): ${origin}`);
+      return callback(null, true);
+    }
+    
+    // En producción, verificar contra la lista de orígenes permitidos
+    if (allowedOrigins.includes(origin)) {
+      console.log(`Origen permitido: ${origin}`);
+      return callback(null, true);
+    }
+    
+    console.warn(`Origen no permitido: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin',
+    'Access-Control-Allow-Credentials'
+  ],
+  exposedHeaders: [
+    'Content-Range', 
+    'X-Content-Range', 
+    'Authorization', 
+    'Set-Cookie',
+    'Access-Control-Allow-Credentials'
+  ]
+};
+
+// Aplicar CORS a todas las rutas
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Habilitar preflight para todas las rutas
+
 // Middleware para asegurar que las cookies se envíen correctamente
 app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,UPDATE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept');
+  
   // Solo para desarrollo
   if (!isProduction) {
-    // Configurar manualmente la cookie de sesión para desarrollo
     req.session.cookie.secure = false;
     req.session.cookie.sameSite = 'lax';
   }
@@ -130,51 +181,86 @@ app.use((req, res, next) => {
   next();
 });
 
-// Configuración de CORS
-// Orígenes permitidos ya definidos arriba
+// Configuración de sesión y middlewares
+app.set('trust proxy', 1); // Confiar en el primer proxy
 
-// Función para verificar el origen
-const verifyOrigin = (origin, callback) => {
-  // En desarrollo, permitir todos los orígenes
-  if (!isProduction) {
-    console.log(`Permitiendo origen (modo desarrollo): ${origin}`);
-    return callback(null, true);
+// Middleware para manejar encabezados de proxy
+app.use((req, res, next) => {
+  if (req.headers.origin) {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+  next();
+});
+
+// Middleware de rutas
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Rutas de la API
+app.use('/api/auth', authRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/scheduled-transactions', scheduledTransactionsRoutes);
+app.use('/api/goals', goalRoutes);
+app.use('/api/notifications', notificationRoutes);
+
+// Ruta de verificación de salud
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    nodeVersion: process.version
+  });
+});
+
+// Manejador de errores global
+app.use((err, req, res, next) => {
+  console.error('Error global:', err);
+  
+  // Manejar errores de CORS
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Acceso no permitido por CORS',
+      allowedOrigins: allowedOrigins
+    });
   }
   
-  // En producción, verificar contra la lista de orígenes permitidos
-  if (origin && allowedOrigins.includes(origin)) {
-    console.log(`Origen permitido: ${origin}`);
-    return callback(null, true);
+  // Manejar errores de validación
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      success: false,
+      message: 'Error de validación',
+      errors: err.errors
+    });
   }
   
-  console.warn(`Origen no permitido: ${origin}`);
-  return callback(new Error('Not allowed by CORS'));
-};
+  // Error genérico del servidor
+  res.status(500).json({
+    success: false,
+    message: 'Error interno del servidor',
+    error: process.env.NODE_ENV === 'development' ? err.message : {}
+  });
+});
 
-// Configuración de CORS
-const corsOptions = {
-  origin: verifyOrigin,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With', 
-    'Accept', 
-    'Origin',
-    'Access-Control-Allow-Credentials'
-  ],
-  exposedHeaders: [
-    'Content-Range', 
-    'X-Content-Range', 
-    'Authorization', 
-    'Set-Cookie',
-    'Access-Control-Allow-Credentials'
-  ],
-  maxAge: 86400, // 24 horas
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-};
+// Iniciar el servidor
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🚀 Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`🌍 Entorno: ${isProduction ? 'PRODUCCIÓN' : 'DESARROLLO'}`);
+  console.log(`🔗 URL de la API: ${process.env.BACKEND_URL || `http://localhost:${PORT}`}`);
+  console.log(`🔒 Orígenes permitidos: ${allowedOrigins.join(', ') || 'Ninguno'}`);
+  console.log('===========================================\n');
+});
+
+// Manejar cierre del proceso
+process.on('SIGTERM', () => {
+  console.log('\n🔴 Recibida señal SIGTERM. Cerrando servidor...');
+  server.close(() => {
+    console.log('Servidor cerrado');
+    process.exit(0);
+  });
+});
 
 // Aplicar CORS a todas las rutas
 app.use(cors(corsOptions));
