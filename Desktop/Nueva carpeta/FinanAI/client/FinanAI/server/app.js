@@ -15,21 +15,22 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Configuración de CORS simplificada y robusta
-const allowedOrigins = [
-  'https://frontend-production-df22.up.railway.app',  // Frontend en Railway
-  'http://localhost:3000',  // Para desarrollo local del frontend
-  'http://localhost:5000'   // Para desarrollo local del backend
-];
+// Configuración de CORS simplificada para desarrollo
+const isProduction = process.env.NODE_ENV === 'production';
+
+// En desarrollo, permitir cualquier origen para facilitar las pruebas
+const allowedOrigins = isProduction 
+  ? ['https://frontend-production-df22.up.railway.app']
+  : ['http://localhost:3000', 'http://localhost:5000', 'http://127.0.0.1:3000', 'http://127.0.0.1:5000'];
 
 // Configuración de CORS mejorada
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permitir solicitudes sin origen (como aplicaciones móviles o curl)
-    if (!origin) return callback(null, true);
+    // En desarrollo, permitir cualquier origen
+    if (!isProduction) return callback(null, true);
     
-    // Verificar si el origen está permitido
-    if (allowedOrigins.includes(origin)) {
+    // En producción, verificar el origen
+    if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     
@@ -116,8 +117,8 @@ const sessionConfig = {
   cookie: {
     maxAge: 24 * 60 * 60 * 1000, // 1 día en milisegundos
     httpOnly: true, // No accesible desde JavaScript
-    secure: process.env.NODE_ENV === 'production', // Solo HTTPS en producción
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' para cross-site en producción
+    secure: isProduction, // Solo HTTPS en producción
+    sameSite: isProduction ? 'none' : 'lax',
     path: '/', // Accesible en todas las rutas
     // No especificar el dominio para permitir que el navegador lo maneje
   },
@@ -125,13 +126,20 @@ const sessionConfig = {
   unset: 'destroy' // Destruir la sesión al cerrar el navegador
 };
 
-// En producción, forzar secure: true y sameSite: 'none'
-if (process.env.NODE_ENV === 'production') {
-  sessionConfig.cookie.secure = true;
-  sessionConfig.cookie.sameSite = 'none';
-  console.log('Configuración de producción: secure cookies habilitadas');
-} else {
-  console.log('Modo desarrollo: cookies menos restrictivas');
+// Configuración específica para desarrollo
+if (!isProduction) {
+  console.log('Modo desarrollo: cookies configuradas para desarrollo local');
+  // Deshabilitar secure en desarrollo para permitir HTTP
+  sessionConfig.cookie.secure = false;
+  // Usar 'lax' en desarrollo para evitar problemas con SameSite
+  sessionConfig.cookie.sameSite = 'lax';
+  // Mostrar más información de depuración
+  console.log('Configuración de cookies en desarrollo:', {
+    httpOnly: sessionConfig.cookie.httpOnly,
+    secure: sessionConfig.cookie.secure,
+    sameSite: sessionConfig.cookie.sameSite,
+    path: sessionConfig.cookie.path
+  });
 }
 
 app.use(session(sessionConfig));

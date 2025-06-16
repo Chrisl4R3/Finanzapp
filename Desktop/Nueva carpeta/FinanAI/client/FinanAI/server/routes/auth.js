@@ -70,13 +70,25 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { cedula, password } = req.body;
-    console.log('Intento de login con:', { cedula }); // No logueamos la contraseña por seguridad
+    console.log('Intento de login con cédula:', cedula);
+    
+    // Validar entrada
+    if (!cedula || !password) {
+      console.log('Faltan credenciales');
+      return res.status(400).json({
+        success: false,
+        error: 'auth/missing-credentials',
+        message: 'Se requieren cédula y contraseña'
+      });
+    }
 
     // Buscar usuario
+    console.log('Buscando usuario en la base de datos...');
     const [users] = await pool.query(
-      'SELECT * FROM users WHERE cedula = ?',
+      'SELECT id, cedula, name, email, password FROM users WHERE cedula = ?',
       [cedula]
     );
+    
     console.log('Usuarios encontrados:', users.length);
 
     if (users.length === 0) {
@@ -96,6 +108,7 @@ router.post('/login', async (req, res) => {
     });
 
     // Verificar contraseña
+    console.log('Verificando contraseña...');
     const validPassword = await bcrypt.compare(password, user.password);
     console.log('Contraseña válida:', validPassword);
 
@@ -109,6 +122,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Generar token JWT
+    console.log('Generando token JWT...');
     const token = jwt.sign(
       { 
         userId: user.id,
@@ -119,7 +133,7 @@ router.post('/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    // Guardar en sesión
+    // Crear objeto de usuario para la sesión
     const userData = {
       id: user.id,
       cedula: user.cedula,
@@ -127,14 +141,39 @@ router.post('/login', async (req, res) => {
       email: user.email
     };
 
+    // Configurar la sesión
+    console.log('Configurando sesión...');
     req.session.user = userData;
-    console.log('Sesión guardada:', req.session.user);
-
-    res.json({
-      success: true,
-      message: 'Inicio de sesión exitoso',
-      token,
-      user: userData
+    
+    // Guardar la sesión manualmente para asegurar que se guarde
+    req.session.save(err => {
+      if (err) {
+        console.error('Error al guardar la sesión:', err);
+        return res.status(500).json({
+          success: false,
+          error: 'session/save-error',
+          message: 'Error al iniciar sesión'
+        });
+      }
+      
+      console.log('Sesión guardada exitosamente');
+      
+      // Configurar la cookie manualmente
+      res.cookie('finanzapp_session', req.sessionID, {
+        maxAge: 24 * 60 * 60 * 1000, // 1 día
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        path: '/'
+      });
+      
+      // Enviar respuesta exitosa
+      res.json({
+        success: true,
+        message: 'Inicio de sesión exitoso',
+        token,
+        user: userData
+      });
     });
   } catch (error) {
     console.error('Error en login:', error);
@@ -143,51 +182,101 @@ router.post('/login', async (req, res) => {
 });
 
 // Verificar sesión
-router.get('/verify', (req, res) => {
-  // Primero verificar si hay una sesión activa
+router.get('/verify', async (req, res) => {
+  console.log('=== Verificando sesión ===');
+  console.log('Headers de la solicitud:', req.headers);
+  console.log('Cookies:', req.headers.cookie);
+  console.log('Sesión actual:', req.session);
+  
+  // Verificar si hay una sesión activa
   if (req.session && req.session.user) {
+    console.log('Sesión activa encontrada:', req.session.user);
     return res.json({ 
       user: req.session.user,
-      isAuthenticated: true 
+      isAuthenticated: true,
+      message: 'Sesión activa'
     });
   }
 
   // Si no hay sesión, verificar el token JWT
   const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    try {
-      const token = authHeader.split(' ')[1];
-      const decoded = jwt.verify(token, JWT_SECRET);
-      
-      // Obtener datos del usuario desde la base de datos
-      pool.query(
-        'SELECT id, cedula, name, email FROM users WHERE id = ?',
-        [decoded.userId],
-        (error, results) => {
-          if (error || results.length === 0) {
-            return res.status(401).json({ 
-              message: 'Token inválido',
-              isAuthenticated: false 
-            });
-          }
+  console.log('No hay sesión activa, verificando token JWT...');
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('No se proporcionó token de autenticación');
+    return res.status(200).json({ 
+      isAuthenticated: false,
+      message: 'No autenticado' 
+    });
+  }
 
-          const user = results[0];
-          return res.json({ 
-            user,
-            isAuthenticated: true 
+  const token = authHeader.split(' ')[1];
+  console.log('Token JWT encontrado, verificando...');
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    console.log('Token JWT válido para el usuario:', decoded.userId);
+    
+    // Verificar si el usuario existe en la base de datos
+    try {
+      const [results] = await pool.query(
+        'SELECT id, cedula, name, email FROM users WHERE id = ?',
+        [decoded.userId]
+      );
+      
+      if (!results || results.length === 0) {
+        console.log('Usuario no encontrado en la base de datos');
+        return res.status(200).json({ 
+          isAuthenticated: false,
+          message: 'Usuario no encontrado' 
+        });
+      }
+      
+      const userData = results[0];
+      console.log('Usuario encontrado en la base de datos:', userData);
+      
+      // Crear sesión para futuras solicitudes
+      req.session.user = userData;
+      
+      // Guardar la sesión
+      req.session.save(err => {
+        if (err) {
+          console.error('Error al guardar la sesión:', err);
+          return res.status(500).json({
+            isAuthenticated: false,
+            message: 'Error al verificar la sesión'
           });
         }
-      );
-    } catch (error) {
-      return res.status(401).json({ 
-        message: 'Token inválido',
-        isAuthenticated: false 
+        
+        console.log('Sesión guardada exitosamente para el usuario:', userData.id);
+        
+        // Configurar la cookie manualmente
+        res.cookie('finanzapp_session', req.sessionID, {
+          maxAge: 24 * 60 * 60 * 1000, // 1 día
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+          path: '/'
+        });
+        
+        res.json({ 
+          user: userData,
+          isAuthenticated: true,
+          message: 'Sesión restaurada con éxito'
+        });
+      });
+    } catch (dbError) {
+      console.error('Error al consultar la base de datos:', dbError);
+      return res.status(500).json({
+        isAuthenticated: false,
+        message: 'Error del servidor al verificar el usuario'
       });
     }
-  } else {
-    res.status(401).json({ 
-      message: 'No hay autenticación válida',
-      isAuthenticated: false 
+  } catch (tokenError) {
+    console.error('Error al verificar el token:', tokenError);
+    return res.status(200).json({ 
+      isAuthenticated: false,
+      message: 'La sesión ha expirado, por favor inicia sesión nuevamente' 
     });
   }
 });
