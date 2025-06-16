@@ -126,7 +126,8 @@ const sessionConfig = {
     secure: isProduction, // true en producción (HTTPS), false en desarrollo
     sameSite: isProduction ? 'none' : 'lax',
     path: '/',
-    domain: isProduction ? '.up.railway.app' : undefined, // Dominio para producción
+    // No establecer el dominio en desarrollo
+    ...(isProduction && { domain: '.up.railway.app' }) // Solo en producción
   },
   rolling: true, // Renovar la cookie en cada petición
   unset: 'destroy'
@@ -135,7 +136,6 @@ const sessionConfig = {
 // Configuración específica para desarrollo
 if (!isProduction) {
   console.log('⚠️  Modo desarrollo: configurando cookies para desarrollo local');
-  sessionConfig.cookie.secure = false;
   sessionConfig.cookie.sameSite = 'lax';
   
   // Mostrar configuración de cookies

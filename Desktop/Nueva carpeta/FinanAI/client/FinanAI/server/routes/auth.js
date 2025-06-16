@@ -166,13 +166,20 @@ router.post('/login', async (req, res) => {
       console.log('Sesión guardada exitosamente');
       
       // Configurar la cookie manualmente
-      res.cookie('finanzapp_session', req.sessionID, {
-        maxAge: 24 * 60 * 60 * 1000, // 1 día
+      const cookieOptions = {
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semana
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         path: '/'
-      });
+      };
+      
+      // Solo establecer el dominio en producción
+      if (process.env.NODE_ENV === 'production') {
+        cookieOptions.domain = '.up.railway.app';
+      }
+      
+      res.cookie('finanzapp_session', req.sessionID, cookieOptions);
       
       // Enviar respuesta exitosa
       res.json({
@@ -266,13 +273,20 @@ router.get('/verify', async (req, res) => {
         console.log('Sesión guardada exitosamente para el usuario:', userData.id);
         
         // Configurar la cookie manualmente
-        res.cookie('finanzapp_session', req.sessionID, {
-          maxAge: 24 * 60 * 60 * 1000, // 1 día
+        const cookieOptions = {
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semana
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
           path: '/'
-        });
+        };
+        
+        // Solo establecer el dominio en producción
+        if (process.env.NODE_ENV === 'production') {
+          cookieOptions.domain = '.up.railway.app';
+        }
+        
+        res.cookie('finanzapp_session', req.sessionID, cookieOptions);
         
         res.json({ 
           user: userData,

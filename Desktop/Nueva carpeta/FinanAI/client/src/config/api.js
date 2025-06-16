@@ -50,6 +50,7 @@ const getAuthHeader = () => {
   return token ? `Bearer ${token}` : '';
 };
 
+// Configuración de autenticación
 const authFetchConfig = {
   ...fetchConfig,
   headers: {
@@ -62,7 +63,8 @@ const authFetchConfig = {
 const handleUnauthorized = async (response) => {
   if (response.status === 401) {
     console.warn('Sesión expirada o no autorizada');
-    // Aquí podrías implementar lógica de refresco de token
+    localStorage.removeItem('finanzapp_access_token');
+    window.location.href = '/login';
     return false;
   }
   return response;
@@ -76,9 +78,13 @@ const apiFetch = async (url, options = {}) => {
       ...options,
       headers: {
         ...fetchConfig.headers,
-        ...(options.headers || {})
+        ...(options.headers || {}),
+        'Authorization': getAuthHeader()
       }
     });
+    
+    // Manejar respuestas no autorizadas
+    await handleUnauthorized(response);
     
     // Manejar respuestas no exitosas
     if (!response.ok) {
@@ -89,17 +95,42 @@ const apiFetch = async (url, options = {}) => {
       throw error;
     }
     
-    return response.json();
+    // Para respuestas sin contenido (como 204 No Content)
+    if (response.status === 204) {
+      return null;
+    }
+    
+    return await response.json();
   } catch (error) {
-    console.error('Error en la petición:', error);
+    console.error('Error en la petición a la API:', error);
     throw error;
   }
+};
+
+// Funciones específicas para autenticación
+const authAPI = {
+  login: (credentials) => apiFetch(`${API_BASE_URL}/auth/login`, {
+    method: 'POST',
+    body: JSON.stringify(credentials)
+  }),
+  
+  logout: () => apiFetch(`${API_BASE_URL}/auth/logout`, {
+    method: 'POST'
+  }),
+  
+  verify: () => apiFetch(`${API_BASE_URL}/auth/verify`),
+  
+  refreshToken: (refreshToken) => apiFetch(`${API_BASE_URL}/auth/refresh-token`, {
+    method: 'POST',
+    body: JSON.stringify({ refreshToken })
+  })
 };
 
 // Exportar las configuraciones y utilidades
 export { 
   fetchConfig, 
   authFetchConfig, 
-  handleUnauthorized as _handleUnauthorized, 
-  apiFetch as _apiFetch 
+  handleUnauthorized, 
+  apiFetch,
+  authAPI
 };
