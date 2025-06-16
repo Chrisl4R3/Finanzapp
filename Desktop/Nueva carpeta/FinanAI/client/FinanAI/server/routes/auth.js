@@ -72,6 +72,13 @@ router.post('/login', async (req, res) => {
     const { cedula, password } = req.body;
     console.log('Intento de login con cédula:', cedula);
     
+    // Configurar cabeceras CORS
+    const origin = req.headers.origin;
+    if (origin) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+    }
+    
     // Validar entrada
     if (!cedula || !password) {
       console.log('Faltan credenciales');
@@ -183,10 +190,18 @@ router.post('/login', async (req, res) => {
 
 // Verificar sesión
 router.get('/verify', async (req, res) => {
+  // Configurar cabeceras CORS
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+  
   console.log('=== Verificando sesión ===');
   console.log('Headers de la solicitud:', req.headers);
   console.log('Cookies:', req.headers.cookie);
   console.log('Sesión actual:', req.session);
+  console.log('Origen de la petición:', origin);
   
   // Verificar si hay una sesión activa
   if (req.session && req.session.user) {
