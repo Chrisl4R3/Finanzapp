@@ -31,7 +31,9 @@ const AuthProvider = ({ children }) => {
 
   // Función para verificar el token
   const verifyToken = useCallback(async (token) => {
+    console.group('verifyToken');
     try {
+      console.log('Verificando token en el servidor...');
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.VERIFY}`, {
         ...authFetchConfig,
         method: 'GET',
@@ -41,27 +43,40 @@ const AuthProvider = ({ children }) => {
         }
       });
 
+      console.log('Respuesta de verificación:', response.status, response.statusText);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Datos de usuario recibidos:', data.user);
         setUser(data.user);
         setIsAuthenticated(true);
+        console.groupEnd('verifyToken');
         return true;
+      } else {
+        const errorText = await response.text();
+        console.error('Error en la respuesta de verificación:', response.status, errorText);
       }
+      
+      console.groupEnd('verifyToken');
       return false;
     } catch (error) {
       console.error('Error al verificar el token:', error);
+      console.groupEnd('verifyToken');
       return false;
     }
   }, []);
 
   // Verificar el estado de autenticación
   const checkAuth = useCallback(async () => {
+    console.group('checkAuth');
     try {
       const accessToken = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
+      console.log('Token de acceso encontrado:', !!accessToken);
       
       // Si no hay token, no hay sesión activa
       if (!accessToken) {
         console.log('No se encontró token de acceso');
+        console.groupEnd('checkAuth');
         return false;
       }
 
@@ -69,18 +84,24 @@ const AuthProvider = ({ children }) => {
       
       // Verificar el token actual
       const isTokenValid = await verifyToken(accessToken);
+      console.log('Token válido:', isTokenValid);
       
       if (isTokenValid) {
+        console.groupEnd('checkAuth');
         return true;
       }
       
       // Si el token no es válido, intentar refrescarlo
       console.log('Token inválido o expirado, intentando refrescar...');
-      return await refreshTokenRef.current();
+      const refreshResult = await refreshTokenRef.current();
+      console.log('Resultado del refresh:', refreshResult);
+      console.groupEnd('checkAuth');
+      return refreshResult;
       
     } catch (error) {
-      console.error('Error al verificar la autenticación:', error);
+      console.error('Error en checkAuth:', error);
       clearAuth();
+      console.groupEnd('checkAuth');
       return false;
     }
   }, [clearAuth, verifyToken]);
@@ -287,21 +308,25 @@ const AuthProvider = ({ children }) => {
 
   // Efecto para verificar la autenticación al cargar
   useEffect(() => {
+    console.log('Iniciando verificación de autenticación...');
+    
     const checkAuthStatus = async () => {
       try {
+        console.log('Verificando autenticación...');
         const isAuth = await checkAuth();
-        console.log('Estado de autenticación inicial:', isAuth);
+        console.log('Estado de autenticación inicial:', isAuth, 'Usuario:', user);
         setInitialCheckComplete(true);
       } catch (error) {
         console.error('Error al verificar la autenticación:', error);
         setInitialCheckComplete(true);
       } finally {
+        console.log('Finalizada verificación de autenticación');
         setIsLoading(false);
       }
     };
 
     checkAuthStatus();
-  }, [checkAuth]);
+  }, [checkAuth, user]);
 
   // Verificar periódicamente el estado de autenticación
   useEffect(() => {

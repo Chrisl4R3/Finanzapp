@@ -45,9 +45,13 @@ const fetchConfig = {
 // Configuración específica para solicitudes con credenciales
 const authFetchConfig = {
   ...fetchConfig,
+  credentials: 'include', // Asegurarse de incluir credenciales
   headers: {
     ...DEFAULT_HEADERS,
     // Asegurarse de incluir el token de autorización si está disponible
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
     'Authorization': localStorage.getItem('finanzapp_access_token') 
       ? `Bearer ${localStorage.getItem('finanzapp_access_token')}` 
       : ''
