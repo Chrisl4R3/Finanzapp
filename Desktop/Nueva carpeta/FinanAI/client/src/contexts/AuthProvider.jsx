@@ -13,6 +13,7 @@ const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState('');
+  const [initialCheckComplete, setInitialCheckComplete] = useState(false);
 
   // Limpiar el estado de autenticación y los tokens
   const clearAuth = useCallback(() => {
@@ -284,19 +285,22 @@ const AuthProvider = ({ children }) => {
     }
   }, [clearAuth]);
 
-  // Inicializar el estado de autenticación al cargar el componente
+  // Efecto para verificar la autenticación al cargar
   useEffect(() => {
-    const initAuth = async () => {
+    const checkAuthStatus = async () => {
       try {
-        await checkAuth();
+        const isAuth = await checkAuth();
+        console.log('Estado de autenticación inicial:', isAuth);
+        setInitialCheckComplete(true);
       } catch (error) {
-        console.error('Error al inicializar la autenticación:', error);
+        console.error('Error al verificar la autenticación:', error);
+        setInitialCheckComplete(true);
       } finally {
         setIsLoading(false);
       }
     };
 
-    initAuth();
+    checkAuthStatus();
   }, [checkAuth]);
 
   // Verificar periódicamente el estado de autenticación
@@ -309,25 +313,18 @@ const AuthProvider = ({ children }) => {
   }, [checkAuth]);
 
   // Valor del contexto
-  const value = React.useMemo(() => ({
+  const value = {
     user,
     isAuthenticated,
     isLoading,
-    authError,
+    initialCheckComplete,
+    error: authError,
     login,
     logout,
     checkAuth,
-    refreshToken: refreshTokenFn
-  }), [
-    user,
-    isAuthenticated,
-    isLoading,
-    authError,
-    login,
-    logout,
-    checkAuth,
-    refreshTokenFn
-  ]);
+    refreshToken: refreshTokenFn,
+    clearAuth
+  };
 
   // Eliminar la exportación de useAuth ya que está en AuthContext.jsx
   return (

@@ -82,9 +82,19 @@ function App() {
 
 // Componente de protección de rutas
 function RequireAuth({ children }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, initialCheckComplete } = useAuth();
   const location = useLocation();
 
+  // Mostrar un indicador de carga mientras se verifica la autenticación
+  if (!initialCheckComplete) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background-color">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Redirigir al login si no está autenticado
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
