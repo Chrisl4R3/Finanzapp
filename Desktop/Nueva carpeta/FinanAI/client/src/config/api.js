@@ -33,28 +33,27 @@ export const DEFAULT_HEADERS = {
 
 // Configuración común para fetch
 const fetchConfig = {
-  credentials: 'include', // Incluir credenciales (cookies) en todas las solicitudes
   mode: 'cors',
-  headers: DEFAULT_HEADERS,
-  // Asegurar que las cookies se envíen en solicitudes cross-origin
-  // y que se respeten las políticas de SameSite
-  // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch#sending_a_request_with_credentials_included
-  // https://web.dev/samesite-cookies-explained/
-};
-
-// Configuración específica para solicitudes con credenciales
-const authFetchConfig = {
-  ...fetchConfig,
-  credentials: 'include', // Asegurarse de incluir credenciales
+  credentials: 'include', // Importante: permite enviar cookies
   headers: {
     ...DEFAULT_HEADERS,
-    // Asegurarse de incluir el token de autorización si está disponible
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
-    'Expires': '0',
-    'Authorization': localStorage.getItem('finanzapp_access_token') 
-      ? `Bearer ${localStorage.getItem('finanzapp_access_token')}` 
-      : ''
+    'Expires': '0'
+  }
+};
+
+// Configuración para solicitudes que requieren autenticación
+const getAuthHeader = () => {
+  const token = localStorage.getItem('finanzapp_access_token');
+  return token ? `Bearer ${token}` : '';
+};
+
+const authFetchConfig = {
+  ...fetchConfig,
+  headers: {
+    ...fetchConfig.headers,
+    'Authorization': getAuthHeader()
   }
 };
 

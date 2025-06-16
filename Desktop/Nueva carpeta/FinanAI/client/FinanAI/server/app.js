@@ -70,26 +70,49 @@ app.use(express.json());
 
 // Configuración de sesión
 const MySQLStoreSession = MySQLStore(session);
-const sessionStore = new MySQLStoreSession({}, pool);
+const sessionStore = new MySQLStoreSession({
+  clearExpired: true,
+  checkExpirationInterval: 900000, // Verificar cada 15 minutos
+  expiration: 86400000, // 1 día
+  createDatabaseTable: true,
+  schema: {
+    tableName: 'sessions',
+    columnNames: {
+      session_id: 'session_id',
+      expires: 'expires',
+      data: 'data'
+    }
+  }
+}, pool);
 
-app.use(session({
-  key: 'finanzapp_session',
+// Trust first proxy (required for secure cookies with proxy like Railway)
+app.set('trust proxy', 1);
+
+// Configuración de sesión
+const sessionConfig = {
+  name: 'finanzapp_session',
   secret: process.env.SESSION_SECRET || 'your_secret_key',
   store: sessionStore,
   resave: false,
   saveUninitialized: false,
   proxy: true, // Trust the reverse proxy (Railway)
   cookie: {
-    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 días
+    maxAge: 1000 * 60 * 60 * 24, // 1 día
     httpOnly: true,
     secure: true, // Always true for cross-site cookies
     sameSite: 'none', // Required for cross-site cookies
+    path: '/',
     // No domain specified - let the browser handle it
-  }
-}));
+  },
+  rolling: true // Renovar la sesión en cada petición
+};
 
-// Trust first proxy (required for secure cookies with proxy like Railway)
-app.set('trust proxy', 1);
+// Solo en producción forzamos secure: true
+if (process.env.NODE_ENV === 'production') {
+  sessionConfig.cookie.secure = true;
+}
+
+app.use(session(sessionConfig));
 
 // Rutas
 app.use('/api/transactions', transactionsRouter);
