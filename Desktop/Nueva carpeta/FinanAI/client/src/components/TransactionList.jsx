@@ -52,13 +52,41 @@ const TransactionList = ({ searchTerm = '' }) => {
   // Fetch transactions and goals
   const fetchTransactions = async () => {
     try {
-      setIsLoading(true);
+      console.log('Iniciando carga de transacciones...');
       const response = await authenticatedFetch('/api/transactions');
-      if (!response.ok) throw new Error('Error al cargar las transacciones');
+      
+      console.log('Respuesta de transacciones recibida:', {
+        status: response.status,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error en la respuesta de transacciones:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`Error al cargar las transacciones: ${response.status} ${response.statusText}`);
+      }
+      
       const data = await response.json();
-      setTransactions(data.sort((a, b) => new Date(b.date) - new Date(a.date)));
+      console.log('Transacciones cargadas exitosamente:', data.length);
+      
+      // Ordenar por fecha descendente
+      const sortedTransactions = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
+      setTransactions(sortedTransactions);
+      setError(null); // Limpiar errores previos
+      return true;
     } catch (err) {
+      console.error('Error en fetchTransactions:', {
+        message: err.message,
+        stack: err.stack,
+        response: err.response
+      });
       setError(err.message || 'Error al cargar las transacciones');
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -66,19 +94,81 @@ const TransactionList = ({ searchTerm = '' }) => {
 
   const fetchGoals = async () => {
     try {
+      console.log('Iniciando carga de metas...');
       const response = await authenticatedFetch('/api/goals');
-      if (!response.ok) throw new Error('Error al cargar las metas');
+      
+      console.log('Respuesta de metas recibida:', {
+        status: response.status,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn('No se pudieron cargar las metas, continuando sin ellas. Detalles:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        return false; // No lanzar error, solo continuar sin metas
+      }
+      
       const data = await response.json();
-      setGoals(data.filter(goal => goal.status === 'Active'));
+      console.log('Metas cargadas exitosamente:', data.length);
+      
+      // Filtrar solo metas activas
+      const activeGoals = data.filter(goal => goal.status === 'Active');
+      console.log('Metas activas encontradas:', activeGoals.length);
+      
+      setGoals(activeGoals);
+      return true;
     } catch (err) {
-      console.error('Error al cargar las metas:', err);
+      console.warn('Error al cargar las metas, continuando sin ellas. Detalles:', {
+        message: err.message,
+        stack: err.stack
+      });
+      return false;
     }
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
-      Promise.all([fetchTransactions(), fetchGoals()]);
-    }
+    if (!isAuthenticated) return;
+    
+    console.log('Iniciando carga de datos...');
+    setIsLoading(true);
+    
+    const loadData = async () => {
+      try {
+        // 1. Cargar transacciones primero
+        console.log('Cargando transacciones...');
+        const transactionsLoaded = await fetchTransactions();
+        
+        if (!transactionsLoaded) {
+          console.error('No se pudieron cargar las transacciones');
+          return;
+        }
+        
+        // 2. Intentar cargar metas (pero no es crítico si falla)
+        console.log('Intentando cargar metas...');
+        await fetchGoals();
+        
+      } catch (error) {
+        console.error('Error en loadData:', {
+          message: error.message,
+          stack: error.stack
+        });
+      } finally {
+        console.log('Carga de datos completada');
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+    
+    // Limpiar al desmontar
+    return () => {
+      console.log('TransactionList desmontado');
+    };
   }, [isAuthenticated]);
 
   // Helper functions
