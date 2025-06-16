@@ -364,7 +364,7 @@ const Dashboard = () => {
     );
   }
 
-  const { financialSummary, recentTransactions, activeGoals, notifications } = dashboardData;
+  const { financialSummary, recentTransactions, activeGoals } = dashboardData;
 
   return (
     <div className="container mx-auto px-4 py-8">
