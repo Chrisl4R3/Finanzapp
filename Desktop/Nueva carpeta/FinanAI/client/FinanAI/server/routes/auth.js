@@ -165,21 +165,31 @@ router.post('/login', async (req, res) => {
       
       console.log('Sesión guardada exitosamente');
       
-      // Configurar la cookie manualmente
+      // Configurar la cookie manualmente con las opciones de entorno
       const cookieOptions = {
         maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semana
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        path: '/'
+        httpOnly: process.env.COOKIE_HTTPONLY === 'true',
+        secure: process.env.COOKIE_SECURE === 'true',
+        sameSite: process.env.COOKIE_SAMESITE || 'lax',
+        path: '/',
+        ...(process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
       };
       
-      // Solo establecer el dominio en producción
-      if (process.env.NODE_ENV === 'production') {
-        cookieOptions.domain = '.up.railway.app';
-      }
+      console.log('Configurando cookie con opciones:', {
+        httpOnly: cookieOptions.httpOnly,
+        secure: cookieOptions.secure,
+        sameSite: cookieOptions.sameSite,
+        domain: cookieOptions.domain || 'No definido'
+      });
       
+      // Establecer la cookie de sesión
       res.cookie('finanzapp_session', req.sessionID, cookieOptions);
+      
+      // Establecer cookie adicional para el token JWT
+      res.cookie('jwt_token', token, {
+        ...cookieOptions,
+        httpOnly: false // Permitir acceso desde JavaScript
+      });
       
       // Enviar respuesta exitosa
       res.json({

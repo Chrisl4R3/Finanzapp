@@ -1,5 +1,34 @@
 // Configuración de la API
-export const API_BASE_URL = 'https://backend-production-cf437.up.railway.app/api';
+export const API_BASE_URL = 'https://backend-production-cf437.up.railway.app';
+
+// Determinar si estamos en desarrollo
+const isDevelopment = import.meta.env.MODE === 'development';
+
+// Configuración base para las peticiones fetch
+export const fetchConfig = {
+  credentials: 'include', // Incluir credenciales (cookies) en todas las peticiones
+  mode: 'cors', // Usar CORS
+  cache: 'no-store', // No almacenar en caché
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Access-Control-Allow-Credentials': 'true',
+    'X-Requested-With': 'XMLHttpRequest'
+  }
+};
+
+// Configuración de CORS
+export const CORS_CONFIG = {
+  ...fetchConfig,
+  // Configuración adicional específica para CORS
+  headers: {
+    ...fetchConfig.headers,
+    'Access-Control-Expose-Headers': 'Authorization, Set-Cookie',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept, Access-Control-Allow-Credentials',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
+    'Access-Control-Max-Age': '86400' // 24 horas
+  }
+};
 
 // Configuración de endpoints
 export const API_ENDPOINTS = {

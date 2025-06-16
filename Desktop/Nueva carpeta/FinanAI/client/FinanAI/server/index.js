@@ -9,7 +9,26 @@ import goalRoutes from './routes/goals.js';
 import notificationRoutes from './routes/notifications.js';
 import pool from './config/db.js';
 
+// Configuración de entorno
 const isProduction = process.env.NODE_ENV === 'production';
+const isDevelopment = !isProduction;
+
+// Configuración de CORS
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://frontend-production-df22.up.railway.app',
+  'https://backend-production-cf437.up.railway.app'
+].filter(Boolean);
+
+// Mostrar configuración al iniciar
+console.log('=== Configuración del Servidor en Railway ===');
+console.log('Entorno:', isProduction ? 'PRODUCCIÓN' : 'desarrollo');
+console.log('URL del Frontend:', process.env.FRONTEND_URL);
+console.log('URL del Backend:', process.env.BACKEND_URL);
+console.log('Orígenes permitidos:', allowedOrigins);
+console.log('Dominio de cookies:', process.env.COOKIE_DOMAIN || 'No definido');
+console.log('Cookies seguras:', process.env.COOKIE_SECURE === 'true' ? 'Sí' : 'No');
+console.log('===========================================');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -41,16 +60,31 @@ const sessionConfig = {
   proxy: true, // Importante para Railway
   cookie: {
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semana
-    httpOnly: true,
-    secure: isProduction, // true en producción (HTTPS), false en desarrollo
-    sameSite: isProduction ? 'none' : 'lax',
+    httpOnly: process.env.COOKIE_HTTPONLY === 'true',
+    secure: process.env.COOKIE_SECURE === 'true',
+    sameSite: process.env.COOKIE_SAMESITE || 'lax',
     path: '/',
-    // No establecer el dominio en desarrollo
-    ...(isProduction && { domain: '.up.railway.app' }) // Solo en producción
+    // Configuración de dominio
+    ...(process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   },
   rolling: true, // Renovar la cookie en cada petición
-  unset: 'destroy'
+  unset: 'destroy',
+  // Configuración de regeneración de ID de sesión
+  genid: function(req) {
+    return require('crypto').randomBytes(16).toString('hex');
+  }
 };
+
+// Middleware para asegurar que las cookies se envíen correctamente
+app.use((req, res, next) => {
+  // Solo para desarrollo
+  if (!isProduction) {
+    // Configurar manualmente la cookie de sesión para desarrollo
+    req.session.cookie.secure = false;
+    req.session.cookie.sameSite = 'lax';
+  }
+  next();
+});
 
 // Configuración específica para desarrollo
 if (!isProduction) {
@@ -97,34 +131,46 @@ app.use((req, res, next) => {
 });
 
 // Configuración de CORS
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:5173',
-  'https://frontend-production-df22.up.railway.app',
-  'https://backend-production-cf437.up.railway.app'
-];
+// Orígenes permitidos ya definidos arriba
+
+// Función para verificar el origen
+const verifyOrigin = (origin, callback) => {
+  // En desarrollo, permitir todos los orígenes
+  if (!isProduction) {
+    console.log(`Permitiendo origen (modo desarrollo): ${origin}`);
+    return callback(null, true);
+  }
+  
+  // En producción, verificar contra la lista de orígenes permitidos
+  if (origin && allowedOrigins.includes(origin)) {
+    console.log(`Origen permitido: ${origin}`);
+    return callback(null, true);
+  }
+  
+  console.warn(`Origen no permitido: ${origin}`);
+  return callback(new Error('Not allowed by CORS'));
+};
 
 // Configuración de CORS
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Permitir solicitudes sin origen (como aplicaciones móviles o curl)
-    if (!origin && !isProduction) return callback(null, true);
-    
-    // En producción, verificar el origen contra la lista de permitidos
-    if (isProduction && origin && !allowedOrigins.includes(origin)) {
-      console.warn(`Origen no permitido por CORS: ${origin}`);
-      return callback(new Error('Not allowed by CORS'));
-    }
-    
-    // Permitir el origen
-    return callback(null, true);
-  },
+  origin: verifyOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Authorization', 'Set-Cookie'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin',
+    'Access-Control-Allow-Credentials'
+  ],
+  exposedHeaders: [
+    'Content-Range', 
+    'X-Content-Range', 
+    'Authorization', 
+    'Set-Cookie',
+    'Access-Control-Allow-Credentials'
+  ],
   maxAge: 86400, // 24 horas
   preflightContinue: false,
   optionsSuccessStatus: 204
@@ -138,19 +184,34 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   
   // Establecer cabeceras CORS
-  if (origin && (allowedOrigins.includes(origin) || !isProduction)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
-    res.header('Access-Control-Expose-Headers', 'Content-Range, X-Content-Range, Authorization, Set-Cookie');
+  if (origin) {
+    if (allowedOrigins.includes(origin) || !isProduction) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Credentials');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
+      res.header('Access-Control-Expose-Headers', 'Content-Range, X-Content-Range, Authorization, Set-Cookie, Access-Control-Allow-Credentials');
+      
+      // Manejar solicitudes OPTIONS (preflight)
+      if (req.method === 'OPTIONS') {
+        console.log('Manejando solicitud OPTIONS (preflight)');
+        return res.status(200).end();
+      }
+    } else {
+      console.warn(`Intento de acceso desde origen no permitido: ${origin}`);
+      return res.status(403).json({ error: 'Origen no permitido' });
+    }
   }
   
-  // Manejar solicitudes OPTIONS (preflight)
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
+  next();
+});
+
+// Middleware para debug de CORS
+app.use((req, res, next) => {
+  console.log('=== CORS Headers ===');
+  console.log('Origin:', req.headers.origin);
+  console.log('Method:', req.method);
+  console.log('Headers:', req.headers);
   next();
 });
 
