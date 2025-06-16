@@ -53,6 +53,7 @@ const TransactionList = ({ searchTerm = '' }) => {
   const fetchTransactions = async () => {
     try {
       console.log('Iniciando carga de transacciones...');
+      // Usamos la ruta completa incluyendo /api
       const response = await authenticatedFetch('/api/transactions');
       
       console.log('Respuesta de transacciones recibida:', {
@@ -95,6 +96,7 @@ const TransactionList = ({ searchTerm = '' }) => {
   const fetchGoals = async () => {
     try {
       console.log('Iniciando carga de metas...');
+      // Usamos la ruta completa incluyendo /api
       const response = await authenticatedFetch('/api/goals');
       
       console.log('Respuesta de metas recibida:', {
