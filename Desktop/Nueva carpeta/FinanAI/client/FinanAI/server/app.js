@@ -22,27 +22,27 @@ const allowedOrigins = [
   'http://localhost:5000'   // Para desarrollo local del backend
 ];
 
-// Middleware de CORS personalizado
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // Verificar si el origen está permitido
-  if (allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Expose-Headers', 'Authorization');
-  }
+// Configuración de CORS
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Authorization'],
+  maxAge: 86400 // 24 horas
+};
 
-  // Manejar preflight requests
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    res.header('Access-Control-Max-Age', '86400'); // 24 horas
-    return res.status(204).end();
-  }
+// Middleware de CORS
+app.use(cors(corsOptions));
 
-  next();
-});
+// Manejar peticiones OPTIONS
+app.options('*', cors(corsOptions));
 
 // Middleware para asegurar que los headers CORS estén presentes en todas las respuestas
 app.use((req, res, next) => {
@@ -65,32 +65,6 @@ app.use((req, res, next) => {
 // Compresión de respuestas
 app.use(compression());
 
-// Actualizar la configuración de CORS existente
-corsOptions.methods.push('PATCH');
-corsOptions.allowedHeaders.push('X-Requested-With');
-corsOptions.exposedHeaders.push('Content-Range', 'X-Content-Range');
-corsOptions.maxAge = 600;
-
-// Middleware de CORS
-app.use(cors(corsOptions));
-
-// Manejar peticiones OPTIONS
-app.options('*', cors(corsOptions));
-
-// Middleware adicional para Railway
-app.use((req, res, next) => {
-  // Asegurar que las peticiones OPTIONS se manejen correctamente
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Origin', 'https://frontend-production-df22.up.railway.app');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.status(204).end();
-    return;
-  }
-  next();
-});
-
 // Middleware para parsear JSON
 app.use(express.json());
 
@@ -104,14 +78,18 @@ app.use(session({
   store: sessionStore,
   resave: false,
   saveUninitialized: false,
+  proxy: true, // Trust the reverse proxy (Railway)
   cookie: {
     maxAge: 1000 * 60 * 60 * 24 * 7, // 7 días
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    domain: process.env.NODE_ENV === 'production' ? '.up.railway.app' : undefined
+    secure: true, // Always true for cross-site cookies
+    sameSite: 'none', // Required for cross-site cookies
+    // No domain specified - let the browser handle it
   }
 }));
+
+// Trust first proxy (required for secure cookies with proxy like Railway)
+app.set('trust proxy', 1);
 
 // Rutas
 app.use('/api/transactions', transactionsRouter);
