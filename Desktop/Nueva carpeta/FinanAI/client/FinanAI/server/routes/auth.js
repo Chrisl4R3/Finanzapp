@@ -72,13 +72,6 @@ router.post('/login', async (req, res) => {
     const { cedula, password } = req.body;
     console.log('Intento de login con cédula:', cedula);
     
-    // Configurar cabeceras CORS
-    const origin = req.headers.origin;
-    if (origin) {
-      res.header('Access-Control-Allow-Origin', origin);
-      res.header('Access-Control-Allow-Credentials', 'true');
-    }
-    
     // Validar entrada
     if (!cedula || !password) {
       console.log('Faltan credenciales');
@@ -118,28 +111,16 @@ router.post('/login', async (req, res) => {
     console.log('Verificando contraseña...');
     const validPassword = await bcrypt.compare(password, user.password);
     console.log('Contraseña válida:', validPassword);
-
+    
     if (!validPassword) {
-      console.log('Contraseña incorrecta para el usuario:', user.cedula);
-      return res.status(401).json({ 
+      console.log('Contraseña incorrecta para el usuario:', cedula);
+      return res.status(401).json({
         success: false,
         error: 'auth/wrong-password',
-        message: 'Contraseña incorrecta' 
+        message: 'Contraseña incorrecta'
       });
     }
-
-    // Generar token JWT
-    console.log('Generando token JWT...');
-    const token = jwt.sign(
-      { 
-        userId: user.id,
-        cedula: user.cedula,
-        email: user.email
-      },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
+    
     // Crear objeto de usuario para la sesión
     const userData = {
       id: user.id,
@@ -147,12 +128,37 @@ router.post('/login', async (req, res) => {
       name: user.name || 'Usuario',
       email: user.email
     };
-
+    
     // Configurar la sesión
-    console.log('Configurando sesión...');
     req.session.user = userData;
     
-    // Guardar la sesión manualmente para asegurar que se guarde
+    // Configurar opciones de cookies
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semana
+      path: '/',
+      ...(process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN && {
+        domain: process.env.COOKIE_DOMAIN
+      })
+    };
+    
+    console.log('Configurando cookies con opciones:', {
+      httpOnly: cookieOptions.httpOnly,
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+      domain: cookieOptions.domain || 'No definido'
+    });
+    
+    // Generar token JWT
+    const token = jwt.sign(
+      { userId: user.id, cedula: user.cedula },
+      process.env.JWT_SECRET || 'tu_secreto_super_seguro',
+      { expiresIn: '7d' }
+    );
+    
+    // Guardar la sesión
     req.session.save(err => {
       if (err) {
         console.error('Error al guardar la sesión:', err);
@@ -163,40 +169,18 @@ router.post('/login', async (req, res) => {
         });
       }
       
-      console.log('Sesión guardada exitosamente');
-      
-      // Configurar la cookie manualmente con las opciones de entorno
-      const cookieOptions = {
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semana
-        httpOnly: process.env.COOKIE_HTTPONLY === 'true',
-        secure: process.env.COOKIE_SECURE === 'true',
-        sameSite: process.env.COOKIE_SAMESITE || 'lax',
-        path: '/',
-        ...(process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
-      };
-      
-      console.log('Configurando cookie con opciones:', {
-        httpOnly: cookieOptions.httpOnly,
-        secure: cookieOptions.secure,
-        sameSite: cookieOptions.sameSite,
-        domain: cookieOptions.domain || 'No definido'
-      });
+      console.log('Sesión guardada exitosamente para el usuario:', user.cedula);
       
       // Establecer la cookie de sesión
       res.cookie('finanzapp_session', req.sessionID, cookieOptions);
       
-      // Establecer cookie adicional para el token JWT
-      res.cookie('jwt_token', token, {
-        ...cookieOptions,
-        httpOnly: false // Permitir acceso desde JavaScript
-      });
-      
       // Enviar respuesta exitosa
-      res.json({
+      res.status(200).json({
         success: true,
         message: 'Inicio de sesión exitoso',
+        user: userData,
         token,
-        user: userData
+        sessionId: req.sessionID
       });
     });
   } catch (error) {
@@ -207,50 +191,43 @@ router.post('/login', async (req, res) => {
 
 // Verificar sesión
 router.get('/verify', async (req, res) => {
-  // Configurar cabeceras CORS
-  const origin = req.headers.origin;
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-  }
-  
-  console.log('=== Verificando sesión ===');
-  console.log('Headers de la solicitud:', req.headers);
-  console.log('Cookies:', req.headers.cookie);
-  console.log('Sesión actual:', req.session);
-  console.log('Origen de la petición:', origin);
-  
-  // Verificar si hay una sesión activa
-  if (req.session && req.session.user) {
-    console.log('Sesión activa encontrada:', req.session.user);
-    return res.json({ 
-      user: req.session.user,
-      isAuthenticated: true,
-      message: 'Sesión activa'
-    });
-  }
-
-  // Si no hay sesión, verificar el token JWT
-  const authHeader = req.headers.authorization;
-  console.log('No hay sesión activa, verificando token JWT...');
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('No se proporcionó token de autenticación');
-    return res.status(200).json({ 
-      isAuthenticated: false,
-      message: 'No autenticado' 
-    });
-  }
-
-  const token = authHeader.split(' ')[1];
-  console.log('Token JWT encontrado, verificando...');
-  
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    console.log('Token JWT válido para el usuario:', decoded.userId);
+    console.log('=== Verificando sesión ===');
+    console.log('Cookies recibidas:', req.headers.cookie);
+    console.log('Sesión actual:', req.session);
     
-    // Verificar si el usuario existe en la base de datos
+    // Verificar si hay una sesión activa
+    if (req.session && req.session.user) {
+      console.log('Sesión activa encontrada para el usuario:', req.session.user.cedula);
+      return res.status(200).json({ 
+        success: true,
+        user: req.session.user,
+        isAuthenticated: true,
+        message: 'Sesión activa',
+        sessionId: req.sessionID
+      });
+    }
+
+    // Si no hay sesión, verificar el token JWT
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('No se encontró token de autenticación');
+      return res.status(200).json({ 
+        success: true,
+        isAuthenticated: false,
+        message: 'No autenticado' 
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+    console.log('Token JWT encontrado, verificando...');
+    
     try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tu_secreto_super_seguro');
+      console.log('Token JWT válido para el usuario ID:', decoded.userId);
+      
+      // Verificar si el usuario existe en la base de datos
       const [results] = await pool.query(
         'SELECT id, cedula, name, email FROM users WHERE id = ?',
         [decoded.userId]
@@ -259,13 +236,14 @@ router.get('/verify', async (req, res) => {
       if (!results || results.length === 0) {
         console.log('Usuario no encontrado en la base de datos');
         return res.status(200).json({ 
+          success: true,
           isAuthenticated: false,
           message: 'Usuario no encontrado' 
         });
       }
       
       const userData = results[0];
-      console.log('Usuario encontrado en la base de datos:', userData);
+      console.log('Usuario encontrado en la base de datos:', userData.cedula);
       
       // Crear sesión para futuras solicitudes
       req.session.user = userData;
@@ -275,63 +253,106 @@ router.get('/verify', async (req, res) => {
         if (err) {
           console.error('Error al guardar la sesión:', err);
           return res.status(500).json({
-            isAuthenticated: false,
+            success: false,
             message: 'Error al verificar la sesión'
           });
         }
         
-        console.log('Sesión guardada exitosamente para el usuario:', userData.id);
+        console.log('Sesión restaurada exitosamente para el usuario:', userData.cedula);
         
-        // Configurar la cookie manualmente
+        // Configurar opciones de cookies
         const cookieOptions = {
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semana
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-          path: '/'
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semana
+          path: '/',
+          ...(process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN && {
+            domain: process.env.COOKIE_DOMAIN
+          })
         };
         
-        // Solo establecer el dominio en producción
-        if (process.env.NODE_ENV === 'production') {
-          cookieOptions.domain = '.up.railway.app';
-        }
-        
+        // Establecer la cookie de sesión
         res.cookie('finanzapp_session', req.sessionID, cookieOptions);
         
-        res.json({ 
+        res.status(200).json({ 
+          success: true,
           user: userData,
           isAuthenticated: true,
-          message: 'Sesión restaurada con éxito'
+          message: 'Sesión restaurada con éxito',
+          sessionId: req.sessionID
         });
       });
-    } catch (dbError) {
-      console.error('Error al consultar la base de datos:', dbError);
-      return res.status(500).json({
+    } catch (tokenError) {
+      console.error('Error al verificar el token:', tokenError);
+      return res.status(200).json({ 
+        success: true,
         isAuthenticated: false,
-        message: 'Error del servidor al verificar el usuario'
+        message: 'La sesión ha expirado, por favor inicia sesión nuevamente' 
       });
     }
-  } catch (tokenError) {
-    console.error('Error al verificar el token:', tokenError);
-    return res.status(200).json({ 
-      isAuthenticated: false,
-      message: 'La sesión ha expirado, por favor inicia sesión nuevamente' 
+  } catch (error) {
+    console.error('Error en la verificación de sesión:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al verificar la sesión'
     });
   }
 });
 
 // Logout
 router.post('/logout', (req, res) => {
-  if (req.session) {
-    req.session.destroy(err => {
-      if (err) {
-        return res.status(500).json({ message: 'Error al cerrar sesión' });
-      }
-      res.clearCookie('finanzapp_session');
-      res.json({ message: 'Sesión cerrada exitosamente' });
+  try {
+    if (req.session) {
+      const sessionId = req.sessionID;
+      const userId = req.session.user?.id;
+      
+      console.log(`Cerrando sesión para el usuario ID: ${userId}, Sesión ID: ${sessionId}`);
+      
+      // Destruir la sesión
+      req.session.destroy(err => {
+        if (err) {
+          console.error('Error al destruir la sesión:', err);
+          return res.status(500).json({ 
+            success: false, 
+            message: 'Error al cerrar sesión' 
+          });
+        }
+        
+        // Configurar opciones para limpiar la cookie
+        const cookieOptions = {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+          path: '/',
+          ...(process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN && {
+            domain: process.env.COOKIE_DOMAIN
+          })
+        };
+        
+        // Limpiar la cookie de sesión
+        res.clearCookie('finanzapp_session', cookieOptions);
+        
+        console.log(`Sesión cerrada exitosamente para el usuario ID: ${userId}`);
+        
+        res.status(200).json({ 
+          success: true, 
+          message: 'Sesión cerrada exitosamente' 
+        });
+      });
+    } else {
+      console.log('Intento de cierre de sesión sin sesión activa');
+      res.status(200).json({ 
+        success: true, 
+        message: 'No hay sesión activa' 
+      });
+    }
+  } catch (error) {
+    console.error('Error en el cierre de sesión:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al procesar la solicitud de cierre de sesión' 
     });
-  } else {
-    res.json({ message: 'No hay sesión activa' });
   }
 });
 
