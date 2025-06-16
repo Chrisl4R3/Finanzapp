@@ -140,41 +140,70 @@ export const authenticatedFetch = async (endpoint, options = {}) => {
   const token = getStoredToken();
   const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
   
+  console.log('Realizando petición a:', url); // Log para depuración
+  
   const defaultOptions = {
-    credentials: 'include',
+    credentials: 'include', // Asegura que las cookies se envíen
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     },
   };
 
-  const response = await fetch(url, {
-    ...defaultOptions,
-    ...options,
-    headers: {
-      ...defaultOptions.headers,
-      ...options.headers,
-    },
-  });
+  try {
+    const response = await fetch(url, {
+      ...defaultOptions,
+      ...options,
+      headers: {
+        ...defaultOptions.headers,
+        ...(options.headers || {}),
+      },
+    });
 
-  // Manejo específico para errores de sesión
-  if (response.status === 401) {
-    localStorage.removeItem('authToken');
-    window.location.href = '/login';
-    throw new Error('Tu sesión ha expirado');
-  }
+    console.log('Respuesta recibida:', {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url
+    });
 
-  if (!response.ok) {
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Error en la petición');
-    } else {
-      throw new Error('Error en la petición al servidor');
+    // Manejo específico para errores de sesión
+    if (response.status === 401) {
+      console.log('Sesión expirada, redirigiendo a login');
+      localStorage.removeItem('authToken');
+      window.location.href = '/login';
+      throw new Error('Tu sesión ha expirado');
     }
-  }
 
-  return response;
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type');
+      let errorMessage = 'Error en la petición';
+      
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } else {
+          const text = await response.text();
+          console.error('Error en respuesta no JSON:', text);
+        }
+      } catch (e) {
+        console.error('Error al procesar respuesta de error:', e);
+      }
+      
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      throw error;
+    }
+
+    return response;
+  } catch (error) {
+    console.error('Error en la petición:', {
+      endpoint,
+      error: error.message,
+      stack: error.stack
+    });
+    throw error;
+  }
 };
 
 export const getDashboardData = async () => {
