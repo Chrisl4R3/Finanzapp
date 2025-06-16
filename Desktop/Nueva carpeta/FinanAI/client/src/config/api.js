@@ -1,5 +1,5 @@
 // Configuración de la API
-export const API_BASE_URL = window.env?.REACT_APP_API_URL || 'https://backend-production-cf437.up.railway.app/api';
+export const API_BASE_URL = 'https://backend-production-cf437.up.railway.app/api';
 
 // Configuración de endpoints
 export const API_ENDPOINTS = {

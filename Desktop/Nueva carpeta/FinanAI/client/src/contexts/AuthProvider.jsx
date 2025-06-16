@@ -16,6 +16,7 @@ const AuthProvider = ({ children }) => {
 
   // Limpiar el estado de autenticación y los tokens
   const clearAuth = useCallback(() => {
+    console.log('Limpiando autenticación...');
     localStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
     localStorage.removeItem(AUTH_CONFIG.REFRESH_TOKEN_KEY);
     localStorage.removeItem(AUTH_CONFIG.USER_KEY);
@@ -25,15 +26,16 @@ const AuthProvider = ({ children }) => {
   }, []);
 
   // Verificar el estado de autenticación
-  // Usar useRef para la función refreshToken para evitar dependencias circulares
   const refreshTokenRef = useRef(null);
 
   // Función para verificar el token
   const verifyToken = useCallback(async (token) => {
-    console.group('verifyToken');
-    console.log('Verificando token en el servidor...');
+    console.group('=== verifyToken ===');
+    console.log('Iniciando verificación de token...');
+    console.log('URL de verificación:', `${API_BASE_URL}${API_ENDPOINTS.AUTH.VERIFY}`);
     
     try {
+      console.log('Enviando solicitud de verificación de token...');
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.VERIFY}`, {
         method: 'GET',
         credentials: 'include', // Importante para las cookies
@@ -43,17 +45,30 @@ const AuthProvider = ({ children }) => {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
           'Expires': '0',
-          'X-Requested-With': 'XMLHttpRequest'
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-Debug': 'verify-token-request'
         }
       });
 
-      console.log('Respuesta de verificación:', response.status, response.statusText);
+      console.log('=== Respuesta del servidor (verifyToken) ===');
+      console.log('Status:', response.status, response.statusText);
+      console.log('Headers:', Object.fromEntries(response.headers.entries()));
       
+      const responseText = await response.text();
+      console.log('Respuesta en texto plano:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('Respuesta parseada:', data);
+      } catch (e) {
+        const errorMsg = `Error al analizar la respuesta del servidor: ${e.message}`;
+        console.error(errorMsg, 'Respuesta recibida:', responseText);
+        throw new Error('Error en el formato de la respuesta del servidor');
+      }
+
       if (response.ok) {
-        const data = await response.json();
-        console.log('Datos de usuario recibidos:', data.user);
-        
-        // Actualizar el usuario en el estado
+        console.log('Token verificado correctamente');
         if (data.user) {
           const userData = {
             id: data.user.id,
@@ -64,136 +79,87 @@ const AuthProvider = ({ children }) => {
           setUser(userData);
           localStorage.setItem(AUTH_CONFIG.USER_KEY, JSON.stringify(userData));
         }
-        
         setIsAuthenticated(true);
         console.groupEnd('verifyToken');
         return true;
       }
       
-      // Si hay un error 401, la sesión podría haber expirado
       if (response.status === 401) {
         console.log('Token inválido o expirado');
-        // No limpiar la autenticación aquí, dejar que refreshToken lo maneje
       } else {
-        const errorText = await response.text().catch(() => 'Error desconocido');
-        console.error('Error en la respuesta de verificación:', response.status, errorText);
+        console.error('Error en la respuesta del servidor:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: data?.message || 'Error desconocido'
+        });
       }
       
       console.groupEnd('verifyToken');
       return false;
     } catch (error) {
-      console.error('Error al verificar el token:', error);
+      console.error('Error al verificar el token:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
       console.groupEnd('verifyToken');
       return false;
     }
   }, []);
 
-  // Verificar el estado de autenticación
-  const checkAuth = useCallback(async () => {
-    console.group('checkAuth');
-    try {
-      const accessToken = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
-      console.log('Token de acceso encontrado:', !!accessToken);
-      
-      // Si no hay token, no hay sesión activa
-      if (!accessToken) {
-        console.log('No se encontró token de acceso');
-        clearAuth(); // Asegurarse de limpiar cualquier estado residual
-        console.groupEnd('checkAuth');
-        return false;
-      }
-
-      console.log('Verificando token de acceso...');
-      
-      // Verificar el token actual
-      const isTokenValid = await verifyToken(accessToken);
-      console.log('Token válido:', isTokenValid);
-      
-      if (isTokenValid) {
-        console.log('Token verificado con éxito');
-        console.groupEnd('checkAuth');
-        return true;
-      }
-      
-      // Si el token no es válido, intentar refrescarlo
-      console.log('Token inválido o expirado, intentando refrescar...');
-      const refreshResult = await refreshTokenRef.current();
-      
-      if (!refreshResult) {
-        console.log('No se pudo refrescar el token, limpiando autenticación...');
-        clearAuth();
-      } else {
-        console.log('Token refrescado exitosamente');
-      }
-      
-      console.groupEnd('checkAuth');
-      return refreshResult;
-      
-    } catch (error) {
-      console.error('Error en checkAuth:', error);
-      clearAuth();
-      console.groupEnd('checkAuth');
-      return false;
-    }
-  }, [clearAuth, verifyToken]);
-
-  // Refrescar el token
+  // Función para refrescar el token
   const refreshTokenFn = useCallback(async () => {
-    console.group('refreshToken');
+    console.group('=== refreshToken ===');
+    console.log('Iniciando refresco de token...');
+    
     try {
       const refreshToken = localStorage.getItem(AUTH_CONFIG.REFRESH_TOKEN_KEY);
-      
       if (!refreshToken) {
-        console.log('No se encontró token de refresco');
-        clearAuth();
+        console.log('No hay token de refresco disponible');
         console.groupEnd('refreshToken');
         return false;
       }
-
-      console.log('Solicitando nuevo token con refresh token...');
       
+      console.log('Enviando solicitud de refresco de token...');
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.REFRESH_TOKEN}`, {
         method: 'POST',
-        credentials: 'include', // Importante para las cookies
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
         },
         body: JSON.stringify({ refreshToken })
       });
-
-      console.log('Respuesta de refresh token:', response.status, response.statusText);
+      
+      console.log('=== Respuesta del servidor (refreshToken) ===');
+      console.log('Status:', response.status, response.statusText);
+      
+      const data = await response.json().catch(() => ({}));
+      console.log('Datos de respuesta:', data);
       
       if (!response.ok) {
-        console.error('Error al refrescar el token:', response.status);
-        clearAuth();
+        console.error('Error al refrescar el token:', data.message || 'Error desconocido');
         console.groupEnd('refreshToken');
         return false;
       }
-
-      const data = await response.json();
-      console.log('Nuevo token recibido:', !!data.accessToken);
       
-      if (!data.accessToken) {
+      if (!data.token) {
         console.error('No se recibió un nuevo token de acceso');
-        clearAuth();
         console.groupEnd('refreshToken');
         return false;
       }
       
-      // Guardar el nuevo token de acceso
-      localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, data.accessToken);
-      
-      // Actualizar el token de refresco si se proporciona uno nuevo
+      // Guardar el nuevo token
+      localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, data.token);
       if (data.refreshToken) {
-        console.log('Nuevo refresh token recibido');
         localStorage.setItem(AUTH_CONFIG.REFRESH_TOKEN_KEY, data.refreshToken);
       }
       
-      // Verificar la sesión para obtener la información del usuario
-      console.log('Verificando sesión después del refresh...');
-      const isVerified = await verifyToken(data.accessToken);
+      console.log('Token refrescado exitosamente');
       
+      // Verificar el nuevo token
+      const isVerified = await verifyToken(data.token);
       if (!isVerified) {
         console.error('No se pudo verificar la sesión después del refresh');
         clearAuth();
@@ -206,7 +172,11 @@ const AuthProvider = ({ children }) => {
       console.groupEnd('refreshToken');
       return true;
     } catch (error) {
-      console.error('Error al refrescar el token:', error);
+      console.error('Error al refrescar el token:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
       clearAuth();
       return false;
     }
@@ -219,88 +189,121 @@ const AuthProvider = ({ children }) => {
 
   // Login - Maneja el inicio de sesión con cédula y contraseña
   const login = useCallback(async (cedula, password) => {
+    const loginGroup = '=== login ===';
+    console.group(loginGroup);
+    console.time('login-duration');
+    
     try {
       console.log('Iniciando proceso de login...');
       setIsLoading(true);
       setAuthError('');
       
       if (!cedula || !password) {
-        throw new Error('La cédula y la contraseña son requeridas');
+        const errorMsg = 'La cédula y la contraseña son requeridas';
+        console.error(errorMsg);
+        throw new Error(errorMsg);
       }
 
-      console.log('Enviando solicitud de login...');
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGIN}`, {
+      const loginUrl = `${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGIN}`;
+      console.log('URL de login:', loginUrl);
+      console.log('Enviando credenciales a:', loginUrl);
+      
+      const requestBody = { cedula, password };
+      console.log('Cuerpo de la solicitud:', { cedula: cedula, password: '***' });
+      
+      const response = await fetch(loginUrl, {
         method: 'POST',
         credentials: 'include', // Importante para manejar cookies
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-Debug': 'login-request'
         },
-        body: JSON.stringify({ cedula, password })
+        body: JSON.stringify(requestBody)
       });
-
-      console.log('Respuesta del servidor recibida:', response.status, response.statusText);
-      console.log('Headers de la respuesta:', Object.fromEntries(response.headers.entries()));
-
-      // Procesar la respuesta del servidor
-      const responseText = await response.text();
-      let data;
       
+      console.log('Solicitud enviada, esperando respuesta...');
+
+      console.log('=== Respuesta del servidor ===');
+      console.log('Status:', response.status, response.statusText);
+      console.log('Headers:', Object.fromEntries(response.headers.entries()));
+      
+      // Obtener el texto de la respuesta
+      const responseText = await response.text();
+      console.log('Respuesta en texto plano:', responseText);
+      
+      let data;
       try {
         data = JSON.parse(responseText);
+        console.log('Respuesta parseada:', data);
       } catch (e) {
-        console.error('Error al analizar la respuesta del servidor:', e, 'Respuesta:', responseText);
+        const errorMsg = `Error al analizar la respuesta del servidor: ${e.message}`;
+        console.error(errorMsg, 'Respuesta recibida:', responseText);
         throw new Error('Error en el formato de la respuesta del servidor');
       }
 
-      console.log('Respuesta del servidor:', { status: response.status, data });
-
+      // Verificar si hubo un error en la respuesta
       if (!response.ok) {
-        const errorMessage = data?.message || `Error en la autenticación: ${response.statusText}`;
-        console.error('Error en la respuesta del servidor:', errorMessage);
+        const errorMessage = data?.message || data?.error || `Error en la autenticación: ${response.statusText}`;
+        console.error('Error en la respuesta del servidor:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorMessage,
+          data: data
+        });
         throw new Error(errorMessage);
       }
 
       // Verificar que la respuesta contenga el token de acceso
       if (!data.token && !data.accessToken) {
-        console.error('No se recibió un token de acceso en la respuesta');
-        console.log('Datos de respuesta completos:', data);
+        const errorMsg = 'No se recibió un token de acceso en la respuesta';
+        console.error(errorMsg, 'Datos de respuesta:', data);
         throw new Error('Error en la autenticación: no se recibió token de acceso');
       }
 
       const accessToken = data.token || data.accessToken;
+      console.log('Token de acceso recibido:', accessToken ? '***' + accessToken.slice(-8) : 'No disponible');
       
       // Guardar el token de acceso y el token de refresco
+      console.log('Guardando tokens en localStorage...');
       localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, accessToken);
       
       if (data.refreshToken) {
+        console.log('Guardando token de refresco...');
         localStorage.setItem(AUTH_CONFIG.REFRESH_TOKEN_KEY, data.refreshToken);
+      } else {
+        console.warn('No se recibió token de refresco en la respuesta');
       }
       
-      console.log('Tokens guardados en localStorage');
+      console.log('Tokens guardados exitosamente en localStorage');
 
       // Obtener y guardar la información del usuario
+      console.log('Procesando información del usuario...');
       let userInfo = null;
       
       if (data.user) {
         // Si el usuario viene en la respuesta de login
+        console.log('Información del usuario recibida en la respuesta de login:', data.user);
         userInfo = {
           id: data.user.id,
           cedula: data.user.cedula,
           name: data.user.name || 'Usuario',
           email: data.user.email || ''
         };
+        console.log('Información del usuario procesada:', userInfo);
       } else {
         // Si no viene el usuario, intentar obtenerlo del endpoint de verificación
+        console.log('La respuesta no incluye información del usuario, intentando obtenerla del endpoint de verificación...');
         try {
           console.log('Obteniendo información del usuario desde el endpoint de verificación...');
           const userResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.VERIFY}`, {
             method: 'GET',
-            credentials: 'include', // Importante para las cookies
+            credentials: 'include',
             headers: {
               'Accept': 'application/json',
-              'Authorization': `Bearer ${accessToken}`
+              'Authorization': `Bearer ${accessToken}`,
+              'X-Requested-With': 'XMLHttpRequest'
             }
           });
           
@@ -354,96 +357,128 @@ const AuthProvider = ({ children }) => {
       // Devolver éxito
       return { success: true };
     } catch (error) {
-      console.error('Error en el inicio de sesión:', error);
-      setAuthError(error.message || 'Error al iniciar sesión');
-      throw error;
-    }
-  }, []);
-
-  // Cerrar sesión
-  const logout = useCallback(async () => {
-    try {
-      const accessToken = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
+      console.error('Error durante el login:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
       
-      if (accessToken) {
-        await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGOUT}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            ...DEFAULT_HEADERS
-          },
-          credentials: 'include',
-          mode: 'cors'
-        });
-      }
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    } finally {
+      // Limpiar tokens en caso de error
+      console.warn('Limpiando tokens debido a un error...');
       clearAuth();
-      window.location.href = '/login';
+      
+      const errorMessage = error.message || 'Error al iniciar sesión';
+      setAuthError(errorMessage);
+      
+      console.timeEnd('login-duration');
+      console.groupEnd(loginGroup);
+      
+      throw new Error(errorMessage);
+    } finally {
+      console.log('Finalizando proceso de login...');
+      setIsLoading(false);
+      console.timeEnd('login-duration');
+      console.groupEnd(loginGroup);
     }
   }, [clearAuth]);
 
-  // Efecto para verificar la autenticación al cargar
-  useEffect(() => {
-    let isMounted = true;
-    
-    const verifyAuth = async () => {
+  // Cerrar sesión
+  const logout = useCallback(async () => {
+    console.group('=== logout ===');
+    try {
+      console.log('Iniciando cierre de sesión...');
+      setIsLoading(true);
+      
+      // Intentar hacer logout en el servidor
       try {
-        console.log('Verificando autenticación inicial...');
-        const isAuth = await checkAuth();
-        console.log('Verificación inicial completada. Autenticado:', isAuth);
-        
-        // Si el componente sigue montado, actualizar el estado
-        if (isMounted) {
-          setInitialCheckComplete(true);
-          setIsLoading(false);
-          console.log('Estado de autenticación inicial establecido');
+        const token = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
+        if (token) {
+          console.log('Enviando solicitud de logout al servidor...');
+          await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.LOGOUT}`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          });
+          console.log('Solicitud de logout enviada al servidor');
         }
       } catch (error) {
-        console.error('Error en verificación inicial:', error);
-        if (isMounted) {
-          setInitialCheckComplete(true);
-          setIsLoading(false);
-          setAuthError('Error al verificar la sesión');
+        console.error('Error al hacer logout en el servidor:', error);
+        // Continuar con el logout local aunque falle el logout en el servidor
+      }
+      
+      // Limpiar el estado local
+      clearAuth();
+      console.log('Sesión cerrada exitosamente');
+      
+    } catch (error) {
+      console.error('Error durante el logout:', error);
+      // Asegurarse de limpiar el estado incluso si hay un error
+      clearAuth();
+      throw error;
+    } finally {
+      setIsLoading(false);
+      console.groupEnd('logout');
+    }
+  }, [clearAuth]);
+
+  // Verificar autenticación al cargar
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      console.group('=== checkAuthStatus ===');
+      try {
+        console.log('Verificando estado de autenticación...');
+        const token = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
+        
+        if (!token) {
+          console.log('No se encontró token de acceso');
+          clearAuth();
+          return;
         }
+        
+        console.log('Token encontrado, verificando...');
+        const isValid = await verifyToken(token);
+        
+        if (!isValid && refreshTokenRef.current) {
+          console.log('Token inválido, intentando refrescar...');
+          const refreshed = await refreshTokenRef.current();
+          if (!refreshed) {
+            console.log('No se pudo refrescar la sesión');
+            clearAuth();
+          }
+        }
+      } catch (error) {
+        console.error('Error al verificar la autenticación:', error);
+        clearAuth();
+      } finally {
+        setIsLoading(false);
+        setInitialCheckComplete(true);
+        console.log('Verificación de autenticación completada');
+        console.groupEnd('checkAuthStatus');
       }
     };
-
-    verifyAuth();
     
-    // Cleanup function para evitar actualizaciones de estado en componentes desmontados
-    return () => {
-      isMounted = false;
-    };
-  }, [checkAuth]);
-
-  // Verificar periódicamente el estado de autenticación
-  useEffect(() => {
-    const interval = setInterval(() => {
-      checkAuth();
-    }, 5 * 60 * 1000); // Verificar cada 5 minutos
-
-    return () => clearInterval(interval);
-  }, [checkAuth]);
+    checkAuthStatus();
+  }, [clearAuth, verifyToken]);
 
   // Valor del contexto
-  const value = {
+  const contextValue = {
     user,
     isAuthenticated,
     isLoading,
+    authError,
     initialCheckComplete,
-    error: authError,
     login,
     logout,
-    checkAuth,
+    clearAuth,
     refreshToken: refreshTokenFn,
-    clearAuth
+    checkAuth: verifyToken
   };
 
-  // Eliminar la exportación de useAuth ya que está en AuthContext.jsx
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
