@@ -31,7 +31,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configuración de CORS
-const corsOptions = {
+const corsOptionsIndex = {
   origin: function(origin, callback) {
     // Permitir peticiones sin origen (como aplicaciones móviles o curl)
     if (!origin) return callback(null, true);
@@ -71,8 +71,8 @@ const corsOptions = {
 };
 
 // Aplicar CORS antes de cualquier otra ruta
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Habilitar preflight para todas las rutas
+app.use(cors(corsOptionsIndex));
+app.options('*', cors(corsOptionsIndex)); // Habilitar preflight para todas las rutas
 
 // Configuración de la sesión con MySQL
 const MySQLStoreSession = MySQLStore(session);
@@ -247,7 +247,7 @@ process.on('SIGTERM', () => {
 });
 
 // Aplicar CORS a todas las rutas
-app.use(cors(corsOptions));
+app.use(cors(corsOptionsIndex));
 
 // Configuración de cabeceras CORS
 app.use((req, res, next) => {
