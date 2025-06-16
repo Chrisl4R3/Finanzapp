@@ -344,12 +344,4 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en el puerto ${PORT}`);
-  console.log('Rutas disponibles:');
-  console.log('- /api/auth');
-  console.log('- /api/transactions');
-  console.log('- /api/scheduled-transactions');
-  console.log('- /api/goals');
-  console.log('- /api/notifications');
-});
+
