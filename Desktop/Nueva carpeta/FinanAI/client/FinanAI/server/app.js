@@ -22,35 +22,52 @@ const allowedOrigins = [
   'http://localhost:5000'   // Para desarrollo local del backend
 ];
 
-// Configuración de CORS
+// Configuración de CORS mejorada
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    // Permitir solicitudes sin origen (como aplicaciones móviles o curl)
+    if (!origin) return callback(null, true);
+    
+    // Verificar si el origen está permitido
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+    
+    console.warn(`Origen no permitido por CORS: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
   },
-  credentials: true,
+  credentials: true, // Importante para permitir cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['Content-Range', 'X-Content-Range', 'Authorization'],
-  maxAge: 86400 // 24 horas
+  maxAge: 86400, // 24 horas
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
-// Middleware de CORS
+// Aplicar CORS a todas las rutas
 app.use(cors(corsOptions));
 
-// Manejar peticiones OPTIONS
+// Manejar preflight OPTIONS requests
 app.options('*', cors(corsOptions));
 
-// Middleware para asegurar que los headers CORS estén presentes en todas las respuestas
+// Middleware para agregar headers CORS a todas las respuestas
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
+  
+  // Solo establecer el header si el origen está permitido
+  if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   }
+  
+  // Manejar solicitudes OPTIONS (preflight)
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
   next();
 });
 
@@ -88,28 +105,33 @@ const sessionStore = new MySQLStoreSession({
 // Trust first proxy (required for secure cookies with proxy like Railway)
 app.set('trust proxy', 1);
 
-// Configuración de sesión
+// Configuración de sesión mejorada
 const sessionConfig = {
   name: 'finanzapp_session',
-  secret: process.env.SESSION_SECRET || 'your_secret_key',
+  secret: process.env.SESSION_SECRET || 'your_very_secure_secret_key_123',
   store: sessionStore,
-  resave: false,
-  saveUninitialized: false,
-  proxy: true, // Trust the reverse proxy (Railway)
+  resave: false, // No guardar la sesión si no se modifica
+  saveUninitialized: false, // No guardar sesiones vacías
+  proxy: true, // Confiar en el proxy inverso (Railway)
   cookie: {
-    maxAge: 1000 * 60 * 60 * 24, // 1 día
-    httpOnly: true,
-    secure: true, // Always true for cross-site cookies
-    sameSite: 'none', // Required for cross-site cookies
-    path: '/',
-    // No domain specified - let the browser handle it
+    maxAge: 24 * 60 * 60 * 1000, // 1 día en milisegundos
+    httpOnly: true, // No accesible desde JavaScript
+    secure: process.env.NODE_ENV === 'production', // Solo HTTPS en producción
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' para cross-site en producción
+    path: '/', // Accesible en todas las rutas
+    // No especificar el dominio para permitir que el navegador lo maneje
   },
-  rolling: true // Renovar la sesión en cada petición
+  rolling: true, // Renovar el tiempo de expiración en cada petición
+  unset: 'destroy' // Destruir la sesión al cerrar el navegador
 };
 
-// Solo en producción forzamos secure: true
+// En producción, forzar secure: true y sameSite: 'none'
 if (process.env.NODE_ENV === 'production') {
   sessionConfig.cookie.secure = true;
+  sessionConfig.cookie.sameSite = 'none';
+  console.log('Configuración de producción: secure cookies habilitadas');
+} else {
+  console.log('Modo desarrollo: cookies menos restrictivas');
 }
 
 app.use(session(sessionConfig));

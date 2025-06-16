@@ -31,9 +31,9 @@ const AuthProvider = ({ children }) => {
   // Función para verificar el token
   const verifyToken = useCallback(async (token) => {
     console.group('verifyToken');
+    console.log('Verificando token en el servidor...');
+    
     try {
-      console.log('Verificando token en el servidor...');
-      
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.VERIFY}`, {
         method: 'GET',
         credentials: 'include', // Importante para las cookies
@@ -42,7 +42,8 @@ const AuthProvider = ({ children }) => {
           'Authorization': `Bearer ${token}`,
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
-          'Expires': '0'
+          'Expires': '0',
+          'X-Requested-With': 'XMLHttpRequest'
         }
       });
 
@@ -67,15 +68,15 @@ const AuthProvider = ({ children }) => {
         setIsAuthenticated(true);
         console.groupEnd('verifyToken');
         return true;
+      }
+      
+      // Si hay un error 401, la sesión podría haber expirado
+      if (response.status === 401) {
+        console.log('Token inválido o expirado');
+        // No limpiar la autenticación aquí, dejar que refreshToken lo maneje
       } else {
-        // Si hay un error 401, la sesión podría haber expirado
-        if (response.status === 401) {
-          console.log('Token inválido o expirado');
-          // No limpiar la autenticación aquí, dejar que refreshToken lo maneje
-        } else {
-          const errorText = await response.text().catch(() => 'Error desconocido');
-          console.error('Error en la respuesta de verificación:', response.status, errorText);
-        }
+        const errorText = await response.text().catch(() => 'Error desconocido');
+        console.error('Error en la respuesta de verificación:', response.status, errorText);
       }
       
       console.groupEnd('verifyToken');
@@ -233,12 +234,14 @@ const AuthProvider = ({ children }) => {
         credentials: 'include', // Importante para manejar cookies
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
         },
         body: JSON.stringify({ cedula, password })
       });
 
       console.log('Respuesta del servidor recibida:', response.status, response.statusText);
+      console.log('Headers de la respuesta:', Object.fromEntries(response.headers.entries()));
 
       // Procesar la respuesta del servidor
       const responseText = await response.text();

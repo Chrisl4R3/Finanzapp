@@ -39,7 +39,8 @@ const fetchConfig = {
     ...DEFAULT_HEADERS,
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
-    'Expires': '0'
+    'Expires': '0',
+    'X-Requested-With': 'XMLHttpRequest' // Ayuda a identificar peticiones AJAX
   }
 };
 
@@ -57,4 +58,48 @@ const authFetchConfig = {
   }
 };
 
-export { fetchConfig, authFetchConfig };
+// Interceptor para manejar respuestas no autorizadas
+const handleUnauthorized = async (response) => {
+  if (response.status === 401) {
+    console.warn('Sesión expirada o no autorizada');
+    // Aquí podrías implementar lógica de refresco de token
+    return false;
+  }
+  return response;
+};
+
+// Función fetch mejorada con manejo de errores
+const apiFetch = async (url, options = {}) => {
+  try {
+    const response = await fetch(url, {
+      ...fetchConfig,
+      ...options,
+      headers: {
+        ...fetchConfig.headers,
+        ...(options.headers || {})
+      }
+    });
+    
+    // Manejar respuestas no exitosas
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const error = new Error(errorData.message || 'Error en la solicitud');
+      error.status = response.status;
+      error.data = errorData;
+      throw error;
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error('Error en la petición:', error);
+    throw error;
+  }
+};
+
+// Exportar las configuraciones y utilidades
+export { 
+  fetchConfig, 
+  authFetchConfig, 
+  handleUnauthorized as _handleUnauthorized, 
+  apiFetch as _apiFetch 
+};
