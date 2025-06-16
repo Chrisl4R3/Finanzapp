@@ -1,19 +1,20 @@
 // Configuración de la API
 export const API_BASE_URL = 'https://backend-production-cf437.up.railway.app';
 
-// Determinar si estamos en desarrollo
-const isDevelopment = import.meta.env.MODE === 'development';
 
 // Configuración base para las peticiones fetch
 export const fetchConfig = {
-  credentials: 'include', // Incluir credenciales (cookies) en todas las peticiones
-  mode: 'cors', // Usar CORS
-  cache: 'no-store', // No almacenar en caché
+  mode: 'cors',
+  credentials: 'include', // Importante: permite enviar cookies
+  cache: 'no-store',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'Access-Control-Allow-Credentials': 'true',
-    'X-Requested-With': 'XMLHttpRequest'
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'X-Requested-With': 'XMLHttpRequest',
+    'Access-Control-Allow-Credentials': 'true'
   }
 };
 
@@ -60,18 +61,7 @@ export const DEFAULT_HEADERS = {
   'Accept': 'application/json'
 };
 
-// Configuración común para fetch
-const fetchConfig = {
-  mode: 'cors',
-  credentials: 'include', // Importante: permite enviar cookies
-  headers: {
-    ...DEFAULT_HEADERS,
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0',
-    'X-Requested-With': 'XMLHttpRequest' // Ayuda a identificar peticiones AJAX
-  }
-};
+// Configuración común para fetch (ya definida como export const fetchConfig)
 
 // Configuración para solicitudes que requieren autenticación
 const getAuthHeader = () => {
@@ -157,7 +147,6 @@ const authAPI = {
 
 // Exportar las configuraciones y utilidades
 export { 
-  fetchConfig, 
   authFetchConfig, 
   handleUnauthorized, 
   apiFetch,
