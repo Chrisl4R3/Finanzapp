@@ -70,16 +70,13 @@ const Login = () => {
       
       // Llamar a la función de login del contexto de autenticación
       // Mantenemos el formato de la cédula (con guiones) al hacer login
-      const result = await login(formData.cedula, formData.password);
+      await login(formData.cedula, formData.password);
       
-      if (result.success) {
-        // Redirigir al dashboard o a la ruta previa
-        const from = location.state?.from?.pathname || '/dashboard';
-        console.log('Login exitoso, redirigiendo a:', from);
-        navigate(from, { replace: true });
-      } else {
-        setError(result.error || 'Error en el inicio de sesión');
-      }
+      // Si llegamos aquí, el login fue exitoso
+      // Redirigir al dashboard o a la ruta previa
+      const from = location.state?.from?.pathname || '/dashboard';
+      console.log('Login exitoso, redirigiendo a:', from);
+      navigate(from, { replace: true });
     } catch (err) {
       console.error('Error durante el inicio de sesión:', err);
       setError('Error de conexión. Por favor, intente nuevamente.');

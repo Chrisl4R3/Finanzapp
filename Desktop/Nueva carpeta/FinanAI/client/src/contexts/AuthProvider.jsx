@@ -248,15 +248,15 @@ const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       setAuthError('');
       
-      // Redirigir al dashboard
-      window.location.href = '/dashboard';
+      // Limpiar el estado de carga
+      setIsLoading(false);
       
+      // Devolver éxito
+      return { success: true };
     } catch (error) {
       console.error('Error en el inicio de sesión:', error);
       setAuthError(error.message || 'Error al iniciar sesión');
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
