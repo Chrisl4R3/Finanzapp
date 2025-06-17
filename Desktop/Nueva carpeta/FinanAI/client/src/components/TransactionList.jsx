@@ -560,7 +560,7 @@ const TransactionList = ({ searchTerm = '' }) => {
             </div>
             <div className="flex flex-col gap-3">
               {group.transactions.map(tx => (
-                <div key={tx.id} className="flex items-center justify-between rounded-xl px-4 py-3 shadow-sm bg-secondary-bg hover:bg-secondary-bg/80 transition-all">
+                <div key={tx.id} className="flex items-center justify-between rounded-xl px-4 py-3 shadow-sm bg-secondary-bg/80 hover:bg-secondary-bg transition-all">
                   <div className="flex items-center gap-4">
                     <span className="text-2xl">{getCategoryIcon(tx.category)}</span>
                     <div>
