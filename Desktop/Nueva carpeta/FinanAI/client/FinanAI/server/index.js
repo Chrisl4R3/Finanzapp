@@ -62,6 +62,7 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-debug'],
 }));
 
 // Middleware de sesión
@@ -221,33 +222,6 @@ process.on('SIGTERM', () => {
     console.log('Servidor cerrado');
     process.exit(0);
   });
-});
-
-// Configuración de cabeceras CORS
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // Establecer cabeceras CORS
-  if (origin) {
-    if (allowedOrigins.includes(origin) || !isProduction) {
-      res.header('Access-Control-Allow-Origin', origin);
-      res.header('Access-Control-Allow-Credentials', 'true');
-      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Credentials');
-      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
-      res.header('Access-Control-Expose-Headers', 'Content-Range, X-Content-Range, Authorization, Set-Cookie, Access-Control-Allow-Credentials');
-      
-      // Manejar solicitudes OPTIONS (preflight)
-      if (req.method === 'OPTIONS') {
-        console.log('Manejando solicitud OPTIONS (preflight)');
-        return res.status(200).end();
-      }
-    } else {
-      console.warn(`Intento de acceso desde origen no permitido: ${origin}`);
-      return res.status(403).json({ error: 'Origen no permitido' });
-    }
-  }
-  
-  next();
 });
 
 // Middleware para debug de CORS
