@@ -29,7 +29,7 @@ const TransactionList = ({ searchTerm = '' }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5);
+  const [itemsPerPage] = useState(10); // Aumentar a 10 elementos por página
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [searchTermLocal, setSearchTermLocal] = useState(searchTerm);
@@ -286,11 +286,14 @@ const TransactionList = ({ searchTerm = '' }) => {
   }, [transactions]);
 
   // Pagination
-  const totalPagesCount = Math.ceil(groupedTransactionsList.length / itemsPerPage);
   const currentItems = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return groupedTransactionsList.slice(startIndex, startIndex + itemsPerPage);
   }, [groupedTransactionsList, currentPage, itemsPerPage]);
+  
+  // Alias para mantener la compatibilidad
+  const filteredTransactions = filteredTransactionsList;
+  const totalPages = Math.ceil(groupedTransactionsList.length / itemsPerPage);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -560,33 +563,39 @@ const TransactionList = ({ searchTerm = '' }) => {
             </div>
             <div className="flex flex-col gap-3">
               {group.transactions.map(tx => (
-                <div key={tx.id} className="flex items-center justify-between rounded-xl px-4 py-3 shadow-sm bg-secondary-bg/80 hover:bg-secondary-bg transition-all">
+                <div key={tx.id} className={`flex items-center justify-between rounded-xl p-4 shadow-sm transition-all ${tx.type === 'Income' ? 'bg-emerald-900/20 hover:bg-emerald-900/30 border-l-4 border-emerald-500' : 'bg-red-900/20 hover:bg-red-900/30 border-l-4 border-red-500'} hover:shadow-md`}>
                   <div className="flex items-center gap-4">
-                    <span className="text-2xl">{getCategoryIcon(tx.category)}</span>
+                    <div className={`p-3 rounded-full ${tx.type === 'Income' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                      {getCategoryIcon(tx.category)}
+                    </div>
                     <div>
                       <div className="font-medium text-text-primary text-base">{tx.description}</div>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs px-2 py-1 rounded bg-background-color text-text-secondary">{tx.category}</span>
+                        <span className={`text-xs px-2 py-1 rounded-full ${tx.type === 'Income' ? 'bg-emerald-900/30 text-emerald-300' : 'bg-red-900/30 text-red-300'}`}>
+                          {tx.category}
+                        </span>
                         <span className="text-xs text-text-secondary">{formatTransactionDate(tx.date)}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2 min-w-[120px]">
-                    <span className={`font-bold text-base ${tx.type === 'Income' ? 'text-success-color' : 'text-danger-color'}`}>
+                    <span className={`font-bold text-lg ${tx.type === 'Income' ? 'text-emerald-400' : 'text-red-400'}`}>
                       {tx.type === 'Income' ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
                     </span>
-                    <span className="text-xs mt-1 px-2 py-1 rounded bg-background-color text-text-secondary">{tx.payment_method}</span>
+                    <span className={`text-xs px-2 py-1 rounded-full ${tx.type === 'Income' ? 'bg-emerald-900/30 text-emerald-300' : 'bg-red-900/30 text-red-300'}`}>
+                      {tx.payment_method}
+                    </span>
                     <div className="flex items-center gap-2 mt-1">
                       <button
                         onClick={() => handleEdit(tx)}
-                        className="text-xs text-accent-color hover:text-accent-color-darker transition-colors"
+                        className="text-xs px-2 py-1 rounded hover:bg-white/10 transition-colors text-text-secondary hover:text-accent-color"
                       >
                         Editar
                       </button>
-                      <span className="text-border-color">|</span>
+                      <span className="text-border-color">•</span>
                       <button
                         onClick={() => handleDelete(tx.id)}
-                        className="text-xs text-danger-color hover:text-danger-color-darker transition-colors"
+                        className="text-xs px-2 py-1 rounded hover:bg-white/10 transition-colors text-text-secondary hover:text-red-400"
                       >
                         Eliminar
                       </button>
@@ -597,35 +606,50 @@ const TransactionList = ({ searchTerm = '' }) => {
             </div>
           </div>
         ))}
-        {!currentItems.length && (
-          <div className="text-center py-12 text-gray-500">
-            No se encontraron transacciones con los filtros actuales.
-          </div>
-        )}
-      </div>
 
-      {/* Pagination */}
-      {totalPagesCount > 1 && (
-        <div className="flex justify-center mt-4 gap-2">
-          <button
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            className="px-4 py-2 border rounded disabled:opacity-50 hover:bg-accent-color hover:text-white transition-colors"
-          >
-            Anterior
-          </button>
-          <span className="px-4 py-2">
-            Página {currentPage} de {totalPagesCount}
-          </span>
-          <button
-            onClick={() => setCurrentPage(p => Math.min(totalPagesCount, p + 1))}
-            disabled={currentPage === totalPagesCount}
-            className="px-4 py-2 border rounded disabled:opacity-50 hover:bg-accent-color hover:text-white transition-colors"
-          >
-            Siguiente
-          </button>
+        {/* Paginación */}
+        <div className="flex items-center justify-between px-6 py-4 bg-card-bg border-t border-border-color/20">
+          <div className="text-sm text-text-secondary">
+            Mostrando {(currentPage - 1) * itemsPerPage + 1} a {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} de {filteredTransactions.length} transacciones
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={`px-4 py-2 rounded-md ${currentPage === 1 ? 'text-text-secondary/50 cursor-not-allowed' : 'text-text-primary hover:bg-secondary-bg'}`}
+            >
+              Anterior
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-10 h-10 rounded-md flex items-center justify-center ${
+                  currentPage === page 
+                    ? 'bg-accent-color text-white' 
+                    : 'text-text-primary hover:bg-secondary-bg'
+                }`}
+              >
+                {page}
+              </button>
+            )).slice(
+              Math.max(0, Math.min(currentPage - 2, totalPages - 5)),
+              Math.min(Math.max(5, currentPage + 2), totalPages)
+            )}
+            <button
+              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className={`px-4 py-2 rounded-md ${
+                currentPage === totalPages 
+                  ? 'text-text-secondary/50 cursor-not-allowed' 
+                  : 'text-text-primary hover:bg-secondary-bg'
+              }`}
+            >
+              Siguiente
+            </button>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Transaction Form Modal */}
       {showForm && (
