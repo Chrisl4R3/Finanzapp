@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
+import crypto from 'crypto';
 import MySQLStore from 'express-mysql-session';
 import authRoutes from './routes/auth.js';
 import transactionRoutes from './routes/transactions.js';
@@ -88,7 +89,7 @@ const sessionConfig = {
   unset: 'destroy',
   // Configuración de regeneración de ID de sesión
   genid: function() {
-    return require('crypto').randomBytes(16).toString('hex');
+ return crypto.randomBytes(16).toString('hex');
   }
 };
 
