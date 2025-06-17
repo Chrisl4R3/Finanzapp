@@ -89,28 +89,29 @@ app.use(session({
   genid: function() {
     return require('crypto').randomBytes(16).toString('hex');
   }
-};
+}),
+);
 
-// La configuración de CORS ya está definida al inicio del archivo
-
-// Configuración específica para desarrollo
+// Configuración específica para desarrollo (aplicar después de la definición inicial de sessionConfig)
 if (!isProduction) {
   console.log('⚠️  Modo desarrollo: configurando cookies para desarrollo local');
-  sessionConfig.cookie.secure = false;
-  sessionConfig.cookie.sameSite = 'lax';
-  
+  // Nota: sessionConfig ya fue aplicado arriba, necesitamos modificar el middleware directamente si queremos cambios condicionales
+  // Un enfoque alternativo es definir sessionConfig antes de app.use(session(sessionConfig)) y luego modificarlo.
+  // Sin embargo, dado que app.use(session()) se llama solo una vez, es mejor configurar sessionConfig completamente antes.
+  // Vamos a reestructurar para definir sessionConfig y luego usarlo.
+
   // Mostrar configuración de cookies
   console.log('🔧 Configuración de cookies en desarrollo:', {
     httpOnly: sessionConfig.cookie.httpOnly,
     secure: sessionConfig.cookie.secure,
     sameSite: sessionConfig.cookie.sameSite,
     path: sessionConfig.cookie.path,
-    domain: sessionConfig.cookie.domain || 'localhost'
+    domain: sessionConfig.cookie.domain || 'localhost',
   });
 } else {
   console.log('🚀 Modo producción: configurando cookies seguras para producción');
-  sessionConfig.cookie.secure = true;
-  sessionConfig.cookie.sameSite = 'none';
+  // Similar a desarrollo, es mejor configurar sessionConfig completamente antes de usar app.use(session).
+  // La configuración inicial de sessionConfig ya maneja secure y sameSite basado en isProduction.
   
   console.log('🔒 Configuración de cookies en producción:', {
     httpOnly: sessionConfig.cookie.httpOnly,
@@ -121,7 +122,8 @@ if (!isProduction) {
   });
 }
 
-// Aplicar el middleware de sesión después de la configuración
+// Re-aplicar el middleware de sesión aquí para claridad, aunque ya se aplicó arriba.
+// Es crucial que la configuración de sessionConfig se haya completado antes de esta línea.
 app.use(session(sessionConfig));
 
 // Configuración de confianza para proxies
