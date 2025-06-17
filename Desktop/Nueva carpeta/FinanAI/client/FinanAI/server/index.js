@@ -12,6 +12,9 @@ import pool from './config/db.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Add CORS middleware
+app.use(cors());
+
 // Configuración de la sesión con MySQL
 const MySQLStoreSession = MySQLStore(session);
 const sessionStore = new MySQLStoreSession({
@@ -28,18 +31,6 @@ const sessionStore = new MySQLStoreSession({
     }
   }
 }, pool);
-
-// Configuración de CORS
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://frontend-production-df22.up.railway.app',
-    'https://backend-production-cf437.up.railway.app'
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
 
 // Middleware de sesión
 app.use(session({
