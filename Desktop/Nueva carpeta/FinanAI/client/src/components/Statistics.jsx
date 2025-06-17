@@ -67,52 +67,84 @@ const Statistics = () => {
       return;
     }
 
+    console.log('=== Iniciando fetchStatistics ===');
+    console.log('Rango de fechas:', dateRange);
+    
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.log('Timeout alcanzado en la petición de estadísticas');
+      console.error('Timeout alcanzado en la petición de estadísticas');
       controller.abort();
-    }, 15000); // Aumentado a 15 segundos
+    }, 20000); // Aumentado a 20 segundos
 
     try {
       console.log('Iniciando carga de estadísticas...');
       setIsLoading(true);
       setError(null);
 
-      const url = `https://backend-production-cf437.up.railway.app/api/transactions/statistics?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`;
-      console.log('URL de la petición:', url);
+      const baseUrl = 'https://backend-production-cf437.up.railway.app';
+      const endpoint = '/api/transactions/statistics';
+      const queryParams = new URLSearchParams({
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate
+      });
+      
+      const url = `${baseUrl}${endpoint}?${queryParams}`;
+      console.log('URL completa de la petición:', url);
       
       const token = localStorage.getItem('authToken');
       console.log('Token de autenticación:', token ? 'Presente' : 'No encontrado');
+      
+      if (!token) {
+        throw new Error('No se encontró el token de autenticación. Por favor, inicia sesión nuevamente.');
+      }
 
-      const response = await fetch(url, { 
+      console.log('Realizando petición fetch...');
+      const fetchOptions = {
         method: 'GET',
         credentials: 'include',
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'X-Requested-With': 'XMLHttpRequest'
         }
+      };
+      console.log('Opciones de fetch:', JSON.stringify(fetchOptions, null, 2));
+
+      const startTime = performance.now();
+      const response = await fetch(url, fetchOptions);
+      const endTime = performance.now();
+      
+      console.log(`Tiempo de respuesta: ${(endTime - startTime).toFixed(2)}ms`);
+      
+      const headers = {};
+      response.headers.forEach((value, key) => {
+        headers[key] = value;
       });
       
-      console.log('Respuesta HTTP recibida:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
-      });
+      console.log('=== Respuesta HTTP ===');
+      console.log('Status:', response.status, response.statusText);
+      console.log('Headers:', headers);
       
       const responseData = await response.text();
-      console.log('Contenido de la respuesta:', responseData);
+      console.log('Contenido de la respuesta (texto):', responseData);
       
       let data;
       try {
-        data = JSON.parse(responseData);
+        data = responseData ? JSON.parse(responseData) : {};
+        console.log('Datos parseados:', data);
       } catch (e) {
         console.error('Error al parsear la respuesta JSON:', e);
+        console.error('Respuesta recibida (raw):', responseData);
         throw new Error('La respuesta del servidor no es un JSON válido');
       }
       
       if (!response.ok) {
-        console.error('Error en la respuesta del servidor:', data);
+        console.error('Error en la respuesta del servidor:', {
+          status: response.status,
+          statusText: response.statusText,
+          data: data
+        });
         throw new Error(data.message || `Error ${response.status}: ${response.statusText}`);
       }
       
