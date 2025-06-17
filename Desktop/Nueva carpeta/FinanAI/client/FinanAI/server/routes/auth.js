@@ -69,6 +69,11 @@ router.post('/register', async (req, res) => {
 // Login
 router.post('/login', async (req, res) => {
   try {
+    // Log incoming request details
+    console.log('Login Request Details:');
+    console.log('Origin:', req.headers.origin);
+    console.log('URL:', req.url);
+    console.log('Method:', req.method);
     const { cedula, password } = req.body;
     console.log('Intento de login con cédula:', cedula);
     
