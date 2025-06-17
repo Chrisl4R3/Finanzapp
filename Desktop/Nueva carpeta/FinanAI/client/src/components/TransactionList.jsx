@@ -492,7 +492,7 @@ const TransactionList = ({ searchTerm = '' }) => {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+      <div className="bg-card-bg rounded-xl shadow-sm p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div className="md:col-span-2">
             <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
@@ -578,7 +578,7 @@ const TransactionList = ({ searchTerm = '' }) => {
       </div>
 
       {/* Transaction List */}
-      <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-background rounded-xl shadow-sm overflow-hidden">
         {currentItemsGrouped.map(group => (
           <div key={group.month} className="mb-10 p-4">
             <div className="flex items-center justify-between mb-2">
