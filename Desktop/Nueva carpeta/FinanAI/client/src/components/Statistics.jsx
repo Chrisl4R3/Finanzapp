@@ -14,7 +14,6 @@ import {
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { useCurrency } from '../context/CurrencyContext';
-import { authenticatedFetch } from '../auth/auth';
 
 // Registrar componentes de Chart.js
 ChartJS.register(
@@ -73,21 +72,29 @@ const Statistics = () => {
       setError(null);
 
       console.log('Solicitando estadísticas con fechas:', dateRange);
-      const response = await authenticatedFetch(
-        `/api/transactions/statistics?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
+      const response = await fetch(
+        `https://backend-production-cf437.up.railway.app/api/transactions/statistics?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
         { 
+          method: 'GET',
+          credentials: 'include',
           signal: controller.signal,
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
           }
         }
       );
       console.log('Respuesta recibida:', response);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Error en la respuesta:', errorData);
-        throw new Error(errorData.message || 'Error al cargar las estadísticas');
+        try {
+          const errorData = await response.json();
+          console.error('Error en la respuesta:', errorData);
+          throw new Error(errorData.message || 'Error al cargar las estadísticas');
+        } catch (e) {
+          console.error('Error al procesar la respuesta de error:', e);
+          throw new Error('Error al procesar la respuesta del servidor');
+        }
       }
       
       const data = await response.json();
