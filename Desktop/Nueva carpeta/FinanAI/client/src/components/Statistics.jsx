@@ -81,7 +81,7 @@ const Statistics = () => {
       setIsLoading(true);
       setError(null);
 
-      const baseUrl = 'https://backend-production-cf437.up.railway.app';
+      const baseUrl = ''; // Usar ruta relativa para que el proxy maneje la solicitud
       const endpoint = '/api/transactions/statistics';
       const queryParams = new URLSearchParams({
         startDate: dateRange.startDate,

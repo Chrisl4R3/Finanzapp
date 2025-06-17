@@ -26,13 +26,15 @@ export default defineConfig({
       '/api': {
         target: 'https://backend-production-cf437.up.railway.app',
         changeOrigin: true,
-        secure: false,
+        secure: true,
         ws: true,
         cookieDomainRewrite: {
           '*': '' // Eliminar el dominio de las cookies para desarrollo local
         },
         headers: {
-          'Access-Control-Allow-Origin': 'http://localhost:3000',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+          'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Authorization, Accept',
           'Access-Control-Allow-Credentials': 'true'
         },
         configure: (proxy) => {
@@ -46,6 +48,18 @@ export default defineConfig({
               message: err.message,
               code: err.code
             }));
+          });
+          
+          // Log de las peticiones al proxy
+          proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('Proxy request to:', req.url);
+          });
+          
+          proxy.on('proxyRes', (proxyRes, req) => {
+            proxyRes.headers['Access-Control-Allow-Origin'] = req.headers.origin || '*';
+            proxyRes.headers['Access-Control-Allow-Credentials'] = 'true';
+            proxyRes.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, PATCH, OPTIONS';
+            proxyRes.headers['Access-Control-Allow-Headers'] = 'X-Requested-With, Content-Type, Authorization, Accept';
           });
           
           proxy.on('proxyReq', (proxyReq, req) => {
