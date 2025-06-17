@@ -14,16 +14,23 @@ import pool from './config/db.js';
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = !isProduction;
 
-// Configuración de CORS - Solo dominios de Railway permitidos
-// Permitir configuración dinámica desde variable de entorno ALLOWED_ORIGINS (separada por comas)
-const allowedOrigins = (process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : [
-      'https://frontend-production-df22.up.railway.app',
-      'https://backend-production-cf437.up.railway.app'
-    ]
-).map(origin => origin.trim().replace(/;$/, '')) // Quitar espacios y posibles punto y coma accidental
- .filter(Boolean);
+// Configuración de CORS - Orígenes permitidos
+const allowedOrigins = [
+  'https://frontend-production-df22.up.railway.app',
+  'https://backend-production-cf437.up.railway.app',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
+// Si existe la variable de entorno, la usamos y añadimos a los orígenes permitidos
+if (process.env.ALLOWED_ORIGINS) {
+  const additionalOrigins = process.env.ALLOWED_ORIGINS
+    .split(',')
+    .map(origin => origin.trim().replace(/;$/, ''))
+    .filter(origin => !allowedOrigins.includes(origin));
+  
+  allowedOrigins.push(...additionalOrigins);
+}
 
 // Mostrar configuración al iniciar
 console.log('=== Configuración del Servidor ===');
@@ -54,17 +61,52 @@ const sessionStore = new MySQLStoreSession({
 }, pool);
 
 // Configuración de CORS
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://frontend-production-df22.up.railway.app',
-    'https://backend-production-cf437.up.railway.app'
-  ],
+// Configuración de CORS
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permitir solicitudes sin origen (como aplicaciones móviles o curl)
+    if (!origin) return callback(null, true);
+    
+    // En desarrollo, permitir cualquier origen
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`Permitiendo origen (modo desarrollo): ${origin}`);
+      return callback(null, true);
+    }
+    
+    // En producción, verificar contra la lista de orígenes permitidos
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    console.warn(`Origen no permitido: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-debug'],
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin',
+    'x-debug',
+    'Access-Control-Allow-Credentials'
+  ],
+  exposedHeaders: [
+    'Content-Range', 
+    'X-Content-Range', 
+    'Authorization', 
+    'Set-Cookie',
+    'Access-Control-Allow-Credentials'
+  ],
+  optionsSuccessStatus: 200 // Algunos navegadores antiguos (IE11, varios SmartTVs) se bloquean con 204
+};
+
+// Aplicar CORS
+app.use(cors(corsOptions));
+
+// Manejar preflight para todas las rutas
+app.options('*', cors(corsOptions));
 
 // Middleware de sesión
 const sessionConfig = {
