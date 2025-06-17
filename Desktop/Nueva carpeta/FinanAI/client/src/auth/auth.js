@@ -1,4 +1,4 @@
-const API_URL = 'https://backend-production-cf437.up.railway.app/api';
+const API_URL = 'https://backend-production-cf437.up.railway.app'; // Quitamos /api de la URL base
 
 // Función auxiliar para obtener el token
 export const getStoredToken = () => {
@@ -10,9 +10,9 @@ export const login = async (credentials) => {
   try {
     console.log('=== login ===');
     console.log('Iniciando proceso de login...');
-    console.log('URL de login:', `${API_URL}/auth/login`);
+    console.log('URL de login:', `${API_URL}/api/auth/login`);
     
-    const response = await fetch(`${API_URL}/auth/login`, {
+    const response = await fetch(`${API_URL}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -78,7 +78,7 @@ export const login = async (credentials) => {
 
 export const register = async (userData) => {
   try {
-    const response = await fetch(`${API_URL}/auth/register`, {
+    const response = await fetch(`${API_URL}/api/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -164,7 +164,7 @@ export const logout = async () => {
   
   try {
     console.log('Cerrando sesión en el servidor...');
-    const response = await fetch(`${API_URL}/auth/logout`, {
+    const response = await fetch(`${API_URL}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include',
       mode: 'cors',
@@ -206,7 +206,7 @@ export const getCurrentUser = async () => {
 
   try {
     console.log('Obteniendo información del usuario actual...');
-    const response = await fetch(`${API_URL}/auth/verify`, {
+    const response = await fetch(`${API_URL}/api/auth/verify`, {
       method: 'GET',
       credentials: 'include',
       mode: 'cors',
