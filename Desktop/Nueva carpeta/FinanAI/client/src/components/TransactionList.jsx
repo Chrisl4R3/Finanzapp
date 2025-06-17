@@ -29,7 +29,7 @@ const TransactionList = ({ searchTerm = '' }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10); // Aumentar a 10 elementos por página
+  const [itemsPerPage] = useState(6); // Mostrar 6 transacciones por página
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [searchTermLocal, setSearchTermLocal] = useState(searchTerm);
