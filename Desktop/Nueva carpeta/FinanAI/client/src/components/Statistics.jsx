@@ -61,8 +61,94 @@ const Statistics = () => {
   
   const [currency, setCurrency] = useState('DOP');
 
-  // Memoizar el formateo de fechas
-  const dateRangeString = `${dateRange.startDate}_${dateRange.endDate}`;
+  // Usar useCallback para memoizar la función de fetch
+  const fetchStatistics = useCallback(async () => {
+    if (!dateRange.startDate || !dateRange.endDate) return;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout de 10 segundos
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      console.log('Solicitando estadísticas con fechas:', dateRange);
+      const response = await authenticatedFetch(
+        `/api/transactions/statistics?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
+        { 
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      console.log('Respuesta recibida:', response);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error en la respuesta:', errorData);
+        throw new Error(errorData.message || 'Error al cargar las estadísticas');
+      }
+      
+      const data = await response.json();
+      console.log('Datos de estadísticas recibidos:', data);
+      
+      // Procesamiento más eficiente de los datos
+      const processedData = {
+        summary: {
+          totalIncome: (data.summary?.total_income || 0).toFixed(2),
+          totalExpenses: (data.summary?.total_expenses || 0).toFixed(2),
+          balance: (data.summary?.net_balance || 0).toFixed(2),
+          averageIncome: (data.summary?.average_income || 0).toFixed(2),
+          averageExpense: (data.summary?.average_expense || 0).toFixed(2),
+          transactionCount: data.summary?.total_transactions || 0
+        },
+        trends: Array.isArray(data.monthlyTrends) 
+          ? data.monthlyTrends.map(t => ({
+              ...t,
+              income: Number(t.income || 0).toFixed(2),
+              expenses: Number(t.expenses || 0).toFixed(2),
+              net_balance: Number(t.net_balance || 0).toFixed(2)
+            })) 
+          : [],
+        categoryDistribution: Array.isArray(data.categoryAnalysis) 
+          ? data.categoryAnalysis
+              .map(c => ({
+                category: c.category || 'Sin categoría',
+                amount: Number(c.total_amount || 0).toFixed(2),
+                count: parseInt(c.transaction_count || 0, 10),
+                average: Number(c.average_amount || 0).toFixed(2)
+              }))
+              .filter(c => !isNaN(c.amount))
+          : [],
+        mostActiveDays: Array.isArray(data.topDays)
+          ? data.topDays
+              .map(d => ({
+                day_of_week: d.day_of_week,
+                transaction_count: parseInt(d.transaction_count || 0, 10),
+                total_amount: Number(d.total_amount || 0).toFixed(2)
+              }))
+              .filter(d => !isNaN(d.transaction_count) && !isNaN(d.total_amount))
+          : []
+      };
+
+      console.log('Datos procesados:', processedData);
+      setStats(processedData);
+    } catch (err) {
+      console.error('Error en fetchStatistics:', err);
+      if (err.name !== 'AbortError') {
+        setError(err.message || 'Error al cargar las estadísticas. Por favor, intente de nuevo.');
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setIsLoading(false);
+    }
+  }, [dateRange]);
+
+  // Cargar estadísticas al montar el componente y cuando cambien las fechas
+  useEffect(() => {
+    fetchStatistics();
+  }, [fetchStatistics]);
 
   // Colores para gráficos
   const chartColors = {
@@ -165,78 +251,6 @@ const Statistics = () => {
     }
   }), [formatCurrency]);
 
-  // Usar useCallback para memoizar la función de fetch
-  const fetchStatistics = useCallback(async () => {
-    if (!dateRange.startDate || !dateRange.endDate) return;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout de 10 segundos
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const response = await authenticatedFetch(
-        `/transactions/statistics?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
-        { signal: controller.signal }
-      );
-      
-      if (!response.ok) {
-        throw new Error('Error al cargar las estadísticas');
-      }
-      
-      const data = await response.json();
-      
-      // Procesamiento más eficiente de los datos
-      const processedData = {
-        summary: {
-          totalIncome: (data.summary?.total_income || 0).toFixed(2),
-          totalExpenses: (data.summary?.total_expenses || 0).toFixed(2),
-          balance: (data.summary?.net_balance || 0).toFixed(2),
-          averageIncome: (data.summary?.average_income || 0).toFixed(2),
-          averageExpense: (data.summary?.average_expense || 0).toFixed(2),
-          transactionCount: data.summary?.total_transactions || 0
-        },
-        trends: Array.isArray(data.monthlyTrends) 
-          ? data.monthlyTrends.map(t => ({
-              ...t,
-              income: Number(t.income || 0).toFixed(2),
-              expenses: Number(t.expenses || 0).toFixed(2),
-              net_balance: Number(t.net_balance || 0).toFixed(2)
-            })) 
-          : [],
-        categoryDistribution: Array.isArray(data.categoryAnalysis) 
-          ? data.categoryAnalysis
-              .map(c => ({
-                category: c.category || 'Sin categoría',
-                amount: Number(c.total_amount || 0).toFixed(2),
-                count: parseInt(c.transaction_count || 0, 10),
-                average: Number(c.average_amount || 0).toFixed(2)
-              }))
-              .filter(c => !isNaN(c.amount))
-          : [],
-        mostActiveDays: Array.isArray(data.topDays)
-          ? data.topDays
-              .map(d => ({
-                day_of_week: d.day_of_week,
-                transaction_count: parseInt(d.transaction_count || 0, 10),
-                total_amount: Number(d.total_amount || 0).toFixed(2)
-              }))
-              .filter(d => !isNaN(d.transaction_count) && !isNaN(d.total_amount))
-          : []
-      };
-
-      setStats(processedData);
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error('Error al cargar estadísticas:', err);
-        setError('Error al cargar las estadísticas. Por favor, intente de nuevo.');
-      }
-    } finally {
-      clearTimeout(timeoutId);
-      setIsLoading(false);
-    }
-  }, [dateRange.startDate, dateRange.endDate, authenticatedFetch, setError, setIsLoading, setStats]);
 
   const handleDateChange = (e) => {
     const { name, value } = e.target;
@@ -414,42 +428,10 @@ const Statistics = () => {
     }
   };
 
-  // Función para procesar los días con mayor actividad
-  const processTopDays = (daysData) => {
-    if (!Array.isArray(daysData) || daysData.length === 0) {
-      return [];
-    }
-
-    const diasSemana = {
-      'Monday': 'Lunes',
-      'Tuesday': 'Martes',
-      'Wednesday': 'Miércoles',
-      'Thursday': 'Jueves',
-      'Friday': 'Viernes',
-      'Saturday': 'Sábado',
-      'Sunday': 'Domingo'
-    };
-
-    return daysData
-      .map(day => {
-        try {
-          return {
-            formattedDate: diasSemana[day.day_of_week] || day.day_of_week,
-            transactionCount: parseInt(day.transaction_count || 0),
-            total: parseFloat(day.total_amount || 0)
-          };
-        } catch (error) {
-          console.error('Error procesando día:', error, day);
-          return null;
-        }
-      })
-      .filter(Boolean) // Filtrar elementos nulos
-      .sort((a, b) => b.transactionCount - a.transactionCount); // Ordenar por número de transacciones
-  };
-
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-xl text-text-secondary">Cargando estadísticas...</div>
         <div className="text-xl text-text-secondary">Cargando estadísticas...</div>
       </div>
     );
