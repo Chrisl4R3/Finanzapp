@@ -266,19 +266,10 @@ app.get('/', (req, res) => {
 
 // Rutas con y sin prefijo /api para compatibilidad
 app.use('/api/auth', authRoutes);
-app.use('/auth', authRoutes);
-
 app.use('/api/transactions', transactionRoutes);
-app.use('/transactions', transactionRoutes);
-
 app.use('/api/scheduled-transactions', scheduledTransactionsRoutes);
-app.use('/scheduled-transactions', scheduledTransactionsRoutes);
-
 app.use('/api/goals', goalRoutes);
-app.use('/goals', goalRoutes);
-
 app.use('/api/notifications', notificationRoutes);
-app.use('/notifications', notificationRoutes);
 
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {
