@@ -101,13 +101,18 @@ const Statistics = () => {
       console.log('Realizando petición fetch...');
       const fetchOptions = {
         method: 'GET',
-        credentials: 'include',
+        mode: 'cors', // Asegurar modo CORS
+        credentials: 'include', // Incluir credenciales
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'Authorization': `Bearer ${token}`,
-          'X-Requested-With': 'XMLHttpRequest'
-        }
+          'X-Requested-With': 'XMLHttpRequest',
+          'Access-Control-Allow-Origin': 'https://backend-production-cf437.up.railway.app',
+          'Access-Control-Allow-Credentials': 'true'
+        },
+        redirect: 'follow'
       };
       console.log('Opciones de fetch:', JSON.stringify(fetchOptions, null, 2));
 
@@ -204,8 +209,12 @@ const Statistics = () => {
 
   // Cargar estadísticas al montar el componente y cuando cambien las fechas
   useEffect(() => {
-    fetchStatistics();
-  }, [fetchStatistics]);
+    console.log('useEffect - dateRange actualizado:', dateRange);
+    console.log('useEffect - Iniciando fetchStatistics...');
+    fetchStatistics().catch(error => {
+      console.error('Error en fetchStatistics desde useEffect:', error);
+    });
+  }, [fetchStatistics, dateRange]); // Añadido dateRange a las dependencias
 
   // Colores para gráficos
   const chartColors = {
