@@ -547,7 +547,7 @@ const TransactionList = ({ searchTerm = '' }) => {
       </div>
 
       {/* Transaction List */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
         {currentItems.map(group => (
           <div key={group.month} className="mb-10 p-4">
             <div className="flex items-center justify-between mb-2">
