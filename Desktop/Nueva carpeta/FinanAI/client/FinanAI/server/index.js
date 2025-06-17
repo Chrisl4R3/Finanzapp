@@ -14,10 +14,15 @@ const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = !isProduction;
 
 // Configuración de CORS - Solo dominios de Railway permitidos
-const allowedOrigins = [
-  'https://frontend-production-df22.up.railway.app',
-  'https://backend-production-cf437.up.railway.app'
-].filter(Boolean);
+// Permitir configuración dinámica desde variable de entorno ALLOWED_ORIGINS (separada por comas)
+const allowedOrigins = (process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : [
+      'https://frontend-production-df22.up.railway.app',
+      'https://backend-production-cf437.up.railway.app'
+    ]
+).map(origin => origin.trim().replace(/;$/, '')) // Quitar espacios y posibles punto y coma accidental
+ .filter(Boolean);
 
 // Mostrar configuración al iniciar
 console.log('=== Configuración del Servidor ===');
@@ -67,7 +72,9 @@ const corsOptionsIndex = {
     'Authorization', 
     'Set-Cookie',
     'Access-Control-Allow-Credentials'
-  ]
+  ],
+  // Evitar problemas con navegadores antiguos que esperan 204
+  optionsSuccessStatus: 204
 };
 
 // Aplicar CORS antes de cualquier otra ruta
