@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/db.js';
 import { verifyToken } from '../middleware/auth.js';
+import { getUserBalance } from '../utils/balance.js';
 
 const router = express.Router();
 
@@ -106,6 +107,25 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Validar saldo disponible si es un gasto
+    if (type === 'Expense') {
+      const currentBalance = await getUserBalance(req.userId);
+      if (currentBalance < amount) {
+        // Crear notificación
+        await pool.query(
+          'INSERT INTO notifications (user_id, message, type) VALUES (?, ?, ?)',
+          [req.userId, `No tienes suficiente saldo para este gasto. Saldo actual: ${currentBalance}`, 'warning']
+        );
+        
+        // Redirigir al usuario a la vista de saldo
+        return res.status(400).json({
+          message: 'Saldo insuficiente',
+          currentBalance: currentBalance,
+          redirect: '/dashboard/balance'
+        });
+      }
+    }
+
     // Si es una transacción asignada a meta, validar que la meta exista
     if (assignToGoal && goal_id) {
       const [goals] = await connection.query(
@@ -119,16 +139,10 @@ router.post('/', async (req, res) => {
 
       const goal = goals[0];
       
-      // Validar que no exceda el monto objetivo de la meta
-      const [currentProgress] = await connection.query(
-        'SELECT COALESCE(SUM(amount), 0) as current_amount FROM transactions WHERE goal_id = ?',
-        [goal_id]
-      );
-      
-      const totalAfterContribution = Number(currentProgress[0].current_amount) + Number(amount);
-      if (totalAfterContribution > goal.target_amount) {
+      // Validar que el abono individual no sea mayor al objetivo de la meta
+      if (Number(amount) > goal.target_amount) {
         return res.status(400).json({ 
-          message: 'El monto excede el objetivo de la meta' 
+          message: `El monto no puede ser mayor al objetivo de la meta (${goal.target_amount})` 
         });
       }
     }
@@ -361,6 +375,46 @@ router.get('/statistics', async (req, res) => {
   } catch (error) {
     console.error('Error al obtener estadísticas:', error);
     res.status(500).json({ message: 'Error al obtener estadísticas' });
+  }
+});
+
+// Agrupar transacciones por mes y filtrar por categoría
+router.get('/grouped', async (req, res) => {
+  try {
+    const { category, type, month } = req.query;
+    let query = 'SELECT * FROM transactions WHERE user_id = ?';
+    const params = [req.userId];
+
+    if (category) {
+      query += ' AND category = ?';
+      params.push(category);
+    }
+    if (type) {
+      query += ' AND type = ?';
+      params.push(type);
+    }
+    if (month) {
+      query += " AND DATE_FORMAT(date, '%Y-%m') = ?";
+      params.push(month);
+    }
+    query += ' ORDER BY date DESC';
+
+    const [transactions] = await pool.query(query, params);
+
+    // Agrupar por mes
+    const grouped = {};
+    transactions.forEach(tx => {
+      const monthKey = tx.date ? tx.date.toISOString().slice(0, 7) : '';
+      if (!grouped[monthKey]) grouped[monthKey] = [];
+      grouped[monthKey].push(tx);
+    });
+    const result = Object.entries(grouped).map(([month, transactions]) => ({ month, transactions }));
+    // Ordenar por mes descendente
+    result.sort((a, b) => b.month.localeCompare(a.month));
+    res.json(result);
+  } catch (error) {
+    console.error('Error al agrupar transacciones:', error);
+    res.status(500).json({ message: 'Error al agrupar transacciones' });
   }
 });
 

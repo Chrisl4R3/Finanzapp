@@ -1,71 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { useCurrency } from '../context/CurrencyContext';
-import { 
-  FiDollarSign, 
-  FiPlusCircle, 
-  FiAlertCircle, 
-  FiLoader, 
-  FiSearch,
-  FiFilter,
-  FiArrowUp,
-  FiArrowDown,
-  FiCalendar,
-  FiTrendingUp,
-  FiTrendingDown,
-  FiChevronLeft,
-  FiChevronRight,
-  FiChevronsLeft,
-  FiChevronsRight,
-  FiPlus
-} from 'react-icons/fi';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FiDollarSign, FiPlusCircle, FiAlertCircle, FiLoader, FiSearch, FiPlus } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import { authenticatedFetch } from '../auth/auth';
-import { useAuth } from '../contexts/AuthContext';
+import useAuth from '../hooks/useAuth';
+import { useCurrency } from '../context/CurrencyContext';
 import Swal from 'sweetalert2';
-// ... rest of imports ...
+import TransactionForm from './TransactionForm';
+import { format, parseISO } from 'date-fns';
+import es from 'date-fns/locale/es';
 
 const CATEGORIES = {
   Income: ['Salario', 'Regalo', 'Otros-Ingreso'],
   Expense: [
-    'Alimentación',
-    'Servicios',
-    'Salud',
-    'Vivienda',
-    'Educación',
-    'Transporte',
-    'Ropa',
-    'Seguros',
-    'Mantenimiento',
-    'Entretenimiento',
-    'Pasatiempos',
-    'Restaurantes',
-    'Compras',
-    'Viajes',
-    'Otros-Gasto'
+    'Alimentación', 'Servicios', 'Salud', 'Vivienda', 'Educación', 'Transporte',
+    'Ropa', 'Seguros', 'Mantenimiento', 'Entretenimiento', 'Pasatiempos',
+    'Restaurantes', 'Compras', 'Viajes', 'Otros-Gasto'
   ]
 };
 
 const PAYMENT_METHODS = ['Efectivo', 'Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia Bancaria'];
 
-const TransactionList = ({ searchTerm = '', filters = {} }) => {
+const TransactionList = ({ searchTerm = '' }) => {
   const { formatCurrency } = useCurrency();
   const { isAuthenticated } = useAuth();
+
+  // States
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(5);
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [searchTermLocal, setSearchTermLocal] = useState(searchTerm);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedType, setSelectedType] = useState('all');
+  const [selectedMonth, setSelectedMonth] = useState('');
   const [goals, setGoals] = useState([]);
-  const [localFilters, setLocalFilters] = useState({
-    type: 'all',
-    minAmount: '',
-    maxAmount: '',
-    startDate: '',
-    endDate: ''
-  });
   const [formData, setFormData] = useState({
     type: 'Expense',
     category: '',
@@ -74,74 +45,49 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     payment_method: 'Efectivo',
     date: new Date().toISOString().split('T')[0],
     status: 'Completed',
-    schedule: null,
-    recurrence: '',
-    is_scheduled: 0,
-    end_date: null,
-    parent_transaction_id: null,
     assignToGoal: false,
     goal_id: ''
   });
 
-  // Calcular resumen de transacciones
-  const transactionSummary = transactions.reduce((summary, transaction) => {
-    if (transaction.type === 'income') {
-      summary.totalIncome += parseFloat(transaction.amount);
-      summary.totalTransactions.income++;
-    } else {
-      summary.totalExpenses += parseFloat(transaction.amount);
-      summary.totalTransactions.expenses++;
-    }
-    return summary;
-  }, {
-    totalIncome: 0,
-    totalExpenses: 0,
-    totalTransactions: { income: 0, expenses: 0 }
-  });
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchTransactions();
-      fetchGoals();
-    }
-  }, [isAuthenticated]);
-
-  // Ordenar transacciones por fecha más reciente
-  useEffect(() => {
-    const sortedTransactions = [...transactions].sort((a, b) => 
-      new Date(b.date) - new Date(a.date)
-    );
-    setTransactions(sortedTransactions);
-  }, [transactions.length]);
-
-  const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = transaction.description.toLowerCase().includes(searchTermLocal.toLowerCase()) ||
-                         transaction.category.toLowerCase().includes(searchTermLocal.toLowerCase());
-    
-    const matchesType = localFilters.type === 'all' || transaction.type === localFilters.type;
-    
-    const amount = parseFloat(transaction.amount);
-    const matchesAmount = (!localFilters.minAmount || amount >= parseFloat(localFilters.minAmount)) &&
-                         (!localFilters.maxAmount || amount <= parseFloat(localFilters.maxAmount));
-    
-    const date = new Date(transaction.date);
-    const matchesDate = (!localFilters.startDate || date >= new Date(localFilters.startDate)) &&
-                       (!localFilters.endDate || date <= new Date(localFilters.endDate));
-
-    return matchesSearch && matchesType && matchesAmount && matchesDate;
-  });
-
-    const fetchTransactions = async () => {
-      try {
-      setIsLoading(true);
-      setError(null);
-
-      const response = await authenticatedFetch('/transactions');
+  // Fetch transactions and goals
+  const fetchTransactions = async () => {
+    try {
+      console.log('Iniciando carga de transacciones...');
+      // Usamos la ruta completa incluyendo /api
+      const response = await authenticatedFetch('/api/transactions');
+      
+      console.log('Respuesta de transacciones recibida:', {
+        status: response.status,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error en la respuesta de transacciones:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`Error al cargar las transacciones: ${response.status} ${response.statusText}`);
+      }
+      
       const data = await response.json();
-      setTransactions(data);
+      console.log('Transacciones cargadas exitosamente:', data.length);
+      
+      // Ordenar por fecha descendente
+      const sortedTransactions = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
+      setTransactions(sortedTransactions);
+      setError(null); // Limpiar errores previos
+      return true;
     } catch (err) {
-      setError(err.message);
-      console.error('Error detallado:', err);
+      console.error('Error en fetchTransactions:', {
+        message: err.message,
+        stack: err.stack,
+        response: err.response
+      });
+      setError(err.message || 'Error al cargar las transacciones');
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -149,68 +95,293 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
 
   const fetchGoals = async () => {
     try {
-      const response = await authenticatedFetch('/goals');
+      console.log('Iniciando carga de metas...');
+      // Usamos la ruta completa incluyendo /api
+      const response = await authenticatedFetch('/api/goals');
+      
+      console.log('Respuesta de metas recibida:', {
+        status: response.status,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn('No se pudieron cargar las metas, continuando sin ellas. Detalles:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        return false; // No lanzar error, solo continuar sin metas
+      }
+      
       const data = await response.json();
-      // Solo mostrar metas activas que no estén completadas
+      console.log('Metas cargadas exitosamente:', data.length);
+      
+      // Filtrar solo metas activas
       const activeGoals = data.filter(goal => goal.status === 'Active');
+      console.log('Metas activas encontradas:', activeGoals.length);
+      
       setGoals(activeGoals);
+      return true;
     } catch (err) {
-      console.error('Error al cargar las metas:', err);
+      console.warn('Error al cargar las metas, continuando sin ellas. Detalles:', {
+        message: err.message,
+        stack: err.stack
+      });
+      return false;
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
+    console.log('Iniciando carga de datos...');
+    setIsLoading(true);
+    
+    const loadData = async () => {
+      try {
+        // 1. Cargar transacciones primero
+        console.log('Cargando transacciones...');
+        const transactionsLoaded = await fetchTransactions();
+        
+        if (!transactionsLoaded) {
+          console.error('No se pudieron cargar las transacciones');
+          return;
+        }
+        
+        // 2. Intentar cargar metas (pero no es crítico si falla)
+        console.log('Intentando cargar metas...');
+        await fetchGoals();
+        
+      } catch (error) {
+        console.error('Error en loadData:', {
+          message: error.message,
+          stack: error.stack
+        });
+      } finally {
+        console.log('Carga de datos completada');
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+    
+    // Limpiar al desmontar
+    return () => {
+      console.log('TransactionList desmontado');
+    };
+  }, [isAuthenticated]);
+
+  // Helper functions
+  const formatTransactionDate = (dateString) => {
+    try {
+      return format(parseISO(dateString), 'PPP', { locale: es });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const getCategoryIcon = (category) => {
+    const icons = {
+      Salario: '💰',
+      Regalo: '🎁',
+      'Otros-Ingreso': '📈',
+      Alimentación: '🍽️',
+      Servicios: '💡',
+      Salud: '🏥',
+      Vivienda: '🏠',
+      Educación: '📚',
+      Transporte: '🚗',
+      Ropa: '👗',
+      Seguros: '🛡️',
+      Mantenimiento: '🔧',
+      Entretenimiento: '🎮',
+      Pasatiempos: '🎨',
+      Restaurantes: '🍴',
+      Compras: '🛍️',
+      Viajes: '✈️',
+      'Otros-Gasto': '💸'
+    };
+    return icons[category] || '💵';
+  };
+
+  const getMonthTotal = (transactions) => {
+    return transactions.reduce((sum, tx) => {
+      return tx.type === 'Income' ? sum + parseFloat(tx.amount) : sum - parseFloat(tx.amount);
+    }, 0);
+  };
+
+  // Filtering and grouping
+  const filteredTransactionsList = useMemo(() => {
+    let result = [...transactions];
+
+    // Apply search
+    if (searchTermLocal) {
+      const searchLower = searchTermLocal.toLowerCase();
+      result = result.filter(tx =>
+        (tx.description?.toLowerCase().includes(searchLower)) ||
+        (tx.category?.toLowerCase().includes(searchLower)) ||
+        (tx.payment_method?.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Apply category filter
+    if (selectedCategory) {
+      result = result.filter(tx => tx.category === selectedCategory);
+    }
+
+    // Apply type filter
+    if (selectedType !== 'all') {
+      result = result.filter(tx => tx.type === selectedType);
+    }
+
+    // Apply month filter
+    if (selectedMonth) {
+      result = result.filter(tx => {
+        const txDate = new Date(tx.date);
+        const txMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
+        return txMonth === selectedMonth;
+      });
+    }
+
+    return result;
+  }, [transactions, searchTermLocal, selectedCategory, selectedType, selectedMonth]);
+
+  const groupedTransactionsList = useMemo(() => {
+    const grouped = {};
+    filteredTransactionsList.forEach(tx => {
+      const date = new Date(tx.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (!grouped[monthKey]) {
+        grouped[monthKey] = [];
+      }
+      grouped[monthKey].push(tx);
+    });
+
+    return Object.entries(grouped)
+      .map(([month, transactions]) => ({
+        month,
+        transactions: transactions.sort((a, b) => new Date(b.date) - new Date(a.date))
+      }))
+      .sort((a, b) => b.month.localeCompare(a.month));
+  }, [filteredTransactionsList]);
+
+  const availableCategories = useMemo(() => {
+    const cats = new Set();
+    transactions.forEach(tx => tx.category && cats.add(tx.category));
+    return Array.from(cats).sort();
+  }, [transactions]);
+
+  const availableMonths = useMemo(() => {
+    const monthSet = new Set();
+    transactions.forEach(tx => {
+      if (tx.date) {
+        const date = new Date(tx.date);
+        const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        monthSet.add(monthYear);
+      }
+    });
+    return Array.from(monthSet).sort().reverse();
+  }, [transactions]);
+
+  // Pagination
+  const totalPagesCount = Math.ceil(groupedTransactionsList.length / itemsPerPage);
+  const currentItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return groupedTransactionsList.slice(startIndex, startIndex + itemsPerPage);
+  }, [groupedTransactionsList, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTermLocal, selectedCategory, selectedType, selectedMonth]);
+
+  // Handlers
+  const handleEdit = (transaction) => {
+    setEditingTransaction(transaction);
+    setFormData({
+      type: transaction.type || 'Expense',
+      category: transaction.category || '',
+      amount: transaction.amount || '',
+      description: transaction.description || '',
+      payment_method: transaction.payment_method || 'Efectivo',
+      date: transaction.date ? new Date(transaction.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      status: transaction.status || 'Completed',
+      assignToGoal: !!transaction.goal_id,
+      goal_id: transaction.goal_id || ''
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: 'Esta acción no se puede deshacer',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await authenticatedFetch(`/api/transactions/${id}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('Error al eliminar la transacción');
+        setTransactions(transactions.filter(tx => tx.id !== id));
+        Swal.fire('Eliminado', 'La transacción ha sido eliminada', 'success');
+      } catch (err) {
+        setError(err.message);
+        Swal.fire('Error', err.message, 'error');
+      }
+    }
+  };
+
+  const handleSubmit = async (data) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Validaciones básicas
-      if (!formData.type || !formData.category || !formData.amount || !formData.description || !formData.payment_method) {
+      if (!data.type || !data.category || !data.amount || !data.description || !data.payment_method) {
         throw new Error('Todos los campos son requeridos');
       }
 
-      if (formData.assignToGoal && !formData.goal_id) {
-        throw new Error('Debes seleccionar una meta');
-        }
-
-      const amount = parseFloat(formData.amount);
+      const amount = parseFloat(data.amount);
       if (isNaN(amount) || amount <= 0) {
         throw new Error('El monto debe ser un número positivo');
       }
 
-      const endpoint = editingTransaction 
-        ? `/transactions/${editingTransaction.id}`
-        : '/transactions';
+      if (data.assignToGoal && !data.goal_id) {
+        throw new Error('Debes seleccionar una meta');
+      }
 
+      const endpoint = editingTransaction ? `/api/transactions/${editingTransaction.id}` : '/api/transactions';
       const method = editingTransaction ? 'PUT' : 'POST';
 
       const requestData = {
-        type: formData.type,
-        category: formData.category,
+        type: data.type,
+        category: data.category,
         amount: amount,
-        date: formData.date,
-        description: formData.description,
-        payment_method: formData.payment_method,
-        status: formData.status,
-        assignToGoal: formData.assignToGoal,
-        goal_id: formData.assignToGoal ? formData.goal_id : null
+        date: data.date,
+        description: data.description,
+        payment_method: data.payment_method,
+        status: data.status || 'Completed',
+        assignToGoal: data.assignToGoal,
+        goal_id: data.assignToGoal ? data.goal_id : null
       };
 
       const response = await authenticatedFetch(endpoint, {
         method,
-          headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestData)
-        });
+      });
 
-        if (!response.ok) {
+      if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Error al guardar la transacción');
-        }
+      }
 
-      // Limpiar formulario y actualizar lista
+      setShowForm(false);
+      setEditingTransaction(null);
       setFormData({
         type: 'Expense',
         category: '',
@@ -219,174 +390,29 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
         payment_method: 'Efectivo',
         date: new Date().toISOString().split('T')[0],
         status: 'Completed',
-        schedule: null,
-        recurrence: '',
-        is_scheduled: 0,
-        end_date: null,
-        parent_transaction_id: null,
         assignToGoal: false,
         goal_id: ''
       });
-      setShowForm(false);
-      setEditingTransaction(null);
-      
-      // Actualizar tanto las transacciones como las metas
-      await Promise.all([
-        fetchTransactions(),
-        fetchGoals()
-      ]);
-
-      } catch (err) {
-      console.error('Error completo:', err);
-      setError('Error al guardar la transacción: ' + err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-  const handleDelete = async (id) => {
-    const result = await Swal.fire({
-      title: '¿Estás seguro?',
-      text: "Esta acción no se puede deshacer",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#10B981',
-      cancelButtonColor: '#EF4444',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    });
-
-    if (result.isConfirmed) {
-      try {
-        await authenticatedFetch(`/transactions/${id}`, {
-          method: 'DELETE',
-        });
-        await fetchTransactions();
-      } catch (err) {
-        setError('Error al eliminar la transacción');
-        console.error('Error:', err);
-      }
+      await fetchTransactions();
+      Swal.fire('Éxito', `Transacción ${editingTransaction ? 'actualizada' : 'creada'} correctamente`, 'success');
+    } catch (err) {
+      setError(err.message);
+      Swal.fire('Error', err.message, 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleEdit = (transaction) => {
-    setEditingTransaction(transaction);
-    setFormData({
-      type: transaction.type,
-      category: transaction.category,
-      amount: transaction.amount.toString(),
-      description: transaction.description,
-      payment_method: transaction.payment_method,
-      date: transaction.date,
-      status: transaction.status,
-      schedule: transaction.schedule,
-      recurrence: transaction.recurrence,
-      is_scheduled: transaction.is_scheduled,
-      end_date: transaction.end_date,
-      parent_transaction_id: transaction.parent_transaction_id,
-      assignToGoal: false,
-      goal_id: ''
-    });
-    setShowForm(true);
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-      ...(name === 'type' ? { category: '' } : {})
-    }));
-  };
-
-  const handleSearchChange = (e) => {
-    setSearchTermLocal(e.target.value);
-  };
-
-  const groupTransactionsByDate = (transactions) => {
-    const groups = transactions.reduce((acc, transaction) => {
-      const date = new Date(transaction.date);
-      date.setHours(0, 0, 0, 0);
-      
-      const existingGroup = acc.find(group => 
-        group.date.getTime() === date.getTime()
-      );
-
-      if (existingGroup) {
-        existingGroup.transactions.push(transaction);
-        existingGroup.total += transaction.type === 'income' 
-          ? parseFloat(transaction.amount) 
-          : -parseFloat(transaction.amount);
-      } else {
-        acc.push({
-          date,
-          transactions: [transaction],
-          total: transaction.type === 'income' 
-            ? parseFloat(transaction.amount) 
-            : -parseFloat(transaction.amount)
-        });
-      }
-
-      return acc;
-  }, []);
-
-    return groups.sort((a, b) => b.date - a.date);
-  };
-
-  const formatDate = (date) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (date.getTime() === today.getTime()) {
-      return 'Hoy';
-    } else if (date.getTime() === yesterday.getTime()) {
-      return 'Ayer';
-    } else {
-      return date.toLocaleDateString('es-ES', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    }
-  };
-
-  const getCategoryIcon = (category) => {
-    const icons = {
-      'Alimentación': '🍽️',
-      'Servicios': '🔧',
-      'Salud': '🏥',
-      'Vivienda': '🏠',
-      'Educación': '📚',
-      'Transporte': '🚗',
-      'Ropa': '👕',
-      'Seguros': '🛡️',
-      'Mantenimiento': '🔨',
-      'Entretenimiento': '🎮',
-      'Pasatiempos': '🎨',
-      'Restaurantes': '🍴',
-      'Compras': '🛍️',
-      'Viajes': '✈️',
-      'Otros-Gasto': '📦',
-      'Salario': '💰',
-      'Regalo': '🎁',
-      'Otros-Ingreso': '💵'
-    };
-    return icons[category] || '💰';
-  };
-
-  if (isLoading) {
+  // Render
+  if (isLoading && !transactions.length) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl text-text-secondary">Cargando transacciones...</div>
+        <FiLoader className="animate-spin w-8 h-8 text-accent-color" />
       </div>
     );
   }
 
-  if (error) {
+  if (error && !transactions.length) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
         <FiAlertCircle className="w-12 h-12 text-danger-color" />
@@ -395,7 +421,7 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
     );
   }
 
-  if (transactions.length === 0) {
+  if (!filteredTransactionsList.length && !isLoading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6 px-4">
         <div className="w-24 h-24 rounded-full bg-accent-color/10 flex items-center justify-center">
@@ -407,489 +433,223 @@ const TransactionList = ({ searchTerm = '', filters = {} }) => {
             Comienza a registrar tus ingresos y gastos para tener un mejor control de tus finanzas.
           </p>
         </div>
-        <Link
-          to="/transactions"
+        <button
           className="flex items-center gap-2 px-6 py-3 bg-accent-color hover:bg-accent-color-darker text-white rounded-xl transition-all duration-300 hover:scale-105"
+          onClick={() => {
+            setShowForm(true);
+            setEditingTransaction(null);
+            setFormData({
+              type: 'Expense',
+              category: '',
+              amount: '',
+              description: '',
+              payment_method: 'Efectivo',
+              date: new Date().toISOString().split('T')[0],
+              status: 'Completed',
+              assignToGoal: false,
+              goal_id: ''
+            });
+          }}
         >
           <FiPlusCircle className="text-xl" />
           <span>Agregar Transacción</span>
-        </Link>
+        </button>
       </div>
     );
   }
 
-  // Lógica de paginación
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredTransactions.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
-
-  const paginate = (pageNumber) => {
-    if (pageNumber > 0 && pageNumber <= totalPages) {
-      setCurrentPage(pageNumber);
-    }
-  };
-
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Resumen de Transacciones */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-card-bg rounded-xl p-4 shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-success-color/10 flex items-center justify-center">
-              <FiTrendingUp className="w-6 h-6 text-success-color" />
-            </div>
-            <div>
-              <p className="text-text-secondary text-sm">Ingresos Totales</p>
-              <p className="text-success-color text-xl font-bold">{formatCurrency(transactionSummary.totalIncome)}</p>
-            </div>
-          </div>
-          <p className="text-text-secondary text-sm mt-2">
-            {transactionSummary.totalTransactions.income} transacciones
-          </p>
-        </div>
-
-        <div className="bg-card-bg rounded-xl p-4 shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-danger-color/10 flex items-center justify-center">
-              <FiTrendingDown className="w-6 h-6 text-danger-color" />
-            </div>
-            <div>
-              <p className="text-text-secondary text-sm">Gastos Totales</p>
-              <p className="text-danger-color text-xl font-bold">{formatCurrency(transactionSummary.totalExpenses)}</p>
-            </div>
-          </div>
-          <p className="text-text-secondary text-sm mt-2">
-            {transactionSummary.totalTransactions.expenses} transacciones
-          </p>
-        </div>
-
-        <div className="bg-card-bg rounded-xl p-4 shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-accent-color/10 flex items-center justify-center">
-              <FiDollarSign className="w-6 h-6 text-accent-color" />
-            </div>
-            <div>
-              <p className="text-text-secondary text-sm">Balance</p>
-              <p className={`text-xl font-bold ${
-                transactionSummary.totalIncome - transactionSummary.totalExpenses >= 0 
-                ? 'text-success-color' 
-                : 'text-danger-color'
-              }`}>
-                {formatCurrency(transactionSummary.totalIncome - transactionSummary.totalExpenses)}
-              </p>
-            </div>
-          </div>
-          <p className="text-text-secondary text-sm mt-2">
-            {transactionSummary.totalTransactions.income + transactionSummary.totalTransactions.expenses} transacciones totales
-          </p>
-        </div>
-
-        <div className="bg-card-bg rounded-xl p-4 shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center">
-              <FiCalendar className="w-6 h-6 text-purple-500" />
-            </div>
-            <div>
-              <p className="text-text-secondary text-sm">Última Transacción</p>
-              <p className="text-text-primary text-xl font-bold">
-                {new Date(Math.max(...transactions.map(t => new Date(t.date)))).toLocaleDateString('es-ES')}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Barra de búsqueda y filtros */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 flex gap-4">
+      {/* Filters */}
+      <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div className="md:col-span-2">
+            <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
+            <div className="relative">
               <input
                 type="text"
-            value={searchTermLocal}
-            onChange={(e) => setSearchTermLocal(e.target.value)}
-                placeholder="Buscar transacciones..."
-            className="flex-1 bg-card-bg border-none rounded-xl px-4 py-3 text-text-primary placeholder-text-secondary focus:ring-2 focus:ring-accent-color"
-          />
-          
-          <select
-            value={localFilters.type}
-            onChange={(e) => setLocalFilters(prev => ({ ...prev, type: e.target.value }))}
-            className="bg-card-bg border-none rounded-xl px-4 py-3 text-text-primary focus:ring-2 focus:ring-accent-color"
-          >
-            <option value="all">Todos</option>
-            <option value="income">Ingresos</option>
-            <option value="expense">Gastos</option>
-          </select>
+                id="search"
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
+                placeholder="Buscar por descripción o categoría..."
+                value={searchTermLocal}
+                onChange={e => setSearchTermLocal(e.target.value)}
+              />
+              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            </div>
           </div>
-          
-        <div className="flex gap-2">
-            <button
-            onClick={() => setShowForm(!showForm)}
-            className="px-4 py-2 bg-card-bg hover:bg-accent-color/10 text-text-primary rounded-xl transition-all duration-300 flex items-center gap-2"
+          <div>
+            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+            <select
+              id="category"
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
+              value={selectedCategory}
+              onChange={e => setSelectedCategory(e.target.value)}
             >
-            <FiPlus className="w-5 h-5" />
-            <span>{showForm ? 'Cancelar' : 'Nueva'}</span>
-            </button>
-            
-            <Link
-            to="/transactions/new"
-            className="px-4 py-2 bg-accent-color hover:bg-accent-color-darker text-white rounded-xl transition-all duration-300 flex items-center gap-2"
+              <option value="">Todas las categorías</option>
+              {availableCategories.map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+            <select
+              id="type"
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
+              value={selectedType}
+              onChange={e => setSelectedType(e.target.value)}
             >
-            <FiPlusCircle className="w-5 h-5" />
-              <span>Nueva Transacción</span>
-            </Link>
+              <option value="all">Todos</option>
+              <option value="Income">Ingresos</option>
+              <option value="Expense">Gastos</option>
+            </select>
           </div>
         </div>
-
-      {/* Formulario de transacción */}
-      {showForm && (
-        <div className="mb-6 bg-card-bg rounded-xl p-6 shadow-lg">
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm text-text-secondary mb-2">Tipo</label>
-                <select
-                name="type"
-                value={formData.type}
-                onChange={handleChange}
-                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                required
-                >
-                <option value="Income">Ingreso</option>
-                <option value="Expense">Gasto</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm text-text-secondary mb-2">Categoría</label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                required
-              >
-                <option value="">Selecciona una categoría</option>
-                {CATEGORIES[formData.type].map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-                </select>
-              </div>
-
-              <div>
-              <label className="block text-sm text-text-secondary mb-2">Monto</label>
-                <input
-                type="number"
-                name="amount"
-                value={formData.amount}
-                onChange={handleChange}
-                placeholder="Ingresa el monto"
-                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                required
-                step="0.01"
-                min="0"
-                />
-              </div>
-
-              <div>
-              <label className="block text-sm text-text-secondary mb-2">Fecha</label>
-                <input
-                  type="date"
-                name="date"
-                value={formData.date}
-                onChange={handleChange}
-                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                required
-                />
-              </div>
-
-              <div>
-              <label className="block text-sm text-text-secondary mb-2">Descripción</label>
-                  <input
-                type="text"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                placeholder="Descripción de la transacción"
-                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                required
-                  />
-                </div>
-
-            <div>
-              <label className="block text-sm text-text-secondary mb-2">Método de Pago</label>
-              <select
-                name="payment_method"
-                value={formData.payment_method}
-                onChange={handleChange}
-                className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                required
-              >
-                {PAYMENT_METHODS.map(method => (
-                  <option key={method} value={method}>{method}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Campo para asignar a meta */}
-            <div className="md:col-span-2 lg:col-span-3">
-              <div className="flex items-center mb-2">
-                <input
-                  type="checkbox"
-                  id="assignToGoal"
-                  name="assignToGoal"
-                  checked={formData.assignToGoal}
-                  onChange={(e) => {
-                    const { checked } = e.target;
-                    setFormData(prev => ({
-                      ...prev,
-                      assignToGoal: checked,
-                      goal_id: checked ? prev.goal_id : '',
-                      type: checked ? 'Income' : prev.type // Forzar tipo a Income si se asigna a meta
-                    }));
-                  }}
-                  className="w-4 h-4 text-accent-color rounded border-border-color focus:ring-accent-color"
-                />
-                <label htmlFor="assignToGoal" className="ml-2 text-sm text-text-secondary">
-                  Asignar a una meta
-                </label>
-              </div>
-
-              {formData.assignToGoal && (
-                <select
-                  name="goal_id"
-                  value={formData.goal_id}
-                  onChange={handleChange}
-                  className="w-full bg-secondary-bg rounded-lg px-4 py-2 border-none focus:ring-2 focus:ring-accent-color"
-                  required
-                >
-                  <option value="">Selecciona una meta</option>
-                  {goals.map(goal => (
-                    <option key={goal.id} value={goal.id}>
-                      {goal.name} - Progreso: {((goal.progress / goal.target_amount) * 100).toFixed(1)}%
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-4">
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="px-6 py-2 bg-card-bg hover:bg-secondary-bg text-text-secondary rounded-xl transition-all duration-300"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-2 bg-accent-color hover:bg-accent-color-darker text-white rounded-xl transition-all duration-300"
-              >
-                {editingTransaction ? 'Actualizar' : 'Guardar'} Transacción
-              </button>
-            </div>
-          </form>
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <label htmlFor="month" className="text-sm font-medium text-gray-700">Mes:</label>
+            <select
+              id="month"
+              className="px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+            >
+              <option value="">Todos los meses</option>
+              {availableMonths.map(month => (
+                <option key={month} value={month}>
+                  {new Date(month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
-
-      {/* Lista de transacciones */}
-      <div className="bg-card-bg rounded-xl shadow-lg overflow-hidden">
-      <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-border-color">
-            <thead className="bg-secondary-bg">
-              <tr>
-                <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Fecha</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Descripción</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Categoría</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Monto</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Tipo</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-text-secondary">Acciones</th>
-            </tr>
-          </thead>
-            <tbody className="divide-y divide-border-color">
-            {currentItems.map((transaction) => (
-              <tr key={transaction.id} className="hover:bg-secondary-bg/50 transition-all duration-300">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-text-primary">
-                        {formatDate(new Date(transaction.date))}
-                      </span>
-                      <span className="text-xs text-text-secondary">
-                        {new Date(transaction.date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{getCategoryIcon(transaction.category)}</span>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-text-primary">{transaction.description}</span>
-                        <span className="text-xs text-text-secondary">{transaction.payment_method}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-secondary-bg text-text-primary">
-                      {transaction.category}
-                    </span>
-                </td>
-                  <td className={`px-6 py-4 text-sm font-medium ${
-                    transaction.type === 'Income' ? 'text-success-color' : 'text-danger-color'
-                }`}>
-                    {transaction.type === 'Income' ? '+' : '-'}
-                  {formatCurrency(Math.abs(transaction.amount))}
-                </td>
-                  <td className="px-6 py-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      transaction.type === 'Income' 
-                      ? 'bg-success-color/10 text-success-color' 
-                      : 'bg-danger-color/10 text-danger-color'
-                  }`}>
-                      {transaction.type === 'Income' ? 'Ingreso' : 'Gasto'}
-                  </span>
-                </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleEdit(transaction)}
-                        className="text-sm text-accent-color hover:text-accent-color-darker transition-colors"
-                      >
-                    Editar
-                  </button>
-                      <span className="text-border-color">|</span>
-                      <button
-                        onClick={() => handleDelete(transaction.id)}
-                        className="text-sm text-danger-color hover:text-danger-color-darker transition-colors"
-                      >
-                    Eliminar
-                  </button>
-                    </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          <button
+            className="flex items-center gap-2 px-4 py-2.5 bg-accent-color hover:bg-accent-color-darker text-white rounded-lg transition-all duration-200 hover:shadow-md"
+            onClick={() => {
+              setShowForm(true);
+              setEditingTransaction(null);
+              setFormData({
+                type: 'Expense',
+                category: '',
+                amount: '',
+                description: '',
+                payment_method: 'Efectivo',
+                date: new Date().toISOString().split('T')[0],
+                status: 'Completed',
+                assignToGoal: false,
+                goal_id: ''
+              });
+            }}
+          >
+            <FiPlus className="text-lg" />
+            <span>Nueva Transacción</span>
+          </button>
         </div>
       </div>
 
-        {/* Mensaje cuando no hay resultados en la búsqueda */}
-        {filteredTransactions.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-text-secondary">No se encontraron transacciones que coincidan con los filtros.</p>
-          </div>
-        )}
-
-        {/* Paginación */}
-        {filteredTransactions.length > 0 && (
-          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
-            <div className="flex items-center gap-2 text-text-secondary text-sm">
-              <span>Mostrar</span>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="bg-secondary-bg border-none rounded-lg px-2 py-1 focus:ring-2 focus:ring-accent-color"
-              >
-                <option value={6}>6</option>
-                <option value={12}>12</option>
-                <option value={24}>24</option>
-                <option value={48}>48</option>
-              </select>
-              <span>por página</span>
+      {/* Transaction List */}
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        {currentItems.map(group => (
+          <div key={group.month} className="mb-10 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold text-text-primary">
+                {new Date(group.month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
+              </h2>
+              <span className={`font-bold ${getMonthTotal(group.transactions) >= 0 ? 'text-success-color' : 'text-danger-color'}`}>
+                Total: {getMonthTotal(group.transactions) >= 0 ? '+' : ''}{formatCurrency(getMonthTotal(group.transactions))}
+              </span>
             </div>
-
-            <div className="flex items-center gap-2">
-              <p className="text-sm text-text-secondary">
-                Mostrando {indexOfFirstItem + 1} a {Math.min(indexOfLastItem, filteredTransactions.length)} de {filteredTransactions.length} transacciones
-              </p>
-              
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => paginate(1)}
-                  disabled={currentPage === 1}
-                  className={`p-2 rounded-lg transition-all duration-300 ${
-                    currentPage === 1
-                      ? 'text-text-secondary cursor-not-allowed'
-                      : 'hover:bg-accent-color/10 text-text-primary'
-                  }`}
-                >
-                  <FiChevronsLeft className="w-4 h-4" />
-                </button>
-                
-                <button
-                  onClick={() => paginate(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className={`p-2 rounded-lg transition-all duration-300 ${
-                    currentPage === 1
-                      ? 'text-text-secondary cursor-not-allowed'
-                      : 'hover:bg-accent-color/10 text-text-primary'
-                  }`}
-                >
-                  <FiChevronLeft className="w-4 h-4" />
-                </button>
-
-                {/* Números de página */}
-                <div className="flex items-center gap-1">
-                  {[...Array(Math.min(3, totalPages))].map((_, index) => {
-                    let pageNumber;
-                    if (totalPages <= 3) {
-                      pageNumber = index + 1;
-                    } else if (currentPage <= 2) {
-                      pageNumber = index + 1;
-                    } else if (currentPage >= totalPages - 1) {
-                      pageNumber = totalPages - 2 + index;
-                    } else {
-                      pageNumber = currentPage - 1 + index;
-                    }
-
-                    return (
+            <div className="flex flex-col gap-3">
+              {group.transactions.map(tx => (
+                <div key={tx.id} className="flex items-center justify-between rounded-xl px-4 py-3 shadow-sm bg-secondary-bg hover:bg-secondary-bg/80 transition-all">
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl">{getCategoryIcon(tx.category)}</span>
+                    <div>
+                      <div className="font-medium text-text-primary text-base">{tx.description}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs px-2 py-1 rounded bg-background-color text-text-secondary">{tx.category}</span>
+                        <span className="text-xs text-text-secondary">{formatTransactionDate(tx.date)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2 min-w-[120px]">
+                    <span className={`font-bold text-base ${tx.type === 'Income' ? 'text-success-color' : 'text-danger-color'}`}>
+                      {tx.type === 'Income' ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
+                    </span>
+                    <span className="text-xs mt-1 px-2 py-1 rounded bg-background-color text-text-secondary">{tx.payment_method}</span>
+                    <div className="flex items-center gap-2 mt-1">
                       <button
-                        key={pageNumber}
-                        onClick={() => paginate(pageNumber)}
-                        className={`w-8 h-8 rounded-lg transition-all duration-300 ${
-                          currentPage === pageNumber
-                            ? 'bg-accent-color text-white'
-                            : 'hover:bg-accent-color/10 text-text-primary'
-                        }`}
+                        onClick={() => handleEdit(tx)}
+                        className="text-xs text-accent-color hover:text-accent-color-darker transition-colors"
                       >
-                        {pageNumber}
+                        Editar
                       </button>
-                    );
-                  })}
+                      <span className="text-border-color">|</span>
+                      <button
+                        onClick={() => handleDelete(tx.id)}
+                        className="text-xs text-danger-color hover:text-danger-color-darker transition-colors"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
                 </div>
-
-                <button
-                  onClick={() => paginate(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className={`p-2 rounded-lg transition-all duration-300 ${
-                    currentPage === totalPages
-                      ? 'text-text-secondary cursor-not-allowed'
-                      : 'hover:bg-accent-color/10 text-text-primary'
-                  }`}
-                >
-                  <FiChevronRight className="w-4 h-4" />
-                </button>
-
-                <button
-                  onClick={() => paginate(totalPages)}
-                  disabled={currentPage === totalPages}
-                  className={`p-2 rounded-lg transition-all duration-300 ${
-                    currentPage === totalPages
-                      ? 'text-text-secondary cursor-not-allowed'
-                      : 'hover:bg-accent-color/10 text-text-primary'
-                  }`}
-                >
-                  <FiChevronsRight className="w-4 h-4" />
-                </button>
-              </div>
+              ))}
             </div>
           </div>
+        ))}
+        {!currentItems.length && (
+          <div className="text-center py-12 text-gray-500">
+            No se encontraron transacciones con los filtros actuales.
+          </div>
         )}
+      </div>
+
+      {/* Pagination */}
+      {totalPagesCount > 1 && (
+        <div className="flex justify-center mt-4 gap-2">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 border rounded disabled:opacity-50 hover:bg-accent-color hover:text-white transition-colors"
+          >
+            Anterior
+          </button>
+          <span className="px-4 py-2">
+            Página {currentPage} de {totalPagesCount}
+          </span>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPagesCount, p + 1))}
+            disabled={currentPage === totalPagesCount}
+            className="px-4 py-2 border rounded disabled:opacity-50 hover:bg-accent-color hover:text-white transition-colors"
+          >
+            Siguiente
+          </button>
+        </div>
+      )}
+
+      {/* Transaction Form Modal */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-2xl p-6 shadow-lg max-w-lg w-full relative">
+            <button
+              className="absolute top-4 right-4 text-gray-500 hover:text-danger-color text-xl"
+              onClick={() => setShowForm(false)}
+            >
+              ×
+            </button>
+            <TransactionForm
+              onSubmit={handleSubmit}
+              onCancel={() => setShowForm(false)}
+              initialData={formData}
+              categories={CATEGORIES}
+              paymentMethods={PAYMENT_METHODS}
+              goals={goals}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default TransactionList; 
-
-
+export default TransactionList;

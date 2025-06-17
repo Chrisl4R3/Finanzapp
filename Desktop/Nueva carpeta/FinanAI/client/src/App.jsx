@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
@@ -10,8 +11,8 @@ import Profile from './components/Profile';
 import Layout from './components/Layout';
 import './App.css';
 import { CurrencyProvider } from './context/CurrencyContext';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { useLocation } from 'react-router-dom';
+import AuthProvider from './contexts/AuthProvider';
+import useAuth from './hooks/useAuth';
 
 function App() {
   return (
@@ -81,9 +82,32 @@ function App() {
 
 // Componente de protección de rutas
 function RequireAuth({ children }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, initialCheckComplete } = useAuth();
   const location = useLocation();
+  const [timedOut, setTimedOut] = useState(false);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!initialCheckComplete) {
+        console.warn('La verificación de autenticación está tardando demasiado. Forzando estado.');
+        setTimedOut(true);
+      }
+    }, 10000); // 10 segundos de timeout
+
+    return () => clearTimeout(timer);
+  }, [initialCheckComplete]);
+
+  // Mostrar un indicador de carga mientras se verifica la autenticación
+  if (!initialCheckComplete && !timedOut) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background-color">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+        <p className="text-text-secondary">Verificando autenticación...</p>
+      </div>
+    );
+  }
+
+  // Redirigir al login si no está autenticado
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }

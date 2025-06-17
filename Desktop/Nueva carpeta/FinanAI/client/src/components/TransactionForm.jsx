@@ -56,12 +56,13 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
   const loadGoals = async () => {
     try {
       setLoading(true);
+      setError(null);
       const goalsData = await getAllGoals();
       const activeGoals = goalsData.filter(goal => goal.status === 'Active');
       console.log('Metas activas cargadas:', activeGoals);
       setGoals(activeGoals);
     } catch (err) {
-      setError('Error al cargar las metas');
+      setError('Error al cargar las metas. Por favor, inténtalo de nuevo.');
       console.error('Error al cargar las metas:', err);
     } finally {
       setLoading(false);
@@ -198,27 +199,35 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
               onChange={handleChange}
               className="form-checkbox h-5 w-5 text-accent-color rounded border-border-color focus:ring-accent-color"
             />
-            <span>Asignar directamente a una meta</span>
+            <span>Asignar a una meta de ahorro</span>
           </label>
         </div>
 
         {formData.assignToGoal && (
-          <div className="col-span-2">
-            <label className="block text-text-secondary mb-2">Meta</label>
-            <select
-              name="goal_id"
-              value={formData.goal_id}
-              onChange={handleChange}
-              className="w-full bg-background-color text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
-              required
-            >
-              <option value="">Selecciona una meta</option>
-              {goals.map(goal => (
-                <option key={goal.id} value={goal.id}>
-                  {goal.name} - Progreso: {((goal.progress / goal.target_amount) * 100).toFixed(1)}%
-                </option>
-              ))}
-            </select>
+          <div className="mt-4">
+            {error ? (
+              <div className="text-red-500 text-sm mb-2">{error}</div>
+            ) : loading ? (
+              <div className="flex items-center justify-center p-3 text-text-secondary">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent-color mr-2"></div>
+                Cargando metas...
+              </div>
+            ) : (
+              <select
+                name="goal_id"
+                value={formData.goal_id}
+                onChange={handleChange}
+                className="w-full bg-background-color text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color mt-2"
+                required={formData.assignToGoal}
+              >
+                <option value="">Selecciona una meta</option>
+                {goals.map(goal => (
+                  <option key={goal._id} value={goal._id}>
+                    {goal.name} (${goal.current_amount} de ${goal.target_amount})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         )}
       </div>
@@ -246,4 +255,3 @@ export default TransactionForm;
 
 
 
-.

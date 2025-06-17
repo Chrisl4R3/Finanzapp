@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { login as authLogin } from '../auth/auth';
+import useAuth from '../hooks/useAuth';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -64,24 +63,23 @@ const Login = () => {
     }
 
     try {
-      const data = await authLogin(formData);
-      
-      // Actualizar el estado de autenticación
-      login({
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
-        cedula: data.user.cedula
+      console.log('Enviando credenciales:', {
+        cedula: formData.cedula,  // Mantenemos el formato con guiones
+        password: '***' // No mostramos la contraseña por seguridad
       });
-
-      // Redirigir al usuario
-      const from = location.state?.from?.pathname || "/dashboard";
-      console.log('Redirigiendo a:', from);
-      navigate(from, { replace: true });
       
+      // Llamar a la función de login del contexto de autenticación
+      // Mantenemos el formato de la cédula (con guiones) al hacer login
+      await login(formData.cedula, formData.password);
+      
+      // Si llegamos aquí, el login fue exitoso
+      // Redirigir al dashboard o a la ruta previa
+      const from = location.state?.from?.pathname || '/dashboard';
+      console.log('Login exitoso, redirigiendo a:', from);
+      navigate(from, { replace: true });
     } catch (err) {
-      console.error('Error en el login:', err);
-      setError(err.message || 'Error al iniciar sesión');
+      console.error('Error durante el inicio de sesión:', err);
+      setError('Error de conexión. Por favor, intente nuevamente.');
     } finally {
       setIsLoading(false);
     }

@@ -1,14 +1,17 @@
 import express from 'express';
 import pool from '../config/db.js';
+import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
+
+router.use(verifyToken);
 
 // Obtener todas las transacciones programadas
 router.get('/', async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT * FROM scheduled_transactions WHERE user_id = ? ORDER BY next_execution ASC',
-      [req.session.user.id]
+      [req.userId]
     );
     res.json(rows);
   } catch (error) {
@@ -31,6 +34,21 @@ router.post('/', async (req, res) => {
       end_date
     } = req.body;
 
+    // Validaciones básicas
+    if (!description || !amount || !type || !category || !payment_method || !frequency || !start_date) {
+      return res.status(400).json({ message: 'Todos los campos obligatorios deben estar completos.' });
+    }
+    if (isNaN(Number(amount)) || Number(amount) <= 0) {
+      return res.status(400).json({ message: 'El monto debe ser un número mayor a 0.' });
+    }
+    if (!['Income', 'Expense'].includes(type)) {
+      return res.status(400).json({ message: 'El tipo debe ser Income o Expense.' });
+    }
+    if (!['Daily', 'Weekly', 'Monthly', 'Yearly'].includes(frequency)) {
+      return res.status(400).json({ message: 'La frecuencia no es válida.' });
+    }
+    // Puedes agregar más validaciones según tus categorías y métodos de pago permitidos
+
     // Calcular next_execution basado en start_date
     const next_execution = new Date(start_date);
 
@@ -39,7 +57,7 @@ router.post('/', async (req, res) => {
        (user_id, description, amount, type, category, payment_method, 
         frequency, start_date, end_date, next_execution) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.session.user.id, description, amount, type, category, payment_method, 
+      [req.userId, description, Number(amount), type, category, payment_method, 
        frequency, start_date, end_date, next_execution]
     );
 
@@ -74,7 +92,7 @@ router.put('/:id', async (req, res) => {
     // Verificar que la transacción pertenece al usuario
     const [transaction] = await pool.query(
       'SELECT * FROM scheduled_transactions WHERE id = ? AND user_id = ?',
-      [id, req.session.user.id]
+      [id, req.userId]
     );
 
     if (transaction.length === 0) {
@@ -91,7 +109,7 @@ router.put('/:id', async (req, res) => {
            end_date = ?, status = ?, next_execution = ?
        WHERE id = ? AND user_id = ?`,
       [description, amount, type, category, payment_method, frequency,
-       start_date, end_date, status, next_execution, id, req.session.user.id]
+       start_date, end_date, status, next_execution, id, req.userId]
     );
 
     const [updatedTransaction] = await pool.query(
@@ -114,7 +132,7 @@ router.delete('/:id', async (req, res) => {
     // Verificar que la transacción pertenece al usuario
     const [transaction] = await pool.query(
       'SELECT * FROM scheduled_transactions WHERE id = ? AND user_id = ?',
-      [id, req.session.user.id]
+      [id, req.userId]
     );
 
     if (transaction.length === 0) {
@@ -123,7 +141,7 @@ router.delete('/:id', async (req, res) => {
 
     await pool.query(
       'DELETE FROM scheduled_transactions WHERE id = ? AND user_id = ?',
-      [id, req.session.user.id]
+      [id, req.userId]
     );
 
     res.json({ message: 'Transacción programada eliminada correctamente' });
@@ -142,7 +160,7 @@ router.patch('/:id/status', async (req, res) => {
     // Verificar que la transacción pertenece al usuario
     const [transaction] = await pool.query(
       'SELECT * FROM scheduled_transactions WHERE id = ? AND user_id = ?',
-      [id, req.session.user.id]
+      [id, req.userId]
     );
 
     if (transaction.length === 0) {
@@ -151,7 +169,7 @@ router.patch('/:id/status', async (req, res) => {
 
     await pool.query(
       'UPDATE scheduled_transactions SET status = ? WHERE id = ? AND user_id = ?',
-      [status, id, req.session.user.id]
+      [status, id, req.userId]
     );
 
     const [updatedTransaction] = await pool.query(

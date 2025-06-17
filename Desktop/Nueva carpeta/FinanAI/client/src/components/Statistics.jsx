@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -33,24 +33,36 @@ ChartJS.register(
 const Statistics = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { currency, setCurrency, formatCurrency } = useCurrency();
-  const [dateRange, setDateRange] = useState({
-    startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0]
+  const { formatCurrency } = useCurrency();
+  const [dateRange, setDateRange] = useState(() => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(endDate.getMonth() - 1);
+    return {
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0]
+    };
   });
+
+  // Estado inicial optimizado
   const [stats, setStats] = useState({
     summary: {
-      totalIncome: 0,
-      totalExpenses: 0,
-      balance: 0,
-      averageIncome: 0,
-      averageExpense: 0,
+      totalIncome: '0.00',
+      totalExpenses: '0.00',
+      balance: '0.00',
+      averageIncome: '0.00',
+      averageExpense: '0.00',
       transactionCount: 0
     },
     trends: [],
     categoryDistribution: [],
     mostActiveDays: []
   });
+  
+  const [currency, setCurrency] = useState('DOP');
+
+  // Memoizar el formateo de fechas
+  const dateRangeString = `${dateRange.startDate}_${dateRange.endDate}`;
 
   // Colores para gráficos
   const chartColors = {
@@ -72,47 +84,69 @@ const Statistics = () => {
     ]
   };
 
-  // Opciones comunes para los gráficos
-  const commonOptions = {
+  // Opciones optimizadas para los gráficos
+  const commonOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
+    animation: {
+      duration: 300, // Reducir la duración de las animaciones
+      animateScale: true,
+      animateRotate: true
+    },
+    interaction: {
+      intersect: false,
+      mode: 'index'
+    },
     plugins: {
       legend: {
+        display: true,
+        position: 'top',
         labels: {
           color: 'rgba(255, 255, 255, 0.9)',
           font: {
             size: 12,
             family: "'Inter', sans-serif"
-          }
+          },
+          padding: 20
         }
       },
       tooltip: {
+        enabled: true,
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         titleColor: 'rgba(255, 255, 255, 0.9)',
         bodyColor: 'rgba(255, 255, 255, 0.9)',
-        padding: 12,
+        padding: 10,
         boxPadding: 6,
         usePointStyle: true,
         bodyFont: {
-          family: "'Inter', sans-serif"
+          family: "'Inter', sans-serif",
+          size: 12
         },
         titleFont: {
           family: "'Inter', sans-serif",
+          size: 12,
           weight: '600'
+        },
+        callbacks: {
+          label: function(context) {
+            return ` ${context.dataset.label}: ${formatCurrency(parseFloat(context.raw))}`;
+          }
         }
       }
     },
     scales: {
       x: {
         grid: {
-          color: 'rgba(255, 255, 255, 0.1)'
+          display: false
         },
         ticks: {
-          color: 'rgba(255, 255, 255, 0.9)',
+          color: 'rgba(255, 255, 255, 0.7)',
           font: {
-            size: 11,
+            size: 10,
             family: "'Inter', sans-serif"
-          }
+          },
+          maxRotation: 45,
+          minRotation: 45
         }
       },
       y: {
@@ -120,68 +154,89 @@ const Statistics = () => {
           color: 'rgba(255, 255, 255, 0.1)'
         },
         ticks: {
-          color: 'rgba(255, 255, 255, 0.9)',
+          color: 'rgba(255, 255, 255, 0.7)',
           font: {
-            size: 11,
+            size: 10,
             family: "'Inter', sans-serif"
           },
-          callback: (value) => `$${value.toLocaleString()}`
+          callback: (value) => formatCurrency(value)
         }
       }
     }
-  };
+  }), [formatCurrency]);
 
-  useEffect(() => {
-    fetchStatistics();
-  }, [dateRange]);
+  // Usar useCallback para memoizar la función de fetch
+  const fetchStatistics = useCallback(async () => {
+    if (!dateRange.startDate || !dateRange.endDate) return;
 
-  const fetchStatistics = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout de 10 segundos
+
     try {
       setIsLoading(true);
       setError(null);
 
-      const response = await authenticatedFetch(`/transactions/statistics?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`);
+      const response = await authenticatedFetch(
+        `/transactions/statistics?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
+        { signal: controller.signal }
+      );
+      
+      if (!response.ok) {
+        throw new Error('Error al cargar las estadísticas');
+      }
+      
       const data = await response.json();
-      console.log('Datos recibidos del servidor:', data);
-
-      // Transformar los datos si es necesario para coincidir con la estructura esperada
-      const transformedData = {
+      
+      // Procesamiento más eficiente de los datos
+      const processedData = {
         summary: {
-          totalIncome: Number(data.summary?.total_income || 0).toFixed(2),
-          totalExpenses: Number(data.summary?.total_expenses || 0).toFixed(2),
-          balance: Number(data.summary?.net_balance || 0).toFixed(2),
-          averageIncome: Number(data.summary?.average_income || 0).toFixed(2),
-          averageExpense: Number(data.summary?.average_expense || 0).toFixed(2),
+          totalIncome: (data.summary?.total_income || 0).toFixed(2),
+          totalExpenses: (data.summary?.total_expenses || 0).toFixed(2),
+          balance: (data.summary?.net_balance || 0).toFixed(2),
+          averageIncome: (data.summary?.average_income || 0).toFixed(2),
+          averageExpense: (data.summary?.average_expense || 0).toFixed(2),
           transactionCount: data.summary?.total_transactions || 0
         },
-        trends: Array.isArray(data.monthlyTrends) ? data.monthlyTrends.map(trend => ({
-          ...trend,
-          income: Number(trend.income || 0).toFixed(2),
-          expenses: Number(trend.expenses || 0).toFixed(2),
-          net_balance: Number(trend.net_balance || 0).toFixed(2)
-        })) : [],
-        categoryDistribution: Array.isArray(data.categoryAnalysis) ? data.categoryAnalysis.map(cat => ({
-          category: cat.category || 'Sin categoría',
-          amount: Number(cat.total_amount || 0).toFixed(2),
-          count: parseInt(cat.transaction_count || 0),
-          average: Number(cat.average_amount || 0).toFixed(2)
-        })).filter(cat => !isNaN(cat.amount)) : [],
-        mostActiveDays: Array.isArray(data.topDays) ? data.topDays.map(day => ({
-          day_of_week: day.day_of_week,
-          transaction_count: parseInt(day.transaction_count || 0),
-          total_amount: Number(day.total_amount || 0).toFixed(2)
-        })).filter(day => !isNaN(day.transaction_count) && !isNaN(day.total_amount)) : []
+        trends: Array.isArray(data.monthlyTrends) 
+          ? data.monthlyTrends.map(t => ({
+              ...t,
+              income: Number(t.income || 0).toFixed(2),
+              expenses: Number(t.expenses || 0).toFixed(2),
+              net_balance: Number(t.net_balance || 0).toFixed(2)
+            })) 
+          : [],
+        categoryDistribution: Array.isArray(data.categoryAnalysis) 
+          ? data.categoryAnalysis
+              .map(c => ({
+                category: c.category || 'Sin categoría',
+                amount: Number(c.total_amount || 0).toFixed(2),
+                count: parseInt(c.transaction_count || 0, 10),
+                average: Number(c.average_amount || 0).toFixed(2)
+              }))
+              .filter(c => !isNaN(c.amount))
+          : [],
+        mostActiveDays: Array.isArray(data.topDays)
+          ? data.topDays
+              .map(d => ({
+                day_of_week: d.day_of_week,
+                transaction_count: parseInt(d.transaction_count || 0, 10),
+                total_amount: Number(d.total_amount || 0).toFixed(2)
+              }))
+              .filter(d => !isNaN(d.transaction_count) && !isNaN(d.total_amount))
+          : []
       };
 
-      console.log('Datos transformados:', transformedData);
-      setStats(transformedData);
+      setStats(processedData);
     } catch (err) {
-      setError(err.message);
-      console.error('Error:', err);
+      if (err.name !== 'AbortError') {
+        console.error('Error al cargar estadísticas:', err);
+        setError('Error al cargar las estadísticas. Por favor, intente de nuevo.');
+      }
     } finally {
+      clearTimeout(timeoutId);
       setIsLoading(false);
     }
-  };
+  }, [dateRange.startDate, dateRange.endDate, authenticatedFetch, setError, setIsLoading, setStats]);
 
   const handleDateChange = (e) => {
     const { name, value } = e.target;
@@ -567,56 +622,79 @@ const Statistics = () => {
         </div>
       </div>
 
-      {/* Días Más Activos */}
+      {/* Pronóstico Financiero */}
       <div className="grid grid-cols-1 gap-6">
         <div className="card p-6">
-          <h3 className="text-lg font-medium text-text-primary mb-4">Días con Mayor Actividad</h3>
+          <h3 className="text-lg font-medium text-text-primary mb-4">Pronóstico Financiero</h3>
           <div className="space-y-4">
-            {stats.mostActiveDays && stats.mostActiveDays.length > 0 ? (
-              (() => {
-                const processedDays = processTopDays(stats.mostActiveDays);
-                
-                if (processedDays.length === 0) {
-                  return (
-                    <div className="text-center py-8">
-                      <p className="text-text-secondary">No hay datos de actividad disponibles</p>
-                    </div>
-                  );
-                }
-
-                return processedDays.map((day, index) => (
-                  <div key={index} className="bg-secondary-bg rounded-lg p-4 hover:bg-opacity-80 transition-all duration-300">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-text-primary font-medium">
-                          {day.formattedDate}
-                        </p>
-                        <p className="text-text-secondary text-sm mt-1">
-                          {day.transactionCount} transacciones
-                        </p>
-                      </div>
-                      <span className={`${day.total >= 0 ? 'amount-positive' : 'amount-negative'} text-lg font-semibold`}>
-                        {formatCurrency(Math.abs(day.total))}
-                      </span>
-                    </div>
-                    <div className="mt-3 w-full bg-card-bg rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          day.total >= 0 ? 'bg-success-color' : 'bg-danger-color'
-                        }`}
-                        style={{
-                          width: `${(day.transactionCount / Math.max(...processedDays.map(d => d.transactionCount))) * 100}%`
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                ));
-              })()
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-text-secondary">No hay datos de actividad disponibles</p>
+            {/* Ingresos Proyectados */}
+            <div className="bg-secondary-bg rounded-lg p-4 hover:bg-opacity-80 transition-all duration-300">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-text-primary font-medium">Ingresos Proyectados</p>
+                  <p className="text-text-secondary text-sm mt-1">Proyección para el próximo mes</p>
+                </div>
+                <span className="amount-positive text-lg font-semibold">
+                  {formatCurrency(stats.forecast?.projected_income || 0)}
+                </span>
               </div>
-            )}
+              <div className="mt-3 w-full bg-card-bg rounded-full h-2">
+                <div
+                  className="h-2 rounded-full bg-success-color transition-all duration-300"
+                  style={{
+                    width: `${(stats.forecast?.projected_income / (stats.forecast?.avg_monthly_income || 1)) * 100}%`
+                  }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Ahorro Proyectado */}
+            <div className="bg-secondary-bg rounded-lg p-4 hover:bg-opacity-80 transition-all duration-300">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-text-primary font-medium">Ahorro Proyectado</p>
+                  <p className="text-text-secondary text-sm mt-1">Diferencia entre ingresos y gastos</p>
+                </div>
+                <span className={`${stats.forecast?.projected_savings >= 0 ? 'amount-positive' : 'amount-negative'} text-lg font-semibold`}>
+                  {formatCurrency(stats.forecast?.projected_savings || 0)}
+                </span>
+              </div>
+              <div className="mt-3 w-full bg-card-bg rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    stats.forecast?.projected_savings >= 0 ? 'bg-success-color' : 'bg-danger-color'
+                  }`}
+                  style={{
+                    width: `${(Math.abs(stats.forecast?.projected_savings) / (stats.forecast?.avg_monthly_income || 1)) * 100}%`
+                  }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Promedios Mensuales */}
+            <div className="bg-secondary-bg rounded-lg p-4 hover:bg-opacity-80 transition-all duration-300">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-text-primary font-medium">Promedio Mensual de Ingresos</p>
+                  <p className="text-text-secondary text-sm mt-1">Promedio basado en datos históricos</p>
+                </div>
+                <span className="amount-positive text-lg font-semibold">
+                  {formatCurrency(stats.forecast?.avg_monthly_income || 0)}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-secondary-bg rounded-lg p-4 hover:bg-opacity-80 transition-all duration-300">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-text-primary font-medium">Promedio Mensual de Gastos</p>
+                  <p className="text-text-secondary text-sm mt-1">Promedio basado en datos históricos</p>
+                </div>
+                <span className="amount-negative text-lg font-semibold">
+                  {formatCurrency(stats.forecast?.avg_monthly_expense || 0)}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
