@@ -287,13 +287,41 @@ const TransactionList = ({ searchTerm = '' }) => {
 
   // Pagination
   const currentItems = useMemo(() => {
+    // Aplanar la lista de transacciones agrupadas para la paginación
+    const allTransactions = [];
+    groupedTransactionsList.forEach(group => {
+      allTransactions.push(...group.transactions);
+    });
+    
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return groupedTransactionsList.slice(startIndex, startIndex + itemsPerPage);
+    return allTransactions.slice(startIndex, startIndex + itemsPerPage);
   }, [groupedTransactionsList, currentPage, itemsPerPage]);
   
   // Alias para mantener la compatibilidad
   const filteredTransactions = filteredTransactionsList;
-  const totalPages = Math.ceil(groupedTransactionsList.length / itemsPerPage);
+  const totalPages = Math.ceil(
+    groupedTransactionsList.reduce((total, group) => total + group.transactions.length, 0) / itemsPerPage
+  );
+  
+  // Agrupar las transacciones actuales por mes para el renderizado
+  const currentItemsGrouped = useMemo(() => {
+    const grouped = {};
+    currentItems.forEach(tx => {
+      const date = new Date(tx.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (!grouped[monthKey]) {
+        grouped[monthKey] = [];
+      }
+      grouped[monthKey].push(tx);
+    });
+    
+    return Object.entries(grouped)
+      .map(([month, transactions]) => ({
+        month,
+        transactions: transactions.sort((a, b) => new Date(b.date) - new Date(a.date))
+      }))
+      .sort((a, b) => b.month.localeCompare(a.month));
+  }, [currentItems]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -551,7 +579,7 @@ const TransactionList = ({ searchTerm = '' }) => {
 
       {/* Transaction List */}
       <div className="bg-card-bg rounded-xl shadow-sm overflow-hidden">
-        {currentItems.map(group => (
+        {currentItemsGrouped.map(group => (
           <div key={group.month} className="mb-10 p-4">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-semibold text-text-primary">
