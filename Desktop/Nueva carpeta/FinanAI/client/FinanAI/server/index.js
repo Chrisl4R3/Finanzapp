@@ -65,20 +65,20 @@ app.use(cors({
 }));
 
 // Middleware de sesión
-app.use(session({
+const sessionConfig = {
   key: 'finanzapp_session',
   secret: process.env.SESSION_SECRET || 'tu_secreto_super_seguro',
   store: sessionStore,
   resave: false,
   saveUninitialized: false,
   proxy: true, // Importante para Railway
-  cookie: {
+  cookie: { 
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semana
     httpOnly: true,
     secure: isProduction, // Solo enviar sobre HTTPS en producción
     sameSite: isProduction ? 'none' : 'lax',
     path: '/',
-    // Configuración de dominio para producción
+    // Configuración de dominio para producción 
     ...(isProduction && process.env.COOKIE_DOMAIN && { 
       domain: process.env.COOKIE_DOMAIN 
     })
@@ -89,30 +89,24 @@ app.use(session({
   genid: function() {
     return require('crypto').randomBytes(16).toString('hex');
   }
-}),
-);
+};
 
 // Configuración específica para desarrollo (aplicar después de la definición inicial de sessionConfig)
 if (!isProduction) {
   console.log('⚠️  Modo desarrollo: configurando cookies para desarrollo local');
-  // Nota: sessionConfig ya fue aplicado arriba, necesitamos modificar el middleware directamente si queremos cambios condicionales
-  // Un enfoque alternativo es definir sessionConfig antes de app.use(session(sessionConfig)) y luego modificarlo.
-  // Sin embargo, dado que app.use(session()) se llama solo una vez, es mejor configurar sessionConfig completamente antes.
-  // Vamos a reestructurar para definir sessionConfig y luego usarlo.
+  sessionConfig.cookie.secure = false;
+  sessionConfig.cookie.sameSite = 'lax';
+  // En desarrollo, si no se define un dominio, usar 'localhost' para claridad en logs
+  sessionConfig.cookie.domain = sessionConfig.cookie.domain || 'localhost';
 
   // Mostrar configuración de cookies
   console.log('🔧 Configuración de cookies en desarrollo:', {
     httpOnly: sessionConfig.cookie.httpOnly,
-    secure: sessionConfig.cookie.secure,
-    sameSite: sessionConfig.cookie.sameSite,
-    path: sessionConfig.cookie.path,
-    domain: sessionConfig.cookie.domain || 'localhost',
+    secure: sessionConfig.cookie.secure, 
+    sameSite: sessionConfig.cookie.sameSite, 
+    path: sessionConfig.cookie.path, 
+    domain: sessionConfig.cookie.domain,
   });
-} else {
-  console.log('🚀 Modo producción: configurando cookies seguras para producción');
-  // Similar a desarrollo, es mejor configurar sessionConfig completamente antes de usar app.use(session).
-  // La configuración inicial de sessionConfig ya maneja secure y sameSite basado en isProduction.
-  
   console.log('🔒 Configuración de cookies en producción:', {
     httpOnly: sessionConfig.cookie.httpOnly,
     secure: sessionConfig.cookie.secure,
@@ -121,6 +115,17 @@ if (!isProduction) {
     domain: sessionConfig.cookie.domain || 'No definido'
   });
 }
+
+// Mostrar configuración de cookies después de aplicar la configuración de entorno
+console.log('🔑 Configuración final de cookies:', {
+  httpOnly: sessionConfig.cookie.httpOnly,
+  secure: sessionConfig.cookie.secure,
+  sameSite: sessionConfig.cookie.sameSite,
+  domain: sessionConfig.cookie.domain,
+  maxAge: sessionConfig.cookie.maxAge,
+  path: sessionConfig.cookie.path,
+  proxy: sessionConfig.proxy
+});
 
 // Re-aplicar el middleware de sesión aquí para claridad, aunque ya se aplicó arriba.
 // Es crucial que la configuración de sessionConfig se haya completado antes de esta línea.
@@ -132,9 +137,6 @@ app.set('trust proxy', 1); // Confiar en el primer proxy
 // Middleware de parseo de JSON y URL-encoded
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Aplicar el middleware de sesión
-app.use(session(sessionConfig));
 
 // Middleware para verificar la configuración de cookies (solo en desarrollo)
 if (!isProduction) {
@@ -221,9 +223,6 @@ process.on('SIGTERM', () => {
   });
 });
 
-// Aplicar CORS a todas las rutas
-app.use(cors(corsOptionsIndex));
-
 // Configuración de cabeceras CORS
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -259,9 +258,6 @@ app.use((req, res, next) => {
   console.log('Headers:', req.headers);
   next();
 });
-
-// Configuración de trust proxy para manejar correctamente las cookies en producción
-app.set('trust proxy', 1);
 
 // La configuración de sesión ya se aplicó anteriormente
 
