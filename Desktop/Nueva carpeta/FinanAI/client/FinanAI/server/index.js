@@ -108,6 +108,15 @@ app.use(cors(corsOptions));
 // Manejar preflight para todas las rutas
 app.options('*', cors(corsOptions));
 
+// Middleware para debug de CORS
+app.use((req, res, next) => {
+  console.log('=== CORS Headers ===');
+  console.log('Origin:', req.headers.origin);
+  console.log('Method:', req.method);
+  console.log('Headers:', req.headers);
+  next();
+});
+
 // Middleware de sesión
 const sessionConfig = {
   key: 'finanzapp_session',
@@ -265,15 +274,6 @@ process.on('SIGTERM', () => {
     console.log('Servidor cerrado');
     process.exit(0);
   });
-});
-
-// Middleware para debug de CORS
-app.use((req, res, next) => {
-  console.log('=== CORS Headers ===');
-  console.log('Origin:', req.headers.origin);
-  console.log('Method:', req.method);
-  console.log('Headers:', req.headers);
-  next();
 });
 
 // La configuración de sesión ya se aplicó anteriormente
