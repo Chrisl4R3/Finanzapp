@@ -62,43 +62,61 @@ const Statistics = () => {
 
   // Usar useCallback para memoizar la función de fetch
   const fetchStatistics = useCallback(async () => {
-    if (!dateRange.startDate || !dateRange.endDate) return;
+    if (!dateRange.startDate || !dateRange.endDate) {
+      console.log('Fechas no válidas para la consulta');
+      return;
+    }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout de 10 segundos
+    const timeoutId = setTimeout(() => {
+      console.log('Timeout alcanzado en la petición de estadísticas');
+      controller.abort();
+    }, 15000); // Aumentado a 15 segundos
 
     try {
+      console.log('Iniciando carga de estadísticas...');
       setIsLoading(true);
       setError(null);
 
-      console.log('Solicitando estadísticas con fechas:', dateRange);
-      const response = await fetch(
-        `https://backend-production-cf437.up.railway.app/api/transactions/statistics?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
-        { 
-          method: 'GET',
-          credentials: 'include',
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
-        }
-      );
-      console.log('Respuesta recibida:', response);
+      const url = `https://backend-production-cf437.up.railway.app/api/transactions/statistics?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`;
+      console.log('URL de la petición:', url);
       
-      if (!response.ok) {
-        try {
-          const errorData = await response.json();
-          console.error('Error en la respuesta:', errorData);
-          throw new Error(errorData.message || 'Error al cargar las estadísticas');
-        } catch (e) {
-          console.error('Error al procesar la respuesta de error:', e);
-          throw new Error('Error al procesar la respuesta del servidor');
+      const token = localStorage.getItem('authToken');
+      console.log('Token de autenticación:', token ? 'Presente' : 'No encontrado');
+
+      const response = await fetch(url, { 
+        method: 'GET',
+        credentials: 'include',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
+      });
+      
+      console.log('Respuesta HTTP recibida:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      const responseData = await response.text();
+      console.log('Contenido de la respuesta:', responseData);
+      
+      let data;
+      try {
+        data = JSON.parse(responseData);
+      } catch (e) {
+        console.error('Error al parsear la respuesta JSON:', e);
+        throw new Error('La respuesta del servidor no es un JSON válido');
       }
       
-      const data = await response.json();
-      console.log('Datos de estadísticas recibidos:', data);
+      if (!response.ok) {
+        console.error('Error en la respuesta del servidor:', data);
+        throw new Error(data.message || `Error ${response.status}: ${response.statusText}`);
+      }
+      
+      console.log('Datos de estadísticas procesados correctamente');
       
       // Procesamiento más eficiente de los datos
       const processedData = {
