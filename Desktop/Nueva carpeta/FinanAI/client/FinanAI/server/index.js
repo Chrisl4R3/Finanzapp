@@ -272,6 +272,13 @@ app.use('/api/scheduled-transactions', scheduledTransactionsRoutes);
 app.use('/api/goals', goalRoutes);
 app.use('/api/notifications', notificationRoutes);
 
+// Rutas sin prefijo /api para compatibilidad con el frontend existente
+app.use('/auth', authRoutes);
+app.use('/transactions', transactionRoutes);
+app.use('/scheduled-transactions', scheduledTransactionsRoutes);
+app.use('/goals', goalRoutes);
+app.use('/notifications', notificationRoutes);
+
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {
   console.error(err.stack);
