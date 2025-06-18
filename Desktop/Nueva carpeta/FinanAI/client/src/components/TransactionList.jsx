@@ -3,6 +3,7 @@ import { FiDollarSign, FiPlusCircle, FiAlertCircle, FiLoader, FiSearch, FiPlus }
 import { Link } from 'react-router-dom';
 import { authenticatedFetch } from '../auth/auth';
 import useAuth from '../hooks/useAuth';
+import { contributeToGoal } from '../services/goals';
 import { useCurrency } from '../context/CurrencyContext';
 import Swal from 'sweetalert2';
 import TransactionForm from './TransactionForm';
@@ -305,30 +306,33 @@ const TransactionList = ({ searchTerm = '' }) => {
         throw new Error('Debes seleccionar una meta');
       }
 
-      const endpoint = editingTransaction ? `/api/transactions/${editingTransaction.id}` : '/api/transactions';
-      const method = editingTransaction ? 'PUT' : 'POST';
+      if (data.assignToGoal && data.goal_id) {
+        // Si es un aporte a meta, usamos el servicio de metas
+        await contributeToGoal(data.goal_id, amount, false);
+      } else {
+        // Si es una transacción normal
+        const endpoint = editingTransaction ? `/api/transactions/${editingTransaction.id}` : '/api/transactions';
+        const method = editingTransaction ? 'PUT' : 'POST';
+        const requestData = {
+          type: data.type,
+          category: data.category,
+          amount: amount,
+          date: data.date,
+          description: data.description,
+          payment_method: data.payment_method,
+          status: data.status || 'Completed'
+        };
 
-      const requestData = {
-        type: data.type,
-        category: data.category,
-        amount: amount,
-        date: data.date,
-        description: data.description,
-        payment_method: data.payment_method,
-        status: data.status || 'Completed',
-        assignToGoal: data.assignToGoal,
-        goal_id: data.assignToGoal ? data.goal_id : null
-      };
+        const response = await authenticatedFetch(endpoint, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestData)
+        });
 
-      const response = await authenticatedFetch(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al guardar la transacción');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Error al guardar la transacción');
+        }
       }
 
       setShowForm(false);
@@ -583,7 +587,7 @@ const TransactionList = ({ searchTerm = '' }) => {
       {/* Formulario de transacción */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl">
+          <div className="bg-[var(--page-bg)] rounded-xl p-6 w-full max-w-2xl">
             <TransactionForm
               onSubmit={handleSaveTransaction}
               onCancel={() => setShowForm(false)}

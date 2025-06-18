@@ -3,6 +3,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import GoalForm from './GoalForm';
 import ContributeForm from './ContributeForm';
 import * as goalService from '../services/goals';
+import { authenticatedFetch } from '../auth/auth';
 import { FaTrash, FaPlus, FaHistory } from 'react-icons/fa';
 import { IoMdTrendingUp } from 'react-icons/io';
 import Swal from 'sweetalert2';
@@ -124,16 +125,50 @@ const Goals = () => {
 
   };
 
+  // Función para obtener el saldo actual del usuario
+  const getCurrentBalance = async () => {
+    try {
+      const response = await authenticatedFetch('/transactions/dashboard');
+      const data = await response.json();
+      return data.summary?.balance || 0;
+    } catch (error) {
+      console.error('Error al obtener el saldo:', error);
+      return 0; // En caso de error, asumimos saldo 0 para ser conservadores
+    }
+  };
+
   const handleContribute = async (amount, isDirectContribution) => {
     try {
-      await goalService.contributeToGoal(selectedGoal.id, amount, isDirectContribution);
-      await fetchGoals();
+      // Verificar el saldo solo si no es una contribución directa
+      if (!isDirectContribution) {
+        const currentBalance = await getCurrentBalance();
+        if (parseFloat(amount) > currentBalance) {
+          throw new Error('Saldo insuficiente en tu presupuesto para realizar esta contribución');
+        }
+      }
+
+      // Update the UI optimistically
+      const updatedGoals = goals.map(goal => {
+        if (goal.id === selectedGoal.id) {
+          const newProgress = parseFloat(goal.progress || 0) + parseFloat(amount);
+          return {
+            ...goal,
+            progress: newProgress,
+            status: newProgress >= goal.target_amount ? 'Completed' : goal.status
+          };
+        }
+        return goal;
+      });
+      setGoals(updatedGoals);
+      
+      // Close the form immediately for better UX
       setShowContributeForm(false);
-      setSelectedGoal(null);
       
-      const percentage = (selectedGoal.progress + amount) / selectedGoal.target_amount * 100;
+      // Show success message immediately
+      const percentage = ((parseFloat(selectedGoal.progress) + parseFloat(amount)) / selectedGoal.target_amount) * 100;
+      const isGoalCompleted = percentage >= 100;
       
-      if (percentage >= 100) {
+      if (isGoalCompleted) {
         await Swal.fire({
           title: '¡Felicitaciones! 🎉',
           text: '¡Has alcanzado tu meta financiera!',
@@ -150,11 +185,41 @@ const Goals = () => {
       } else {
         Toast.fire({
           icon: 'success',
-          title: '¡Abono registrado exitosamente!'
+          title: '¡Contribución exitosa!'
         });
+      }
+      
+      // Clear the selected goal after showing the success message
+      setSelectedGoal(null);
+      
+      // Then make the actual API call
+      try {
+        await goalService.contributeToGoal(selectedGoal.id, amount, isDirectContribution);
+        
+        // If this is a direct contribution, refresh the history if the history modal is open
+        if (historyGoal && historyGoal.id === selectedGoal.id) {
+          await fetchGoalHistory(selectedGoal.id);
+        }
+        
+        // Refresh the goals list to ensure consistency
+        await fetchGoals();
+      } catch (apiError) {
+        console.error('Error en la API al abonar:', apiError);
+        // Mostrar error específico si es de saldo insuficiente
+        if (apiError.message && apiError.message.includes('insuficiente')) {
+          Toast.fire({
+            icon: 'error',
+            title: 'Saldo insuficiente para completar la transacción'
+          });
+        }
+        // Recargar metas para revertir cambios visuales
+        fetchGoals().catch(console.error);
       }
     } catch (err) {
       console.error('Error al abonar:', err);
+      // Revert the optimistic update on error
+      fetchGoals().catch(console.error);
+      
       Toast.fire({
         icon: 'error',
         title: err.message || 'Error al registrar el abono'

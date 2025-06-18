@@ -95,7 +95,7 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-card-bg p-6 rounded-2xl shadow-lg">
+    <form onSubmit={handleSubmit} className="bg-[var(--page-bg)] p-6 rounded-2xl shadow-lg text-text-primary w-full max-w-2xl mx-auto border border-border-color">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-text-secondary mb-2">Tipo</label>
@@ -103,7 +103,7 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
             name="type"
             value={formData.type}
             onChange={handleChange}
-            className="w-full bg-background-color text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+            className="w-full bg-secondary-bg text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
             required
             disabled={formData.assignToGoal}
           >
@@ -118,7 +118,7 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
             name="category"
             value={formData.category}
             onChange={handleChange}
-            className="w-full bg-background-color text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+            className="w-full bg-gray-900 text-gray-100 p-3 rounded-xl border border-gray-700 focus:border-accent-color focus:ring-1 focus:ring-accent-color"
             required
           >
             <option value="">Selecciona una categoría</option>
@@ -131,13 +131,13 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
         <div>
           <label className="block text-text-secondary mb-2">Monto</label>
           <div className="relative">
-            <FiDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary" />
+            <FiDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" />
             <input
               type="number"
               name="amount"
               value={formData.amount}
               onChange={handleChange}
-              className="w-full bg-background-color text-text-primary pl-10 p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+              className="w-full bg-gray-900 text-gray-100 pl-10 p-3 rounded-xl border border-gray-700 focus:border-accent-color focus:ring-1 focus:ring-accent-color"
               placeholder="0.00"
               step="0.01"
               min="0"
@@ -149,13 +149,13 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
         <div>
           <label className="block text-text-secondary mb-2">Fecha</label>
           <div className="relative">
-            <FiCalendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary" />
+            <FiCalendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" />
             <input
               type="date"
               name="date"
               value={formData.date}
               onChange={handleChange}
-              className="w-full bg-background-color text-text-primary pl-10 p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+              className="w-full bg-gray-900 text-gray-100 pl-10 p-3 rounded-xl border border-gray-700 focus:border-accent-color focus:ring-1 focus:ring-accent-color"
               required
             />
           </div>
@@ -167,7 +167,7 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
             name="payment_method"
             value={formData.payment_method}
             onChange={handleChange}
-            className="w-full bg-background-color text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+            className="w-full bg-gray-900 text-gray-100 p-3 rounded-xl border border-gray-700 focus:border-accent-color focus:ring-1 focus:ring-accent-color"
             required
           >
             <option value="">Selecciona un método</option>
@@ -184,14 +184,14 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
             name="description"
             value={formData.description}
             onChange={handleChange}
-            className="w-full bg-background-color text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+            className="w-full bg-gray-900 text-gray-100 p-3 rounded-xl border border-gray-700 focus:border-accent-color focus:ring-1 focus:ring-accent-color"
             placeholder="Descripción de la transacción"
             required
           />
         </div>
 
         <div className="col-span-2">
-          <label className="flex items-center space-x-2 text-text-secondary cursor-pointer">
+          <div className="flex items-center space-x-4 mt-4">
             <input
               type="checkbox"
               name="assignToGoal"
@@ -199,12 +199,13 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
               onChange={handleChange}
               className="form-checkbox h-5 w-5 text-accent-color rounded border-border-color focus:ring-accent-color"
             />
-            <span>Asignar a una meta de ahorro</span>
-          </label>
+            <span className="text-text-secondary cursor-pointer">Asignar a una meta de ahorro</span>
+          </div>
         </div>
 
         {formData.assignToGoal && (
           <div className="mt-4">
+            <label className="block text-text-secondary mb-2">Seleccionar Meta</label>
             {error ? (
               <div className="text-red-500 text-sm mb-2">{error}</div>
             ) : loading ? (
@@ -217,7 +218,7 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
                 name="goal_id"
                 value={formData.goal_id}
                 onChange={handleChange}
-                className="w-full bg-background-color text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color mt-2"
+                className="px-6 py-2 rounded-xl bg-secondary-bg text-text-primary hover:bg-accent-color/10 transition-colors font-medium"
                 required={formData.assignToGoal}
               >
                 <option value="">Selecciona una meta</option>
@@ -236,13 +237,13 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
         <button
           type="button"
           onClick={onCancel}
-          className="px-6 py-2 rounded-xl border border-border-color text-text-secondary hover:bg-background-color transition-all duration-300"
+          className="bg-gray-600 text-white px-6 py-2 rounded-xl hover:bg-gray-700 transition-colors font-medium"
         >
           Cancelar
         </button>
         <button
           type="submit"
-          className="px-6 py-2 rounded-xl bg-accent-color text-white hover:bg-accent-color-darker transition-all duration-300"
+          className="bg-gray-600 text-white px-6 py-2 rounded-xl hover:bg-gray-700 transition-colors font-medium"
         >
           {initialData ? 'Actualizar' : 'Crear'}
         </button>
