@@ -116,11 +116,41 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Si está asignado a una meta, forzamos el tipo a 'Income'
+    
+    // Validar el ID de la meta si está asignado a una
+    if (formData.assignToGoal) {
+      // Verificar que se haya seleccionado una meta
+      if (!formData.goal_id) {
+        setError('Debes seleccionar una meta');
+        return;
+      }
+      
+      // Verificar que el ID tenga un formato válido (24 caracteres hexadecimales para MongoDB)
+      const isValidId = /^[0-9a-fA-F]{24}$/.test(formData.goal_id);
+      if (!isValidId) {
+        setError('El ID de la meta no tiene un formato válido');
+        return;
+      }
+      
+      // Verificar que la meta seleccionada exista en la lista de metas cargadas
+      const goalExists = goals.some(goal => {
+        const goalId = goal._id || goal.id;
+        return goalId === formData.goal_id;
+      });
+      
+      if (!goalExists) {
+        setError('La meta seleccionada no es válida');
+        return;
+      }
+    }
+    
+    // Si todo está bien, proceder con el envío
     const submissionData = {
       ...formData,
       type: formData.assignToGoal ? 'Income' : formData.type
     };
+    
+    console.log('Enviando datos del formulario:', submissionData);
     onSubmit(submissionData);
   };
 
