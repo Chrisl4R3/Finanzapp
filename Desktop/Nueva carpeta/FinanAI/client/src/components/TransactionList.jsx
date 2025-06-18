@@ -392,6 +392,20 @@ const TransactionList = ({ searchTerm = '' }) => {
         </div>
       </div>
 
+      {/* Barra de búsqueda */}
+      <div className="mb-6">
+        <div className="relative max-w-xl">
+          <input
+            type="text"
+            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
+            placeholder="Buscar transacciones..."
+            value={searchTermLocal}
+            onChange={e => setSearchTermLocal(e.target.value)}
+          />
+          <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+        </div>
+      </div>
+
       {/* Filtros */}
       <div className="bg-card-bg rounded-xl p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
