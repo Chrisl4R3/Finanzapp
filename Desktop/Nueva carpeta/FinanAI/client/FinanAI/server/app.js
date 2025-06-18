@@ -47,8 +47,8 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Authorization', 'Set-Cookie', 'Access-Control-Allow-Credentials'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control', 'cache-control'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Authorization', 'Set-Cookie', 'Access-Control-Allow-Credentials', 'Cache-Control'],
   maxAge: 86400, // 24 horas
   preflightContinue: false,
   optionsSuccessStatus: 204
