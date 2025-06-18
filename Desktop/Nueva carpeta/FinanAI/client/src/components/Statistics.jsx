@@ -14,7 +14,7 @@ import {
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { useCurrency } from '../context/CurrencyContext';
-import useAuth from '../hooks/useAuth';
+import { authenticatedFetch } from '../auth/auth';
 
 // Registrar componentes de Chart.js
 ChartJS.register(
@@ -60,7 +60,6 @@ const Statistics = () => {
   });
   
   const [currency, setCurrency] = useState('DOP');
-  const { isAuthenticated, getToken } = useAuth();
 
   // Usar useCallback para memoizar la función de fetch
   const fetchStatistics = useCallback(async () => {
@@ -83,34 +82,22 @@ const Statistics = () => {
       setIsLoading(true);
       setError(null);
 
-      if (!isAuthenticated) {
-        throw new Error('No estás autenticado. Por favor, inicia sesión nuevamente.');
-      }
-
-      const token = await getToken();
-      if (!token) {
-        throw new Error('No se pudo obtener el token de autenticación');
-      }
-
       // Usar ruta relativa para que el proxy maneje la solicitud
       const url = `/api/transactions/statistics?startDate=${encodeURIComponent(dateRange.startDate)}&endDate=${encodeURIComponent(dateRange.endDate)}`;
       console.log('URL completa de la petición:', url);
-      console.log('Token de autenticación:', token ? 'Presente' : 'No encontrado');
 
       console.log('Realizando petición fetch...');
-      const fetchOptions = {
+      const startTime = performance.now();
+      const response = await authenticatedFetch(url, {
         method: 'GET',
-        credentials: 'include',
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'X-Requested-With': 'XMLHttpRequest'
         }
-      };
-      console.log('Opciones de fetch:', JSON.stringify(fetchOptions, null, 2));
-
-      const startTime = performance.now();
-      const response = await fetch(url, fetchOptions);
+      });
       const endTime = performance.now();
       
       console.log(`Tiempo de respuesta: ${(endTime - startTime).toFixed(2)}ms`);
@@ -148,42 +135,53 @@ const Statistics = () => {
       
       console.log('Datos de estadísticas procesados correctamente');
       
+      // Función auxiliar para convertir cadenas de moneda a números
+      const parseCurrency = (value) => {
+        if (typeof value === 'number') return value;
+        if (typeof value === 'string') {
+          // Eliminar comas de miles y convertir a número
+          const num = parseFloat(value.replace(/,/g, ''));
+          return isNaN(num) ? 0 : num;
+        }
+        return 0;
+      };
+
       // Procesamiento más eficiente de los datos
       const processedData = {
         summary: {
-          totalIncome: (data.summary?.total_income || 0).toFixed(2),
-          totalExpenses: (data.summary?.total_expenses || 0).toFixed(2),
-          balance: (data.summary?.net_balance || 0).toFixed(2),
-          averageIncome: (data.summary?.average_income || 0).toFixed(2),
-          averageExpense: (data.summary?.average_expense || 0).toFixed(2),
-          transactionCount: data.summary?.total_transactions || 0
+          totalIncome: parseCurrency(data.summary?.total_income || 0).toFixed(2),
+          totalExpenses: parseCurrency(data.summary?.total_expenses || 0).toFixed(2),
+          balance: parseCurrency(data.summary?.net_balance || 0).toFixed(2),
+          averageIncome: parseCurrency(data.summary?.average_income || 0).toFixed(2),
+          averageExpense: parseCurrency(data.summary?.average_expense || 0).toFixed(2),
+          transactionCount: parseInt(data.summary?.total_transactions || 0, 10)
         },
         trends: Array.isArray(data.monthlyTrends) 
           ? data.monthlyTrends.map(t => ({
               ...t,
-              income: Number(t.income || 0).toFixed(2),
-              expenses: Number(t.expenses || 0).toFixed(2),
-              net_balance: Number(t.net_balance || 0).toFixed(2)
+              income: parseCurrency(t.income).toFixed(2),
+              expenses: parseCurrency(t.expenses).toFixed(2),
+              net_balance: parseCurrency(t.net_balance).toFixed(2)
             })) 
           : [],
         categoryDistribution: Array.isArray(data.categoryAnalysis) 
           ? data.categoryAnalysis
               .map(c => ({
                 category: c.category || 'Sin categoría',
-                amount: Number(c.total_amount || 0).toFixed(2),
+                amount: parseCurrency(c.total_amount).toFixed(2),
                 count: parseInt(c.transaction_count || 0, 10),
-                average: Number(c.average_amount || 0).toFixed(2)
+                average: parseCurrency(c.average_amount).toFixed(2)
               }))
-              .filter(c => !isNaN(c.amount))
+              .filter(c => !isNaN(parseFloat(c.amount)))
           : [],
         mostActiveDays: Array.isArray(data.topDays)
           ? data.topDays
               .map(d => ({
                 day_of_week: d.day_of_week,
                 transaction_count: parseInt(d.transaction_count || 0, 10),
-                total_amount: Number(d.total_amount || 0).toFixed(2)
+                total_amount: parseCurrency(d.total_amount).toFixed(2)
               }))
-              .filter(d => !isNaN(d.transaction_count) && !isNaN(d.total_amount))
+              .filter(d => !isNaN(d.transaction_count) && !isNaN(parseFloat(d.total_amount)))
           : []
       };
 
@@ -198,7 +196,7 @@ const Statistics = () => {
       clearTimeout(timeoutId);
       setIsLoading(false);
     }
-  }, [dateRange, isAuthenticated, getToken]);
+  }, [dateRange]);
 
   // Cargar estadísticas al montar el componente y cuando cambien las fechas
   useEffect(() => {
