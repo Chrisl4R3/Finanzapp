@@ -120,7 +120,7 @@ router.post('/:id/contribute', async (req, res) => {
 
         try {
           const [transactionResult] = await pool.query(
-            'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
             [
               userId,
               'Income',
@@ -129,7 +129,7 @@ router.post('/:id/contribute', async (req, res) => {
               `Abono a meta: ${goal.name}`,
               paymentMethod || 'Efectivo',
               'Completed',
-              new Date(),
+              new Date().toISOString().slice(0, 19).replace('T', ' '),
               id
             ]
           );
