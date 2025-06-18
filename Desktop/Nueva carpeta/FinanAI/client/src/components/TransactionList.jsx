@@ -220,29 +220,32 @@ const TransactionList = ({ searchTerm = '' }) => {
     if (searchTermLocal) {
       const searchLower = searchTermLocal.trim().toLowerCase();
       
-      // Verificar si el término de búsqueda es un número
-      const searchNumber = parseFloat(searchLower.replace(/[^0-9.,]+/g, '').replace(',', '.'));
-      const isNumberSearch = !isNaN(searchNumber) && searchLower.trim() !== '';
+      // Convertir el término de búsqueda a número si es posible
+      const searchNumber = parseFloat(searchLower.replace(/[^0-9.,]/g, '').replace(',', '.'));
+      const isNumberSearch = !isNaN(searchNumber);
       
       console.log('Búsqueda - Término:', searchTermLocal);
-      console.log('Búsqueda - Es número?', isNumberSearch, 'Valor:', searchNumber);
+      console.log('Búsqueda - Número detectado:', isNumberSearch ? searchNumber : 'No es un número');
       
       result = result.filter(tx => {
-        // Búsqueda por texto (siempre activa)
+        // 1. Búsqueda por texto (siempre activa)
         const textMatch = 
           (tx.description?.toLowerCase().includes(searchLower)) ||
           (tx.category?.toLowerCase().includes(searchLower)) ||
           (tx.payment_method?.toLowerCase().includes(searchLower));
         
-        // Si es búsqueda por número, verificar el monto
+        // 2. Búsqueda por monto (si el término es un número)
         let amountMatch = false;
         if (isNumberSearch) {
           try {
-            const txAmount = typeof tx.amount === 'string' ? 
-              parseFloat(tx.amount.replace(/[^0-9.,]+/g, '').replace(',', '.')) : 
-              parseFloat(tx.amount);
-              
-            amountMatch = !isNaN(txAmount) && Math.abs(txAmount - searchNumber) < 0.01;
+            // Convertir el monto de la transacción a número
+            const txAmount = typeof tx.amount === 'string' 
+              ? parseFloat(tx.amount.replace(/[^0-9.,]/g, '').replace(',', '.')) 
+              : Number(tx.amount);
+            
+            // Verificar si el monto contiene el número buscado (como cadena)
+            amountMatch = tx.amount.toString().includes(searchLower) || 
+                        (!isNaN(txAmount) && Math.abs(txAmount - searchNumber) < 0.01);
           } catch (e) {
             console.warn('Error al procesar monto de transacción:', tx.amount, e);
           }
@@ -251,7 +254,7 @@ const TransactionList = ({ searchTerm = '' }) => {
         return textMatch || amountMatch;
       });
       
-      console.log('Resultados de búsqueda:', result.length);
+      console.log('Resultados encontrados:', result.length);
     }
 
     // Apply category filter
