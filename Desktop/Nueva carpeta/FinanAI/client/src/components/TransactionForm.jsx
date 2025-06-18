@@ -31,7 +31,8 @@ const PAYMENT_METHODS = [
 ];
 
 const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
-  const [formData, setFormData] = useState({
+  // Usar useMemo para inicializar el estado solo una vez
+  const initialFormData = React.useMemo(() => ({
     type: 'Expense',
     category: '',
     amount: '',
@@ -41,7 +42,9 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
     assignToGoal: false,
     goal_id: '',
     ...initialData
-  });
+  }), [initialData]);
+
+  const [formData, setFormData] = useState(initialFormData);
 
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -59,65 +62,61 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
       console.log('Metas activas filtradas:', activeGoals);
       
       setGoals(activeGoals);
-      
-      // Si hay una meta seleccionada previamente, asegurarse de que el ID sea válido
-      if (formData.goal_id) {
-        console.log('Verificando meta seleccionada:', formData.goal_id);
-        const goalExists = activeGoals.some(goal => {
-          const goalId = goal._id || goal.id;
-          console.log('Comparando meta:', { goalId, formGoalId: formData.goal_id, match: goalId === formData.goal_id });
-          return goalId === formData.goal_id;
-        });
-        
-        if (!goalExists) {
-          console.log('Meta seleccionada no encontrada, limpiando selección');
-          setFormData(prev => ({ ...prev, goal_id: '' }));
-        }
-      }
     } catch (err) {
       setError('Error al cargar las metas. Por favor, inténtalo de nuevo.');
       console.error('Error al cargar las metas:', err);
     } finally {
       setLoading(false);
     }
-  }, [formData.goal_id]);
+  }, []);
 
+  // Cargar metas solo cuando se monte el componente o cambie el estado de assignToGoal
   useEffect(() => {
     if (formData.assignToGoal) {
       loadGoals();
+    } else {
+      // Si se desactiva assignToGoal, limpiamos el goal_id
+      setFormData(prev => ({
+        ...prev,
+        goal_id: ''
+      }));
     }
-  }, [formData.assignToGoal, loadGoals]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.assignToGoal]); // Eliminamos loadGoals de las dependencias
 
-  const handleChange = (e) => {
+  const handleChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
-    console.log('Campo cambiado:', { 
-      name, 
-      value, 
-      type, 
-      checked,
-      target: e.target,
-      selectedValue: e.target.value,
-      selectedOptions: e.target.selectedOptions
-    });
     
     setFormData(prev => {
       const newValue = type === 'checkbox' ? checked : value;
-      const newData = {
+      
+      // Crear el nuevo estado
+      const newState = {
         ...prev,
-        [name]: newValue,
-        ...(name === 'type' && {
-          category: '',
-          goal_id: ''
-        }),
-        ...(name === 'assignToGoal' && !checked && {
-          goal_id: ''
-        })
+        [name]: newValue
       };
       
-      console.log('Nuevo estado de formData:', newData);
-      return newData;
+      // Limpiar campos relacionados si es necesario
+      if (name === 'type') {
+        newState.category = '';
+        newState.goal_id = '';
+      }
+      
+      if (name === 'assignToGoal' && !checked) {
+        newState.goal_id = '';
+      }
+      
+      console.log('Actualizando estado:', {
+        name,
+        value: newValue,
+        type,
+        prevState: prev,
+        newState
+      });
+      
+      return newState;
     });
-  };
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
