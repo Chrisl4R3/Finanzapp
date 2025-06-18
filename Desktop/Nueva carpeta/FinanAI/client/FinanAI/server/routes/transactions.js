@@ -288,17 +288,37 @@ router.get('/dashboard', async (req, res) => {
 
 // Obtener estadísticas detalladas
 router.get('/statistics', async (req, res) => {
+  console.log('=== Inicio de la solicitud de estadísticas ===');
+  console.log('Usuario ID:', req.userId);
+  console.log('Query params:', req.query);
+  
+  const connection = await pool.getConnection();
   try {
+    console.log('Conexión a la base de datos establecida');
     const { startDate, endDate } = req.query;
+    console.log('Fechas recibidas - Inicio:', startDate, 'Fin:', endDate);
+    
+    // Validar fechas
+    if (startDate && isNaN(new Date(startDate).getTime())) {
+      throw new Error('Fecha de inicio inválida');
+    }
+    if (endDate && isNaN(new Date(endDate).getTime())) {
+      throw new Error('Fecha de fin inválida');
+    }
+    
     const dateFilter = startDate && endDate 
       ? 'AND date BETWEEN ? AND ?' 
       : '';
     const dateParams = startDate && endDate 
       ? [req.userId, startDate, endDate] 
       : [req.userId];
+      
+    console.log('Filtro de fecha:', dateFilter);
+    console.log('Parámetros de fecha:', dateParams);
 
     // Resumen general
-    const [summary] = await pool.query(`
+    console.log('Ejecutando consulta de resumen general...');
+    const summaryQuery = `
       SELECT 
         COUNT(*) as total_transactions,
         COALESCE(SUM(CASE WHEN type = 'Income' THEN amount ELSE 0 END), 0) as total_income,
@@ -308,7 +328,12 @@ router.get('/statistics', async (req, res) => {
         COALESCE(AVG(CASE WHEN type = 'Income' THEN amount END), 0) as average_income
       FROM transactions 
       WHERE user_id = ? ${dateFilter}
-    `, dateParams);
+    `;
+    console.log('Query de resumen:', summaryQuery);
+    console.log('Parámetros:', dateParams);
+    
+    const [summary] = await connection.query(summaryQuery, dateParams);
+    console.log('Resultado del resumen:', summary);
 
     // Análisis por categoría
     const [categoryAnalysis] = await pool.query(`
@@ -365,16 +390,41 @@ router.get('/statistics', async (req, res) => {
       ORDER BY transaction_count DESC
     `, dateParams);
 
-    res.json({
+    const result = {
       summary: summary[0],
-      categoryAnalysis,
-      monthlyTrends,
-      paymentMethods,
-      topDays
-    });
+      categoryAnalysis: categoryAnalysis || [],
+      monthlyTrends: monthlyTrends || [],
+      paymentMethods: paymentMethods || [],
+      topDays: topDays || []
+    };
+    
+    console.log('Estadísticas generadas con éxito');
+    console.log('Resumen:', result.summary);
+    console.log('Categorías:', result.categoryAnalysis.length);
+    console.log('Meses:', result.monthlyTrends.length);
+    
+    res.json(result);
   } catch (error) {
     console.error('Error al obtener estadísticas:', error);
-    res.status(500).json({ message: 'Error al obtener estadísticas' });
+    console.error('Stack trace:', error.stack);
+    
+    // Si hay un error de SQL, mostrarlo en la respuesta para depuración
+    const errorResponse = {
+      message: 'Error al obtener estadísticas',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      code: error.code,
+      sqlMessage: error.sqlMessage,
+      sql: error.sql
+    };
+    
+    res.status(500).json(errorResponse);
+  } finally {
+    if (connection) {
+      await connection.release();
+      console.log('Conexión a la base de datos liberada');
+    }
+    console.log('=== Fin de la solicitud de estadísticas ===\n');
   }
 });
 
