@@ -51,15 +51,26 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Cargando metas...');
       const goalsData = await getAllGoals();
+      console.log('Todas las metas del servidor:', goalsData);
+      
       const activeGoals = goalsData.filter(goal => goal.status === 'Active');
-      console.log('Metas activas cargadas:', activeGoals);
+      console.log('Metas activas filtradas:', activeGoals);
+      
       setGoals(activeGoals);
       
       // Si hay una meta seleccionada previamente, asegurarse de que el ID sea válido
       if (formData.goal_id) {
-        const goalExists = activeGoals.some(goal => (goal._id || goal.id) === formData.goal_id);
+        console.log('Verificando meta seleccionada:', formData.goal_id);
+        const goalExists = activeGoals.some(goal => {
+          const goalId = goal._id || goal.id;
+          console.log('Comparando meta:', { goalId, formGoalId: formData.goal_id, match: goalId === formData.goal_id });
+          return goalId === formData.goal_id;
+        });
+        
         if (!goalExists) {
+          console.log('Meta seleccionada no encontrada, limpiando selección');
           setFormData(prev => ({ ...prev, goal_id: '' }));
         }
       }
@@ -79,17 +90,33 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-      ...(name === 'type' && {
-        category: '',
-        goal_id: ''
-      }),
-      ...(name === 'assignToGoal' && !checked && {
-        goal_id: ''
-      })
-    }));
+    console.log('Campo cambiado:', { 
+      name, 
+      value, 
+      type, 
+      checked,
+      target: e.target,
+      selectedValue: e.target.value,
+      selectedOptions: e.target.selectedOptions
+    });
+    
+    setFormData(prev => {
+      const newValue = type === 'checkbox' ? checked : value;
+      const newData = {
+        ...prev,
+        [name]: newValue,
+        ...(name === 'type' && {
+          category: '',
+          goal_id: ''
+        }),
+        ...(name === 'assignToGoal' && !checked && {
+          goal_id: ''
+        })
+      };
+      
+      console.log('Nuevo estado de formData:', newData);
+      return newData;
+    });
   };
 
   const handleSubmit = (e) => {
@@ -222,23 +249,35 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
                 Cargando metas...
               </div>
             ) : (
-              <select
-                name="goal_id"
-                value={formData.goal_id}
-                onChange={handleChange}
-                className="px-6 py-2 rounded-xl bg-secondary-bg text-text-primary hover:bg-accent-color/10 transition-colors font-medium"
-                required={formData.assignToGoal}
-              >
-                <option value="">Selecciona una meta</option>
-                {goals.map(goal => {
-                  const goalId = goal._id || goal.id; // Usar _id o id según lo que venga del backend
-                  return (
-                    <option key={goalId} value={goalId}>
-                      {goal.name} (${goal.current_amount || goal.progress} de ${goal.target_amount})
-                    </option>
-                  );
-                })}
-              </select>
+              <div className="relative">
+                <select
+                  id="goal-selector"
+                  name="goal_id"
+                  value={formData.goal_id || ''}
+                  onChange={handleChange}
+                  className="w-full px-6 py-2 rounded-xl bg-secondary-bg text-text-primary hover:bg-accent-color/10 transition-colors font-medium appearance-none"
+                  required={formData.assignToGoal}
+                >
+                  <option value="">Selecciona una meta</option>
+                  {goals.map(goal => {
+                    const goalId = goal._id || goal.id;
+                    return (
+                      <option 
+                        key={goalId} 
+                        value={goalId}
+                        data-goal={JSON.stringify(goal)}
+                      >
+                        {goal.name} (${goal.current_amount || goal.progress} de ${goal.target_amount})
+                      </option>
+                    );
+                  })}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-text-secondary">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                  </svg>
+                </div>
+              </div>
             )}
           </div>
         )}
