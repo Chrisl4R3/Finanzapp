@@ -29,14 +29,14 @@ const TransactionList = ({ searchTerm = '' }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(6); // Mostrar 6 transacciones por página
+  const [itemsPerPage] = useState(6); 
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [searchTermLocal, setSearchTermLocal] = useState(searchTerm);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('');
-  const [goals, setGoals] = useState([]);
+
   const [formData, setFormData] = useState({
     type: 'Expense',
     category: '',
@@ -53,7 +53,6 @@ const TransactionList = ({ searchTerm = '' }) => {
   const fetchTransactions = async () => {
     try {
       console.log('Iniciando carga de transacciones...');
-      // Usamos la ruta completa incluyendo /api
       const response = await authenticatedFetch('/api/transactions');
       
       console.log('Respuesta de transacciones recibida:', {
@@ -75,10 +74,9 @@ const TransactionList = ({ searchTerm = '' }) => {
       const data = await response.json();
       console.log('Transacciones cargadas exitosamente:', data.length);
       
-      // Ordenar por fecha descendente
       const sortedTransactions = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
       setTransactions(sortedTransactions);
-      setError(null); // Limpiar errores previos
+      setError(null); 
       return true;
     } catch (err) {
       console.error('Error en fetchTransactions:', {
@@ -93,45 +91,7 @@ const TransactionList = ({ searchTerm = '' }) => {
     }
   };
 
-  const fetchGoals = async () => {
-    try {
-      console.log('Iniciando carga de metas...');
-      // Usamos la ruta completa incluyendo /api
-      const response = await authenticatedFetch('/api/goals');
-      
-      console.log('Respuesta de metas recibida:', {
-        status: response.status,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.warn('No se pudieron cargar las metas, continuando sin ellas. Detalles:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-        return false; // No lanzar error, solo continuar sin metas
-      }
-      
-      const data = await response.json();
-      console.log('Metas cargadas exitosamente:', data.length);
-      
-      // Filtrar solo metas activas
-      const activeGoals = data.filter(goal => goal.status === 'Active');
-      console.log('Metas activas encontradas:', activeGoals.length);
-      
-      setGoals(activeGoals);
-      return true;
-    } catch (err) {
-      console.warn('Error al cargar las metas, continuando sin ellas. Detalles:', {
-        message: err.message,
-        stack: err.stack
-      });
-      return false;
-    }
-  };
+
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -141,7 +101,6 @@ const TransactionList = ({ searchTerm = '' }) => {
     
     const loadData = async () => {
       try {
-        // 1. Cargar transacciones primero
         console.log('Cargando transacciones...');
         const transactionsLoaded = await fetchTransactions();
         
@@ -150,9 +109,7 @@ const TransactionList = ({ searchTerm = '' }) => {
           return;
         }
         
-        // 2. Intentar cargar metas (pero no es crítico si falla)
-        console.log('Intentando cargar metas...');
-        await fetchGoals();
+        // Meta loading functionality removed as it's not being used
         
       } catch (error) {
         console.error('Error en loadData:', {
@@ -167,7 +124,6 @@ const TransactionList = ({ searchTerm = '' }) => {
     
     loadData();
     
-    // Limpiar al desmontar
     return () => {
       console.log('TransactionList desmontado');
     };
@@ -184,66 +140,52 @@ const TransactionList = ({ searchTerm = '' }) => {
 
   const getCategoryIcon = (category) => {
     const icons = {
-      Salario: '💰',
-      Regalo: '🎁',
-      'Otros-Ingreso': '📈',
-      Alimentación: '🍽️',
-      Servicios: '💡',
-      Salud: '🏥',
-      Vivienda: '🏠',
-      Educación: '📚',
-      Transporte: '🚗',
-      Ropa: '👗',
-      Seguros: '🛡️',
-      Mantenimiento: '🔧',
-      Entretenimiento: '🎮',
-      Pasatiempos: '🎨',
-      Restaurantes: '🍴',
-      Compras: '🛍️',
-      Viajes: '✈️',
-      'Otros-Gasto': '💸'
+      Salario: '',
+      Regalo: '',
+      'Otros-Ingreso': '',
+      Alimentación: '',
+      Servicios: '',
+      Salud: '',
+      Vivienda: '',
+      Educación: '',
+      Transporte: '',
+      Ropa: '',
+      Seguros: '',
+      Mantenimiento: '',
+      Entretenimiento: '',
+      Pasatiempos: '',
+      Restaurantes: '',
+      Compras: '',
+      Viajes: '',
+      'Otros-Gasto': ''
     };
-    return icons[category] || '💵';
+    return icons[category] || '';
   };
 
-  const getMonthTotal = (transactions) => {
-    return transactions.reduce((sum, tx) => {
-      return tx.type === 'Income' ? sum + parseFloat(tx.amount) : sum - parseFloat(tx.amount);
-    }, 0);
-  };
 
   // Filtering and grouping
   const filteredTransactionsList = useMemo(() => {
     let result = [...transactions];
 
-    // Apply search
     if (searchTermLocal) {
       const searchLower = searchTermLocal.trim().toLowerCase();
       
-      // Convertir el término de búsqueda a número si es posible
       const searchNumber = parseFloat(searchLower.replace(/[^0-9.,]/g, '').replace(',', '.'));
       const isNumberSearch = !isNaN(searchNumber);
-      
-      console.log('Búsqueda - Término:', searchTermLocal);
-      console.log('Búsqueda - Número detectado:', isNumberSearch ? searchNumber : 'No es un número');
-      
+
       result = result.filter(tx => {
-        // 1. Búsqueda por texto (siempre activa)
         const textMatch = 
           (tx.description?.toLowerCase().includes(searchLower)) ||
           (tx.category?.toLowerCase().includes(searchLower)) ||
           (tx.payment_method?.toLowerCase().includes(searchLower));
-        
-        // 2. Búsqueda por monto (si el término es un número)
+
         let amountMatch = false;
         if (isNumberSearch) {
           try {
-            // Convertir el monto de la transacción a número
             const txAmount = typeof tx.amount === 'string' 
               ? parseFloat(tx.amount.replace(/[^0-9.,]/g, '').replace(',', '.')) 
               : Number(tx.amount);
             
-            // Verificar si el monto contiene el número buscado (como cadena)
             amountMatch = tx.amount.toString().includes(searchLower) || 
                         (!isNaN(txAmount) && Math.abs(txAmount - searchNumber) < 0.01);
           } catch (e) {
@@ -257,17 +199,14 @@ const TransactionList = ({ searchTerm = '' }) => {
       console.log('Resultados encontrados:', result.length);
     }
 
-    // Apply category filter
     if (selectedCategory) {
       result = result.filter(tx => tx.category === selectedCategory);
     }
 
-    // Apply type filter
     if (selectedType !== 'all') {
       result = result.filter(tx => tx.type === selectedType);
     }
 
-    // Apply month filter
     if (selectedMonth) {
       result = result.filter(tx => {
         const txDate = new Date(tx.date);
@@ -279,24 +218,6 @@ const TransactionList = ({ searchTerm = '' }) => {
     return result;
   }, [transactions, searchTermLocal, selectedCategory, selectedType, selectedMonth]);
 
-  const groupedTransactionsList = useMemo(() => {
-    const grouped = {};
-    filteredTransactionsList.forEach(tx => {
-      const date = new Date(tx.date);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      if (!grouped[monthKey]) {
-        grouped[monthKey] = [];
-      }
-      grouped[monthKey].push(tx);
-    });
-
-    return Object.entries(grouped)
-      .map(([month, transactions]) => ({
-        month,
-        transactions: transactions.sort((a, b) => new Date(b.date) - new Date(a.date))
-      }))
-      .sort((a, b) => b.month.localeCompare(a.month));
-  }, [filteredTransactionsList]);
 
   const availableCategories = useMemo(() => {
     const cats = new Set();
@@ -317,42 +238,10 @@ const TransactionList = ({ searchTerm = '' }) => {
   }, [transactions]);
 
   // Pagination
-  const currentItems = useMemo(() => {
-    // Aplanar la lista de transacciones agrupadas para la paginación
-    const allTransactions = [];
-    groupedTransactionsList.forEach(group => {
-      allTransactions.push(...group.transactions);
-    });
-    
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return allTransactions.slice(startIndex, startIndex + itemsPerPage);
-  }, [groupedTransactionsList, currentPage, itemsPerPage]);
-  
-  // Alias para mantener la compatibilidad
-  const filteredTransactions = filteredTransactionsList;
   const totalPages = Math.ceil(
-    groupedTransactionsList.reduce((total, group) => total + group.transactions.length, 0) / itemsPerPage
+    filteredTransactionsList.length / itemsPerPage
   );
-  
-  // Agrupar las transacciones actuales por mes para el renderizado
-  const currentItemsGrouped = useMemo(() => {
-    const grouped = {};
-    currentItems.forEach(tx => {
-      const date = new Date(tx.date);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      if (!grouped[monthKey]) {
-        grouped[monthKey] = [];
-      }
-      grouped[monthKey].push(tx);
-    });
-    
-    return Object.entries(grouped)
-      .map(([month, transactions]) => ({
-        month,
-        transactions: transactions.sort((a, b) => new Date(b.date) - new Date(a.date))
-      }))
-      .sort((a, b) => b.month.localeCompare(a.month));
-  }, [currentItems]);
+
 
   useEffect(() => {
     setCurrentPage(1);
@@ -398,7 +287,7 @@ const TransactionList = ({ searchTerm = '' }) => {
     }
   };
 
-  const handleSubmit = async (data) => {
+  const handleSaveTransaction = async (data) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -465,7 +354,7 @@ const TransactionList = ({ searchTerm = '' }) => {
     }
   };
 
-  // Render
+  // Render loading state
   if (isLoading && !transactions.length) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -474,6 +363,7 @@ const TransactionList = ({ searchTerm = '' }) => {
     );
   }
 
+  // Render error state
   if (error && !transactions.length) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
@@ -483,56 +373,36 @@ const TransactionList = ({ searchTerm = '' }) => {
     );
   }
 
-  if (!filteredTransactionsList.length && !isLoading) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6 px-4">
-        <div className="w-24 h-24 rounded-full bg-accent-color/10 flex items-center justify-center">
-          <FiDollarSign className="w-12 h-12 text-accent-color" />
-        </div>
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-text-primary mb-2">No hay transacciones</h2>
-          <p className="text-text-secondary max-w-md">
-            Comienza a registrar tus ingresos y gastos para tener un mejor control de tus finanzas.
-          </p>
-        </div>
-        <button
-          className="flex items-center gap-2 px-6 py-3 bg-accent-color hover:bg-accent-color-darker text-white rounded-xl transition-all duration-300 hover:scale-105"
-          onClick={() => {
-            setShowForm(true);
-            setEditingTransaction(null);
-            setFormData({
-              type: 'Expense',
-              category: '',
-              amount: '',
-              description: '',
-              payment_method: 'Efectivo',
-              date: new Date().toISOString().split('T')[0],
-              status: 'Completed',
-              assignToGoal: false,
-              goal_id: ''
-            });
-          }}
-        >
-          <FiPlusCircle className="text-xl" />
-          <span>Agregar Transacción</span>
-        </button>
-      </div>
-    );
-  }
+  // Check if it's an empty state or search with no results
+  const showNoTransactions = !isLoading && filteredTransactionsList.length === 0;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Filters */}
-      <div className="bg-card-bg rounded-xl shadow-sm p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-          <div className="md:col-span-2">
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-text-primary">Transacciones</h2>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Buscar transacciones..."
+            className="pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200 w-64"
+            value={searchTermLocal}
+            onChange={e => setSearchTermLocal(e.target.value)}
+          />
+          <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div className="bg-card-bg rounded-xl p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
             <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
             <div className="relative">
               <input
                 type="text"
                 id="search"
                 className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
-                placeholder="Buscar por descripción o categoría..."
+                placeholder="Buscar por descripción..."
                 value={searchTermLocal}
                 onChange={e => setSearchTermLocal(e.target.value)}
               />
@@ -608,33 +478,38 @@ const TransactionList = ({ searchTerm = '' }) => {
         </div>
       </div>
 
-      {/* Transaction List */}
-      <div className="bg-background rounded-xl shadow-sm overflow-hidden">
-        {currentItemsGrouped.map(group => (
-          <div key={group.month} className="mb-10 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold text-text-primary">
-                {new Date(group.month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
-              </h2>
-              <span className={`font-bold ${getMonthTotal(group.transactions) >= 0 ? 'text-success-color' : 'text-danger-color'}`}>
-                Total: {getMonthTotal(group.transactions) >= 0 ? '+' : ''}{formatCurrency(getMonthTotal(group.transactions))}
-              </span>
-            </div>
-            <div className="flex flex-col gap-3">
-              {group.transactions.map(tx => (
-                <div key={tx.id} className={`flex items-center justify-between rounded-xl p-4 shadow-sm transition-all ${tx.type === 'Income' ? 'bg-emerald-900/20 hover:bg-emerald-900/30 border-l-4 border-emerald-500' : 'bg-red-900/20 hover:bg-red-900/30 border-l-4 border-red-500'} hover:shadow-md`}>
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-full ${tx.type === 'Income' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+      {/* Mensaje cuando no hay transacciones */}
+      {showNoTransactions && (
+        <div className="py-12 text-center">
+          <FiSearch className="mx-auto w-12 h-12 text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-700">No se ha encontrado lo que busca</h3>
+          <p className="text-gray-500 mt-1">
+            {searchTermLocal 
+              ? `No hay resultados para "${searchTermLocal}"`
+              : 'Intenta con otros filtros de búsqueda'}
+          </p>
+        </div>
+      )}
+
+      {/* Lista de transacciones */}
+      {!showNoTransactions && filteredTransactionsList.length > 0 && (
+        <div className="bg-background rounded-xl shadow-sm overflow-hidden">
+          <div className="p-6">
+            <div className="space-y-4">
+              {filteredTransactionsList.slice(
+                (currentPage - 1) * itemsPerPage,
+                currentPage * itemsPerPage
+              ).map((tx) => (
+                <div key={tx._id} className="bg-card-bg rounded-lg p-4 flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-primary/10">
                       {getCategoryIcon(tx.category)}
                     </div>
                     <div>
-                      <div className="font-medium text-text-primary text-base">{tx.description}</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-xs px-2 py-1 rounded-full ${tx.type === 'Income' ? 'bg-emerald-900/30 text-emerald-300' : 'bg-red-900/30 text-red-300'}`}>
-                          {tx.category}
-                        </span>
-                        <span className="text-xs text-text-secondary">{formatTransactionDate(tx.date)}</span>
-                      </div>
+                      <h4 className="font-medium text-text-primary">{tx.description}</h4>
+                      <p className="text-sm text-text-secondary">
+                        {formatTransactionDate(tx.date)} • {tx.category}
+                      </p>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2 min-w-[120px]">
@@ -663,70 +538,60 @@ const TransactionList = ({ searchTerm = '' }) => {
                 </div>
               ))}
             </div>
-          </div>
-        ))}
 
-        {/* Paginación */}
-        <div className="flex items-center justify-between px-6 py-4 bg-card-bg border-t border-border-color/20">
-          <div className="text-sm text-text-secondary">
-            Mostrando {(currentPage - 1) * itemsPerPage + 1} a {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} de {filteredTransactions.length} transacciones
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className={`px-4 py-2 rounded-md ${currentPage === 1 ? 'text-text-secondary/50 cursor-not-allowed' : 'text-text-primary hover:bg-secondary-bg'}`}
-            >
-              Anterior
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`w-10 h-10 rounded-md flex items-center justify-center ${
-                  currentPage === page 
-                    ? 'bg-accent-color text-white' 
-                    : 'text-text-primary hover:bg-secondary-bg'
-                }`}
-              >
-                {page}
-              </button>
-            )).slice(
-              Math.max(0, Math.min(currentPage - 2, totalPages - 5)),
-              Math.min(Math.max(5, currentPage + 2), totalPages)
-            )}
-            <button
-              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className={`px-4 py-2 rounded-md ${
-                currentPage === totalPages 
-                  ? 'text-text-secondary/50 cursor-not-allowed' 
-                  : 'text-text-primary hover:bg-secondary-bg'
-              }`}
-            >
-              Siguiente
-            </button>
+            {/* Paginación */}
+            <div className="flex items-center justify-between px-6 py-4 bg-card-bg border-t border-border-color/20 mt-6">
+              <div className="text-sm text-text-secondary">
+                Mostrando {(currentPage - 1) * itemsPerPage + 1} a {Math.min(currentPage * itemsPerPage, filteredTransactionsList.length)} de {filteredTransactionsList.length} transacciones
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className={`px-4 py-2 rounded-md ${currentPage === 1 ? 'text-text-secondary/50 cursor-not-allowed' : 'text-text-primary hover:bg-secondary-bg'}`}
+                >
+                  Anterior
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-10 h-10 rounded-md flex items-center justify-center ${
+                        currentPage === page
+                          ? 'bg-accent-color text-white'
+                          : 'text-text-secondary hover:bg-secondary-bg'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className={`px-4 py-2 rounded-md ${
+                    currentPage === totalPages
+                      ? 'text-text-secondary/50 cursor-not-allowed'
+                      : 'text-text-primary hover:bg-secondary-bg'
+                  }`}
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Transaction Form Modal */}
+      {/* Formulario de transacción */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-2xl p-6 shadow-lg max-w-lg w-full relative">
-            <button
-              className="absolute top-4 right-4 text-gray-500 hover:text-danger-color text-xl"
-              onClick={() => setShowForm(false)}
-            >
-              ×
-            </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl">
             <TransactionForm
-              onSubmit={handleSubmit}
+              onSubmit={handleSaveTransaction}
               onCancel={() => setShowForm(false)}
-              initialData={formData}
-              categories={CATEGORIES}
-              paymentMethods={PAYMENT_METHODS}
-              goals={goals}
+              initialData={editingTransaction || formData}
             />
           </div>
         </div>
