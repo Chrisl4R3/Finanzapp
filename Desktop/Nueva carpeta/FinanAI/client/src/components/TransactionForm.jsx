@@ -133,12 +133,17 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
       }
       
       // Verificar que la meta seleccionada exista en la lista de metas cargadas
+      console.log('Meta seleccionada (raw):', formData.goal_id, 'tipo:', typeof formData.goal_id);
+      console.log('Metas disponibles:', goals);
+      
       const goalExists = goals.some(goal => {
-        const goalId = goal._id || goal.id;
-        return goalId === formData.goal_id;
+        const goalId = goal.id || goal._id; // MySQL usa 'id', no '_id'
+        console.log(`Comparando: ${goalId} (${typeof goalId}) con ${formData.goal_id} (${typeof formData.goal_id})`);
+        return goalId == formData.goal_id; // Usar == para comparación flexible de tipos
       });
       
       if (!goalExists) {
+        console.error('Meta no encontrada en la lista de metas disponibles');
         setError('La meta seleccionada no es válida');
         return;
       }
