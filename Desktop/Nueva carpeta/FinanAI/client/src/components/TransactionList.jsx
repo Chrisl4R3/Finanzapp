@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FiDollarSign, FiPlusCircle, FiAlertCircle, FiLoader, FiSearch, FiPlus } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
+import { formatCurrency } from '../utils/currency';
 import { authenticatedFetch } from '../auth/auth';
 import useAuth from '../hooks/useAuth';
-import { contributeToGoal } from '../services/goals';
-import { useCurrency } from '../context/CurrencyContext';
+import { contributeToGoal, getAllGoals } from '../services/goals';
+
 import Swal from 'sweetalert2';
 import TransactionForm from './TransactionForm';
 import { format, parseISO } from 'date-fns';
@@ -22,22 +23,20 @@ const CATEGORIES = {
 const PAYMENT_METHODS = ['Efectivo', 'Tarjeta de Débito', 'Tarjeta de Crédito', 'Transferencia Bancaria'];
 
 const TransactionList = ({ searchTerm = '' }) => {
-  const { formatCurrency } = useCurrency();
-  const { isAuthenticated } = useAuth();
+  const { user } = useAuth();
 
   // States
   const [transactions, setTransactions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6); 
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [searchTermLocal, setSearchTermLocal] = useState(searchTerm);
+  const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('');
-
   const [formData, setFormData] = useState({
     type: 'Expense',
     category: '',
@@ -49,86 +48,42 @@ const TransactionList = ({ searchTerm = '' }) => {
     assignToGoal: false,
     goal_id: ''
   });
+  const [goals, setGoals] = useState([]);
 
   // Fetch transactions and goals
   const fetchTransactions = async () => {
     try {
-      console.log('Iniciando carga de transacciones...');
+      setIsLoading(true);
       const response = await authenticatedFetch('/api/transactions');
-      
-      console.log('Respuesta de transacciones recibida:', {
-        status: response.status,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error en la respuesta de transacciones:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-        throw new Error(`Error al cargar las transacciones: ${response.status} ${response.statusText}`);
-      }
-      
+      if (!response.ok) throw new Error('Error al cargar las transacciones');
       const data = await response.json();
-      console.log('Transacciones cargadas exitosamente:', data.length);
-      
+      setTransactions(data);
       const sortedTransactions = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
       setTransactions(sortedTransactions);
-      setError(null); 
-      return true;
     } catch (err) {
-      console.error('Error en fetchTransactions:', {
-        message: err.message,
-        stack: err.stack,
-        response: err.response
-      });
-      setError(err.message || 'Error al cargar las transacciones');
-      return false;
+      console.error('Error al cargar las transacciones:', err);
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-
+  const fetchGoals = async () => {
+    try {
+      const response = await getAllGoals();
+      if (!response.ok) throw new Error('Error al cargar las metas');
+      const data = await response.json();
+      setGoals(data);
+    } catch (err) {
+      console.error('Error al cargar las metas:', err);
+      setError(err.message);
+    }
+  };
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-    
-    console.log('Iniciando carga de datos...');
-    setIsLoading(true);
-    
-    const loadData = async () => {
-      try {
-        console.log('Cargando transacciones...');
-        const transactionsLoaded = await fetchTransactions();
-        
-        if (!transactionsLoaded) {
-          console.error('No se pudieron cargar las transacciones');
-          return;
-        }
-        
-        // Meta loading functionality removed as it's not being used
-        
-      } catch (error) {
-        console.error('Error en loadData:', {
-          message: error.message,
-          stack: error.stack
-        });
-      } finally {
-        console.log('Carga de datos completada');
-        setIsLoading(false);
-      }
-    };
-    
-    loadData();
-    
-    return () => {
-      console.log('TransactionList desmontado');
-    };
-  }, [isAuthenticated]);
+    fetchTransactions();
+    fetchGoals();
+  }, []);
 
   // Helper functions
   const formatTransactionDate = (dateString) => {
@@ -312,15 +267,43 @@ const TransactionList = ({ searchTerm = '' }) => {
         console.log('Meta seleccionada ID:', data.goal_id);
       }
 
-      if (data.assignToGoal && data.goal_id) {
-        // Si es un aporte a meta, usamos el servicio de metas
-        console.log('Datos del formulario:', { 
-          goal_id: data.goal_id,
-          amount: amount,
-          assignToGoal: data.assignToGoal,
-          data: data 
+      if (data.assignToGoal) {
+        // Si es una contribución a meta, usar el servicio de contribución
+        const { goal_id: goalId, amount, payment_method } = data;
+        console.log('Enviando contribución a meta:', {
+          goalId,
+          amount,
+          payment_method
         });
-        await contributeToGoal(data.goal_id, amount, false);
+
+        const response = await contributeToGoal(goalId, amount, false, payment_method);
+        console.log('Respuesta de contribución:', response);
+
+        // Actualizar la lista de transacciones
+        setTransactions(transactions => [
+          ...transactions,
+          {
+            id: response.transaction_id,
+            user_id: user.id,
+            type: 'Income',
+            category: 'Otros-Ingreso',
+            amount,
+            description: `Abono a meta: ${response.goal_name}`,
+            payment_method,
+            status: 'Completed',
+            date: new Date().toISOString().slice(0, 19).replace('T', ' '),
+            goal_id: goalId
+          }
+        ]);
+
+        // Actualizar el progreso de la meta
+        const updatedGoals = goals.map(goal => 
+          goal.id === parseInt(goalId) ? {
+            ...goal,
+            progress: response.newProgress || goal.progress
+          } : goal
+        );
+        setGoals(updatedGoals);
       } else {
         // Si es una transacción normal
         const endpoint = editingTransaction ? `/api/transactions/${editingTransaction.id}` : '/api/transactions';

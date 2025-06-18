@@ -152,53 +152,46 @@ export const contributeToGoal = async (goalId, amount, isDirectContribution = fa
     };
     
     console.log('Cuerpo de la petición:', requestBody);
-    
-    const response = await authenticatedFetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
-    });
 
-    if (!response.ok) {
-      let errorMessage = 'Error al realizar el aporte a la meta';
-      let errorDetails = {};
+    try {
+      const response = await authenticatedFetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      const responseData = await response.json();
       
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-        errorDetails = errorData;
-      } catch (e) {
-        console.error('Error al analizar la respuesta de error:', e);
+      if (!response.ok) {
+        if (response.status === 400) {
+          throw new Error(`Datos de la solicitud inválidos: ${responseData.message}`);
+        } else if (response.status === 500) {
+          throw new Error(`Error del servidor: ${responseData.message}`);
+        } else {
+          throw new Error(responseData.message || 'Error en el servidor al registrar el abono.');
+        }
       }
-      
-      const errorInfo = {
+
+      console.log('✅ Respuesta del servidor:', {
         status: response.status,
         statusText: response.statusText,
-        url: response.url,
-        error: errorMessage,
-        details: errorDetails,
-        timestamp: new Date().toISOString()
-      };
-      
-      console.error('Error en la respuesta del servidor:', errorInfo);
-      
-      // Mejorar mensajes de error comunes
-      if (response.status === 404) {
-        throw new Error(`No se encontró la meta con ID: ${goalId}`);
-      } else if (response.status === 400) {
-        throw new Error(`Datos de la solicitud inválidos: ${errorMessage}`);
-      } else if (response.status === 500) {
-        throw new Error(`Error del servidor: ${errorMessage}`);
-      }
-      
-      throw new Error(errorMessage);
-    }
+        data: responseData
+      });
 
-    const result = await response.json();
-    console.log('Contribución exitosa:', result);
-    return result;
+      return responseData;
+    } catch (error) {
+      console.error('Error en contributeToGoal:', {
+        message: error.message,
+        stack: error.stack,
+        goalId,
+        amount,
+        isDirectContribution,
+        paymentMethod
+      });
+      throw error;
+    }
   } catch (error) {
     console.error('Error en contributeToGoal:', {
       message: error.message,
