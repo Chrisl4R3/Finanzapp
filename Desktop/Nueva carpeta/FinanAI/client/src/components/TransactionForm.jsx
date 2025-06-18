@@ -31,58 +31,68 @@ const PAYMENT_METHODS = [
 ];
 
 const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
-  // Usar useMemo para inicializar el estado solo una vez
-  const initialFormData = React.useMemo(() => ({
-    type: 'Expense',
-    category: '',
-    amount: '',
-    date: new Date().toISOString().split('T')[0],
-    description: '',
-    payment_method: '',
-    assignToGoal: false,
-    goal_id: '',
-    ...initialData
-  }), [initialData]);
-
-  const [formData, setFormData] = useState(initialFormData);
-
+  // Inicializar el estado con valores por defecto
+  const [formData, setFormData] = useState(() => {
+    const defaultData = {
+      type: 'Expense',
+      category: '',
+      amount: '',
+      date: new Date().toISOString().split('T')[0],
+      description: '',
+      payment_method: '',
+      assignToGoal: false,
+      goal_id: ''
+    };
+    
+    // Si hay initialData, mezclarlo con los valores por defecto
+    return initialData ? { ...defaultData, ...initialData } : defaultData;
+  });
+  
+  // Estado para las metas
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const loadGoals = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      console.log('Cargando metas...');
-      const goalsData = await getAllGoals();
-      console.log('Todas las metas del servidor:', goalsData);
-      
-      const activeGoals = goalsData.filter(goal => goal.status === 'Active');
-      console.log('Metas activas filtradas:', activeGoals);
-      
-      setGoals(activeGoals);
-    } catch (err) {
-      setError('Error al cargar las metas. Por favor, inténtalo de nuevo.');
-      console.error('Error al cargar las metas:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
-  // Cargar metas solo cuando se monte el componente o cambie el estado de assignToGoal
+
+
+
+  // Cargar metas cuando se monte el componente o cambie assignToGoal
   useEffect(() => {
-    if (formData.assignToGoal) {
-      loadGoals();
-    } else {
-      // Si se desactiva assignToGoal, limpiamos el goal_id
-      setFormData(prev => ({
-        ...prev,
-        goal_id: ''
-      }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.assignToGoal]); // Eliminamos loadGoals de las dependencias
+    let isMounted = true;
+    
+    const loadGoalsData = async () => {
+      if (formData.assignToGoal) {
+        try {
+          setLoading(true);
+          setError(null);
+          console.log('Cargando metas...');
+          const goalsData = await getAllGoals();
+          
+          if (isMounted) {
+            const activeGoals = goalsData.filter(goal => goal.status === 'Active');
+            console.log('Metas activas cargadas:', activeGoals);
+            setGoals(activeGoals);
+          }
+        } catch (err) {
+          if (isMounted) {
+            setError('Error al cargar las metas. Por favor, inténtalo de nuevo.');
+            console.error('Error al cargar las metas:', err);
+          }
+        } finally {
+          if (isMounted) {
+            setLoading(false);
+          }
+        }
+      }
+    };
+    
+    loadGoalsData();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [formData.assignToGoal]);
 
   const handleChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
