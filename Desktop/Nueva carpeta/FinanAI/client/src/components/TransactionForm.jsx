@@ -58,7 +58,7 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
       
       // Si hay una meta seleccionada previamente, asegurarse de que el ID sea válido
       if (formData.goal_id) {
-        const goalExists = activeGoals.some(goal => goal._id === formData.goal_id);
+        const goalExists = activeGoals.some(goal => (goal._id || goal.id) === formData.goal_id);
         if (!goalExists) {
           setFormData(prev => ({ ...prev, goal_id: '' }));
         }
@@ -230,11 +230,14 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
                 required={formData.assignToGoal}
               >
                 <option value="">Selecciona una meta</option>
-                {goals.map(goal => (
-                  <option key={goal._id} value={goal._id}>
-                    {goal.name} (${goal.current_amount} de ${goal.target_amount})
-                  </option>
-                ))}
+                {goals.map(goal => {
+                  const goalId = goal._id || goal.id; // Usar _id o id según lo que venga del backend
+                  return (
+                    <option key={goalId} value={goalId}>
+                      {goal.name} (${goal.current_amount || goal.progress} de ${goal.target_amount})
+                    </option>
+                  );
+                })}
               </select>
             )}
           </div>
