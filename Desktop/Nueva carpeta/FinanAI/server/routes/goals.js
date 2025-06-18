@@ -44,17 +44,27 @@ router.post('/:id/contribute', async (req, res) => {
     // Asegurarse de que los valores numéricos sean válidos
     const currentProgress = parseFloat(goal.progress || '0');
     const targetAmount = parseFloat(goal.target_amount || '0');
-    const newProgress = currentProgress + parseFloat(amount);
+    const amountValue = parseFloat(amount);
+    let newProgress = currentProgress + amountValue;
+    
     console.log('Valores numéricos:', {
       currentProgress,
       targetAmount,
-      amount,
+      amount: amountValue,
       newProgress
     });
 
-    // Nueva validación: solo rechazar si el abono es mayor al objetivo total
-    if (parseFloat(amount) > parseFloat(goal.target_amount)) {
-      return res.status(400).json({ message: `El monto no puede ser mayor al objetivo de la meta (${goal.target_amount})` });
+    // Validar que el monto sea positivo
+    if (amountValue <= 0) {
+      return res.status(400).json({ message: 'El monto debe ser mayor a 0' });
+    }
+
+    // Validar que el monto no exceda el objetivo restante
+    const remaining = targetAmount - currentProgress;
+    if (amountValue > remaining) {
+      return res.status(400).json({ 
+        message: `El monto excede el objetivo restante (${remaining.toFixed(2)}).` 
+      });
     }
     
     try {
@@ -120,7 +130,7 @@ router.post('/:id/contribute', async (req, res) => {
 
       try {
         const [incomeResult] = await pool.query(
-          'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+          'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id, recurrence, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
           [
             userId,
             'Income',
@@ -130,7 +140,8 @@ router.post('/:id/contribute', async (req, res) => {
             paymentMethod || 'Efectivo',
             'Completed',
             new Date().toISOString().slice(0, 19).replace('T', ' '),
-            id
+            id,
+            'none'  // Valor por defecto para transacciones únicas
           ]
         );
         console.log('✅ Transacción de ingreso registrada con ID:', incomeResult.insertId);
@@ -150,7 +161,7 @@ router.post('/:id/contribute', async (req, res) => {
         console.log('Datos de la transacción de gasto:', expenseTransaction);
 
         const [expenseResult] = await pool.query(
-          'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+          'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id, recurrence, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
           [
             userId,
             'Expense',
@@ -160,7 +171,8 @@ router.post('/:id/contribute', async (req, res) => {
             paymentMethod || 'Efectivo',
             'Completed',
             new Date().toISOString().slice(0, 19).replace('T', ' '),
-            id
+            id,
+            'none'  // Valor por defecto para transacciones únicas
           ]
         );
         console.log('✅ Transacción de gasto registrada con ID:', expenseResult.insertId);

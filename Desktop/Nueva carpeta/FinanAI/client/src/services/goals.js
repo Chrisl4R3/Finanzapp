@@ -145,53 +145,64 @@ export const contributeToGoal = async (goalId, amount, isDirectContribution = fa
     const url = `${API_URL}/api/goals/${goalId}/contribute`;
     console.log('URL de la petición:', url);
     
+    // Validar que el monto sea un número válido
+    const amountValue = parseFloat(amount);
+    if (isNaN(amountValue) || amountValue <= 0) {
+      throw new Error('El monto debe ser un número positivo');
+    }
+    
     const requestBody = {
-      amount: parseFloat(amount),
+      amount: amountValue,
       isDirectContribution: Boolean(isDirectContribution),
-      paymentMethod
+      paymentMethod: paymentMethod || 'Efectivo'
     };
     
     console.log('Cuerpo de la petición:', requestBody);
 
+    const response = await authenticatedFetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+      credentials: 'include' // Asegurar que se envíen las cookies
+    });
+
+    let responseData;
     try {
-      const response = await authenticatedFetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      const responseData = await response.json();
-      
-      if (!response.ok) {
-        if (response.status === 400) {
-          throw new Error(`Datos de la solicitud inválidos: ${responseData.message}`);
-        } else if (response.status === 500) {
-          throw new Error(`Error del servidor: ${responseData.message}`);
-        } else {
-          throw new Error(responseData.message || 'Error en el servidor al registrar el abono.');
-        }
-      }
-
-      console.log('✅ Respuesta del servidor:', {
+      responseData = await response.json();
+    } catch (jsonError) {
+      console.error('Error al parsear la respuesta JSON:', jsonError);
+      throw new Error('Error al procesar la respuesta del servidor');
+    }
+    
+    if (!response.ok) {
+      console.error('Error en la respuesta del servidor:', {
         status: response.status,
         statusText: response.statusText,
         data: responseData
       });
-
-      return responseData;
-    } catch (error) {
-      console.error('Error en contributeToGoal:', {
-        message: error.message,
-        stack: error.stack,
-        goalId,
-        amount,
-        isDirectContribution,
-        paymentMethod
-      });
-      throw error;
+      
+      if (response.status === 400) {
+        throw new Error(responseData.message || 'Datos de la solicitud inválidos');
+      } else if (response.status === 401) {
+        throw new Error('No autorizado. Por favor, inicia sesión nuevamente.');
+      } else if (response.status === 404) {
+        throw new Error('La meta no fue encontrada');
+      } else if (response.status === 500) {
+        throw new Error(responseData.message || 'Error interno del servidor. Por favor, inténtalo de nuevo más tarde.');
+      } else {
+        throw new Error(responseData.message || `Error del servidor (${response.status})`);
+      }
     }
+
+    console.log('✅ Respuesta del servidor:', {
+      status: response.status,
+      statusText: response.statusText,
+      data: responseData
+    });
+
+    return responseData;
   } catch (error) {
     console.error('Error en contributeToGoal:', {
       message: error.message,

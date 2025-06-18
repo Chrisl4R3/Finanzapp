@@ -244,6 +244,7 @@ const TransactionList = ({ searchTerm = '' }) => {
   };
 
   const handleSaveTransaction = async (data) => {
+    let response;
     try {
       setIsLoading(true);
       setError(null);
@@ -276,27 +277,72 @@ const TransactionList = ({ searchTerm = '' }) => {
           payment_method
         });
 
-        const response = await contributeToGoal(goalId, amount, false, payment_method);
-        console.log('Respuesta de contribución:', response);
+        try {
+          const response = await contributeToGoal(goalId, amount, false, payment_method);
+          console.log('Respuesta de contribución:', response);
 
-        // Actualizar la lista de transacciones
-        setTransactions(transactions => [
-          ...transactions,
-          {
-            id: response.transaction_id,
-            user_id: user.id,
-            type: 'Income',
-            category: 'Otros-Ingreso',
-            amount,
-            description: `Abono a meta: ${response.goal_name}`,
-            payment_method,
-            status: 'Completed',
-            date: new Date().toISOString().slice(0, 19).replace('T', ' '),
-            goal_id: goalId
+          // Actualizar la lista de transacciones
+          setTransactions(prevTransactions => [
+            ...prevTransactions,
+            {
+              id: response.transaction_id || Date.now(), // Usar timestamp como fallback
+              user_id: user.id,
+              type: 'Income',
+              category: 'Otros-Ingreso',
+              amount: parseFloat(amount),
+              description: `Abono a meta: ${response.goal_name || 'Meta sin nombre'}`,
+              payment_method,
+              status: 'Completed',
+              date: new Date().toISOString().slice(0, 19).replace('T', ' '),
+              goal_id: goalId
+            }
+          ]);
+
+          // Actualizar las metas para reflejar el progreso
+          const updatedGoals = await getAllGoals();
+          setGoals(updatedGoals);
+          
+          // Cerrar el modal
+          setShowForm(false);
+          
+          // Mostrar mensaje de éxito
+          Swal.fire({
+            title: '¡Éxito!',
+            text: 'La contribución se ha registrado correctamente',
+            icon: 'success'
+          });
+          
+          // Forzar recarga de transacciones
+          await fetchTransactions();
+          
+        } catch (error) {
+          console.error('Error en la contribución:', error);
+          // Si hay un error en el servidor pero la transacción se guardó (código 500)
+          if (error.message.includes('500')) {
+            // Forzar recarga de datos
+            await fetchTransactions();
+            const updatedGoals = await getAllGoals();
+            setGoals(updatedGoals);
+            
+            // Verificar si la transacción se guardó a pesar del error
+            const transactions = await fetchTransactions();
+            const lastTransaction = transactions[0];
+            
+            if (lastTransaction && lastTransaction.goal_id === data.goal_id) {
+              // La transacción se guardó correctamente, solo hubo un error en la respuesta
+              setShowForm(false);
+              Swal.fire({
+                title: '¡Atención!',
+                text: 'La contribución se registró, pero hubo un problema al actualizar la interfaz. Los datos se han actualizado correctamente.',
+                icon: 'info'
+              });
+              return;
+            }
           }
-        ]);
-
-        // Actualizar el progreso de la meta
+          
+          // Si no es un error 500 o la transacción no se guardó
+          throw error;
+        }
         const updatedGoals = goals.map(goal => 
           goal.id === parseInt(goalId) ? {
             ...goal,
