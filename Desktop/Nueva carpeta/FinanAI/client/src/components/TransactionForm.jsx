@@ -1,16 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiDollarSign, FiCalendar } from 'react-icons/fi';
 import { getAllGoals } from '../services/goals';
 
 const CATEGORIES = {
-  Income: ['Salario', 'Regalo', 'Inversiones', 'Otros-Ingreso'],
+  Income: [
+    'Salario',
+    'Freelance',
+    'Inversiones',
+    'Regalos',
+    'Otros-Ingreso'
+  ],
   Expense: [
-    'Alimentación',
+    'Comida',
+    'Transporte',
+    'Vivienda',
     'Servicios',
     'Salud',
-    'Vivienda',
     'Educación',
-    'Transporte',
     'Ropa',
     'Seguros',
     'Mantenimiento',
@@ -31,102 +37,82 @@ const PAYMENT_METHODS = [
 ];
 
 const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
-  // Inicializar el estado con valores por defecto
-  const [formData, setFormData] = useState(() => {
-    const defaultData = {
-      type: 'Expense',
-      category: '',
-      amount: '',
-      date: new Date().toISOString().split('T')[0],
-      description: '',
-      payment_method: '',
-      assignToGoal: false,
-      goal_id: ''
-    };
-    
-    // Si hay initialData, mezclarlo con los valores por defecto
-    return initialData ? { ...defaultData, ...initialData } : defaultData;
-  });
+  // Estados del formulario
+  const [formData, setFormData] = useState(() => ({
+    type: 'Expense',
+    category: '',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    payment_method: '',
+    assignToGoal: false,
+    goal_id: '',
+    ...initialData
+  }));
   
-  // Estado para las metas
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-
-
-
-
-  // Cargar metas cuando se monte el componente o cambie assignToGoal
+  // Cargar metas cuando se marque assignToGoal
   useEffect(() => {
     let isMounted = true;
     
-    const loadGoalsData = async () => {
-      if (formData.assignToGoal) {
-        try {
-          setLoading(true);
-          setError(null);
-          console.log('Cargando metas...');
-          const goalsData = await getAllGoals();
-          
-          if (isMounted) {
-            const activeGoals = goalsData.filter(goal => goal.status === 'Active');
-            console.log('Metas activas cargadas:', activeGoals);
-            setGoals(activeGoals);
-          }
-        } catch (err) {
-          if (isMounted) {
-            setError('Error al cargar las metas. Por favor, inténtalo de nuevo.');
-            console.error('Error al cargar las metas:', err);
-          }
-        } finally {
-          if (isMounted) {
-            setLoading(false);
-          }
+    const loadGoals = async () => {
+      if (!formData.assignToGoal) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        console.log('Cargando metas...');
+        
+        const goalsData = await getAllGoals();
+        console.log('Metas recibidas:', goalsData);
+        
+        if (isMounted) {
+          const activeGoals = goalsData.filter(goal => goal.status === 'Active');
+          console.log('Metas activas:', activeGoals);
+          setGoals(activeGoals);
+        }
+      } catch (err) {
+        console.error('Error al cargar metas:', err);
+        if (isMounted) {
+          setError('Error al cargar las metas');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
         }
       }
     };
     
-    loadGoalsData();
+    loadGoals();
     
     return () => {
       isMounted = false;
     };
   }, [formData.assignToGoal]);
 
-  const handleChange = useCallback((e) => {
+  const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     
     setFormData(prev => {
       const newValue = type === 'checkbox' ? checked : value;
+      const newState = { ...prev, [name]: newValue };
       
-      // Crear el nuevo estado
-      const newState = {
-        ...prev,
-        [name]: newValue
-      };
-      
-      // Limpiar campos relacionados si es necesario
-      if (name === 'type') {
-        newState.category = '';
-        newState.goal_id = '';
-      }
-      
+      // Si se desactiva assignToGoal, limpiamos el goal_id
       if (name === 'assignToGoal' && !checked) {
         newState.goal_id = '';
       }
       
-      console.log('Actualizando estado:', {
-        name,
-        value: newValue,
-        type,
-        prevState: prev,
-        newState
-      });
+      // Si cambia el tipo, limpiamos la categoría
+      if (name === 'type') {
+        newState.category = '';
+      }
       
       return newState;
     });
-  }, []);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -139,20 +125,19 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-[var(--page-bg)] p-6 rounded-2xl shadow-lg text-text-primary w-full max-w-2xl mx-auto border border-border-color">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-text-secondary mb-2">Tipo</label>
           <select
             name="type"
             value={formData.type}
             onChange={handleChange}
-            className="w-full bg-secondary-bg text-text-primary p-3 rounded-xl border border-border-color focus:border-accent-color focus:ring-1 focus:ring-accent-color"
-            required
+            className="w-full px-4 py-2 rounded-lg bg-secondary-bg text-text-primary"
             disabled={formData.assignToGoal}
           >
-            <option value="Expense">Gasto</option>
             <option value="Income">Ingreso</option>
+            <option value="Expense">Gasto</option>
           </select>
         </div>
 
@@ -162,12 +147,14 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
             name="category"
             value={formData.category}
             onChange={handleChange}
-            className="w-full bg-gray-900 text-gray-100 p-3 rounded-xl border border-gray-700 focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+            className="w-full px-4 py-2 rounded-lg bg-secondary-bg text-text-primary"
             required
           >
             <option value="">Selecciona una categoría</option>
-            {CATEGORIES[formData.assignToGoal ? 'Income' : formData.type]?.map(category => (
-              <option key={category} value={category}>{category}</option>
+            {CATEGORIES[formData.type]?.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
             ))}
           </select>
         </div>
@@ -175,13 +162,15 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
         <div>
           <label className="block text-text-secondary mb-2">Monto</label>
           <div className="relative">
-            <FiDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiDollarSign className="text-text-secondary" />
+            </div>
             <input
               type="number"
               name="amount"
               value={formData.amount}
               onChange={handleChange}
-              className="w-full bg-gray-900 text-gray-100 pl-10 p-3 rounded-xl border border-gray-700 focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+              className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary-bg text-text-primary"
               placeholder="0.00"
               step="0.01"
               min="0"
@@ -193,49 +182,52 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
         <div>
           <label className="block text-text-secondary mb-2">Fecha</label>
           <div className="relative">
-            <FiCalendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiCalendar className="text-text-secondary" />
+            </div>
             <input
               type="date"
               name="date"
               value={formData.date}
               onChange={handleChange}
-              className="w-full bg-gray-900 text-gray-100 pl-10 p-3 rounded-xl border border-gray-700 focus:border-accent-color focus:ring-1 focus:ring-accent-color"
+              className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary-bg text-text-primary"
               required
             />
           </div>
         </div>
 
-        <div>
-          <label className="block text-text-secondary mb-2">Método de Pago</label>
-          <select
-            name="payment_method"
-            value={formData.payment_method}
-            onChange={handleChange}
-            className="w-full bg-gray-900 text-gray-100 p-3 rounded-xl border border-gray-700 focus:border-accent-color focus:ring-1 focus:ring-accent-color"
-            required
-          >
-            <option value="">Selecciona un método</option>
-            {PAYMENT_METHODS.map(method => (
-              <option key={method} value={method}>{method}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
+        <div className="md:col-span-2">
           <label className="block text-text-secondary mb-2">Descripción</label>
           <input
             type="text"
             name="description"
             value={formData.description}
             onChange={handleChange}
-            className="w-full bg-gray-900 text-gray-100 p-3 rounded-xl border border-gray-700 focus:border-accent-color focus:ring-1 focus:ring-accent-color"
-            placeholder="Descripción de la transacción"
-            required
+            className="w-full px-4 py-2 rounded-lg bg-secondary-bg text-text-primary"
+            placeholder="Ej: Compra en supermercado"
           />
         </div>
 
-        <div className="col-span-2">
-          <div className="flex items-center space-x-4 mt-4">
+        <div className="md:col-span-2">
+          <label className="block text-text-secondary mb-2">Método de pago</label>
+          <select
+            name="payment_method"
+            value={formData.payment_method}
+            onChange={handleChange}
+            className="w-full px-4 py-2 rounded-lg bg-secondary-bg text-text-primary"
+            required
+          >
+            <option value="">Selecciona un método de pago</option>
+            {PAYMENT_METHODS.map((method) => (
+              <option key={method} value={method}>
+                {method}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="md:col-span-2">
+          <div className="flex items-center space-x-4">
             <input
               type="checkbox"
               name="assignToGoal"
@@ -248,7 +240,7 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
         </div>
 
         {formData.assignToGoal && (
-          <div className="mt-4">
+          <div className="md:col-span-2">
             <label className="block text-text-secondary mb-2">Seleccionar Meta</label>
             {error ? (
               <div className="text-red-500 text-sm mb-2">{error}</div>
@@ -258,60 +250,48 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
                 Cargando metas...
               </div>
             ) : (
-              <div className="relative">
-                <select
-                  id="goal-selector"
-                  name="goal_id"
-                  value={formData.goal_id || ''}
-                  onChange={handleChange}
-                  className="w-full px-6 py-2 rounded-xl bg-secondary-bg text-text-primary hover:bg-accent-color/10 transition-colors font-medium appearance-none"
-                  required={formData.assignToGoal}
-                >
-                  <option value="">Selecciona una meta</option>
-                  {goals.map(goal => {
-                    const goalId = goal._id || goal.id;
-                    return (
-                      <option 
-                        key={goalId} 
-                        value={goalId}
-                        data-goal={JSON.stringify(goal)}
-                      >
-                        {goal.name} (${goal.current_amount || goal.progress} de ${goal.target_amount})
-                      </option>
-                    );
-                  })}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-text-secondary">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                  </svg>
-                </div>
-              </div>
+              <select
+                name="goal_id"
+                value={formData.goal_id || ''}
+                onChange={handleChange}
+                className="w-full px-4 py-2 rounded-lg bg-secondary-bg text-text-primary"
+                required={formData.assignToGoal}
+              >
+                <option value="">Selecciona una meta</option>
+                {goals.map((goal) => {
+                  const goalId = goal._id || goal.id;
+                  return (
+                    <option 
+                      key={goalId} 
+                      value={goalId}
+                    >
+                      {goal.name} (${goal.current_amount || goal.progress} de ${goal.target_amount})
+                    </option>
+                  );
+                })}
+              </select>
             )}
           </div>
         )}
       </div>
 
-      <div className="mt-6 flex justify-end space-x-4">
+      <div className="flex justify-end space-x-4 mt-6">
         <button
           type="button"
           onClick={onCancel}
-          className="bg-gray-600 text-white px-6 py-2 rounded-xl hover:bg-gray-700 transition-colors font-medium"
+          className="px-6 py-2 rounded-lg border border-border-color text-text-secondary hover:bg-secondary-bg transition-colors"
         >
           Cancelar
         </button>
         <button
           type="submit"
-          className="bg-gray-600 text-white px-6 py-2 rounded-xl hover:bg-gray-700 transition-colors font-medium"
+          className="px-6 py-2 rounded-lg bg-accent-color text-white hover:bg-accent-color/90 transition-colors"
         >
-          {initialData ? 'Actualizar' : 'Crear'}
+          {initialData ? 'Actualizar' : 'Agregar'} Transacción
         </button>
       </div>
     </form>
   );
 };
 
-export default TransactionForm; 
-
-
-
+export default TransactionForm;
