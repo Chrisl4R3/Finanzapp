@@ -47,12 +47,6 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (formData.assignToGoal) {
-      loadGoals();
-    }
-  }, [formData.assignToGoal, loadGoals]);
-
   const loadGoals = useCallback(async () => {
     try {
       setLoading(true);
@@ -76,6 +70,12 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
       setLoading(false);
     }
   }, [formData.goal_id]);
+
+  useEffect(() => {
+    if (formData.assignToGoal) {
+      loadGoals();
+    }
+  }, [formData.assignToGoal, loadGoals]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
