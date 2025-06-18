@@ -219,11 +219,26 @@ const TransactionList = ({ searchTerm = '' }) => {
     // Apply search
     if (searchTermLocal) {
       const searchLower = searchTermLocal.toLowerCase();
-      result = result.filter(tx =>
-        (tx.description?.toLowerCase().includes(searchLower)) ||
-        (tx.category?.toLowerCase().includes(searchLower)) ||
-        (tx.payment_method?.toLowerCase().includes(searchLower))
-      );
+      const searchNumber = parseFloat(searchLower.replace(/[^0-9.-]+/g, ''));
+      const isNumberSearch = !isNaN(searchNumber);
+      
+      result = result.filter(tx => {
+        // Búsqueda por texto
+        const textMatch = 
+          (tx.description?.toLowerCase().includes(searchLower)) ||
+          (tx.category?.toLowerCase().includes(searchLower)) ||
+          (tx.payment_method?.toLowerCase().includes(searchLower));
+          
+        // Búsqueda por monto (si el término de búsqueda es un número)
+        const amountMatch = isNumberSearch && 
+          Math.abs(parseFloat(tx.amount) - searchNumber) < 0.01; // Tolerancia para decimales
+          
+        return textMatch || amountMatch;
+      });
+      
+      console.log('Término de búsqueda:', searchTermLocal);
+      console.log('Buscando como número:', isNumberSearch ? searchNumber : 'No es un número');
+      console.log('Transacciones encontradas:', result.length);
     }
 
     // Apply category filter
