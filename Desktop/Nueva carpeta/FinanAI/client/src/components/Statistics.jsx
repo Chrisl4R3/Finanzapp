@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { useCurrency } from '../context/CurrencyContext';
+import useAuth from '../hooks/useAuth';
 
 // Registrar componentes de Chart.js
 ChartJS.register(
@@ -59,6 +60,7 @@ const Statistics = () => {
   });
   
   const [currency, setCurrency] = useState('DOP');
+  const { isAuthenticated, getToken } = useAuth();
 
   // Usar useCallback para memoizar la función de fetch
   const fetchStatistics = useCallback(async () => {
@@ -81,16 +83,19 @@ const Statistics = () => {
       setIsLoading(true);
       setError(null);
 
+      if (!isAuthenticated) {
+        throw new Error('No estás autenticado. Por favor, inicia sesión nuevamente.');
+      }
+
+      const token = await getToken();
+      if (!token) {
+        throw new Error('No se pudo obtener el token de autenticación');
+      }
+
       // Usar ruta relativa para que el proxy maneje la solicitud
       const url = `/api/transactions/statistics?startDate=${encodeURIComponent(dateRange.startDate)}&endDate=${encodeURIComponent(dateRange.endDate)}`;
       console.log('URL completa de la petición:', url);
-      
-      const token = localStorage.getItem('authToken');
       console.log('Token de autenticación:', token ? 'Presente' : 'No encontrado');
-      
-      if (!token) {
-        throw new Error('No se encontró el token de autenticación. Por favor, inicia sesión nuevamente.');
-      }
 
       console.log('Realizando petición fetch...');
       const fetchOptions = {
@@ -193,7 +198,7 @@ const Statistics = () => {
       clearTimeout(timeoutId);
       setIsLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, isAuthenticated, getToken]);
 
   // Cargar estadísticas al montar el componente y cuando cambien las fechas
   useEffect(() => {

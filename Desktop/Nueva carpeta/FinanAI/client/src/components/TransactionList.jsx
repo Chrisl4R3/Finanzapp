@@ -378,22 +378,12 @@ const TransactionList = ({ searchTerm = '' }) => {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6">
         <h2 className="text-2xl font-bold text-text-primary">Transacciones</h2>
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Buscar transacciones..."
-            className="pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200 w-64"
-            value={searchTermLocal}
-            onChange={e => setSearchTermLocal(e.target.value)}
-          />
-          <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-        </div>
       </div>
 
       {/* Barra de búsqueda y filtros */}
-      <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+      <div className="bg-card-bg p-4 rounded-lg shadow-sm mb-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex-1 flex flex-col md:flex-row gap-3">
             <div className="relative flex-1">
