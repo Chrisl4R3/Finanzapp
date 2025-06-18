@@ -218,27 +218,40 @@ const TransactionList = ({ searchTerm = '' }) => {
 
     // Apply search
     if (searchTermLocal) {
-      const searchLower = searchTermLocal.toLowerCase();
-      const searchNumber = parseFloat(searchLower.replace(/[^0-9.-]+/g, ''));
-      const isNumberSearch = !isNaN(searchNumber);
+      const searchLower = searchTermLocal.trim().toLowerCase();
+      
+      // Verificar si el término de búsqueda es un número
+      const searchNumber = parseFloat(searchLower.replace(/[^0-9.,]+/g, '').replace(',', '.'));
+      const isNumberSearch = !isNaN(searchNumber) && searchLower.trim() !== '';
+      
+      console.log('Búsqueda - Término:', searchTermLocal);
+      console.log('Búsqueda - Es número?', isNumberSearch, 'Valor:', searchNumber);
       
       result = result.filter(tx => {
-        // Búsqueda por texto
+        // Búsqueda por texto (siempre activa)
         const textMatch = 
           (tx.description?.toLowerCase().includes(searchLower)) ||
           (tx.category?.toLowerCase().includes(searchLower)) ||
           (tx.payment_method?.toLowerCase().includes(searchLower));
-          
-        // Búsqueda por monto (si el término de búsqueda es un número)
-        const amountMatch = isNumberSearch && 
-          Math.abs(parseFloat(tx.amount) - searchNumber) < 0.01; // Tolerancia para decimales
-          
+        
+        // Si es búsqueda por número, verificar el monto
+        let amountMatch = false;
+        if (isNumberSearch) {
+          try {
+            const txAmount = typeof tx.amount === 'string' ? 
+              parseFloat(tx.amount.replace(/[^0-9.,]+/g, '').replace(',', '.')) : 
+              parseFloat(tx.amount);
+              
+            amountMatch = !isNaN(txAmount) && Math.abs(txAmount - searchNumber) < 0.01;
+          } catch (e) {
+            console.warn('Error al procesar monto de transacción:', tx.amount, e);
+          }
+        }
+        
         return textMatch || amountMatch;
       });
       
-      console.log('Término de búsqueda:', searchTermLocal);
-      console.log('Buscando como número:', isNumberSearch ? searchNumber : 'No es un número');
-      console.log('Transacciones encontradas:', result.length);
+      console.log('Resultados de búsqueda:', result.length);
     }
 
     // Apply category filter
