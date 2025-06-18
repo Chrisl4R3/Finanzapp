@@ -136,10 +136,14 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
       console.log('Meta seleccionada (raw):', formData.goal_id, 'tipo:', typeof formData.goal_id);
       console.log('Metas disponibles:', goals);
       
+      // Convertir el ID seleccionado a número para asegurar la comparación correcta
+      const selectedGoalId = parseInt(formData.goal_id, 10);
+      
       const goalExists = goals.some(goal => {
-        const goalId = goal.id || goal._id; // MySQL usa 'id', no '_id'
-        console.log(`Comparando: ${goalId} (${typeof goalId}) con ${formData.goal_id} (${typeof formData.goal_id})`);
-        return goalId == formData.goal_id; // Usar == para comparación flexible de tipos
+        // Asegurarse de que el ID de la meta sea un número
+        const goalId = goal.id ? parseInt(goal.id, 10) : null;
+        console.log(`Comparando: ${goalId} (${typeof goalId}) con ${selectedGoalId} (${typeof selectedGoalId})`);
+        return goalId === selectedGoalId;
       });
       
       if (!goalExists) {
