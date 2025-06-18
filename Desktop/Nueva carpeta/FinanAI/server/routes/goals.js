@@ -92,57 +92,53 @@ router.post('/:id/contribute', async (req, res) => {
         });
       }
 
-      // Solo registrar la transacción si no es una contribución directa
-      if (!isDirectContribution) {
-        console.log('📝 Registrando transacción en el presupuesto...');
-        
-        // Verificar que el goal.name existe antes de usarlo
-        if (!goal.name) {
-          console.error('❌ El nombre de la meta es undefined:', goal);
-          return res.status(500).json({ 
-            message: 'Error: El nombre de la meta es inválido',
-            error: 'goal.name is undefined' 
-          });
-        }
+      // Registrar la transacción para cualquier tipo de contribución
+      console.log('📝 Registrando transacción en el presupuesto...');
+      
+      // Verificar que el goal.name existe antes de usarlo
+      if (!goal.name) {
+        console.error('❌ El nombre de la meta es undefined:', goal);
+        return res.status(500).json({ 
+          message: 'Error: El nombre de la meta es inválido',
+          error: 'goal.name is undefined' 
+        });
+      }
 
-        const transactionData = {
-          userId,
-          type: 'Income',
-          category: 'Otros-Ingreso',
-          amount,
-          description: `Abono a meta: ${goal.name}`,
-          payment_method: paymentMethod || 'Efectivo',
-          status: 'Completed',
-          date: new Date(),
-          goal_id: id
-        };
-        console.log('Datos de la transacción:', transactionData);
+      const transactionData = {
+        userId,
+        type: 'Income',
+        category: 'Otros-Ingreso',
+        amount,
+        description: `Abono a meta: ${goal.name}`,
+        payment_method: paymentMethod || 'Efectivo',
+        status: 'Completed',
+        date: new Date(),
+        goal_id: id
+      };
+      console.log('Datos de la transacción:', transactionData);
 
-        try {
-          const [transactionResult] = await pool.query(
-            'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
-            [
-              userId,
-              'Income',
-              'Otros-Ingreso',
-              amount,
-              `Abono a meta: ${goal.name}`,
-              paymentMethod || 'Efectivo',
-              'Completed',
-              new Date().toISOString().slice(0, 19).replace('T', ' '),
-              id
-            ]
-          );
-          console.log('✅ Transacción registrada con ID:', transactionResult.insertId);
-        } catch (txError) {
-          console.error('❌ Error al registrar transacción:', txError);
-          return res.status(500).json({ 
-            message: 'Error al registrar la transacción',
-            error: txError.message 
-          });
-        }
-      } else {
-        console.log('ℹ️ Contribución directa: No se registra en el presupuesto');
+      try {
+        const [transactionResult] = await pool.query(
+          'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+          [
+            userId,
+            'Income',
+            'Otros-Ingreso',
+            amount,
+            `Abono a meta: ${goal.name}`,
+            paymentMethod || 'Efectivo',
+            'Completed',
+            new Date().toISOString().slice(0, 19).replace('T', ' '),
+            id
+          ]
+        );
+        console.log('✅ Transacción registrada con ID:', transactionResult.insertId);
+      } catch (txError) {
+        console.error('❌ Error al registrar transacción:', txError);
+        return res.status(500).json({ 
+          message: 'Error al registrar la transacción',
+          error: txError.message 
+        });
       }
 
       // Preparar respuesta
