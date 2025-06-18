@@ -92,8 +92,8 @@ router.post('/:id/contribute', async (req, res) => {
         });
       }
 
-      // Registrar la transacción para cualquier tipo de contribución
-      console.log('📝 Registrando transacción en el presupuesto...');
+      // Registrar la transacción de ingreso
+      console.log('📝 Registrando transacción de ingreso...');
       
       // Verificar que el goal.name existe antes de usarlo
       if (!goal.name) {
@@ -104,7 +104,8 @@ router.post('/:id/contribute', async (req, res) => {
         });
       }
 
-      const transactionData = {
+      // Transacción de ingreso
+      const incomeTransaction = {
         userId,
         type: 'Income',
         category: 'Otros-Ingreso',
@@ -115,10 +116,10 @@ router.post('/:id/contribute', async (req, res) => {
         date: new Date(),
         goal_id: id
       };
-      console.log('Datos de la transacción:', transactionData);
+      console.log('Datos de la transacción de ingreso:', incomeTransaction);
 
       try {
-        const [transactionResult] = await pool.query(
+        const [incomeResult] = await pool.query(
           'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
           [
             userId,
@@ -132,11 +133,42 @@ router.post('/:id/contribute', async (req, res) => {
             id
           ]
         );
-        console.log('✅ Transacción registrada con ID:', transactionResult.insertId);
+        console.log('✅ Transacción de ingreso registrada con ID:', incomeResult.insertId);
+
+        // Transacción de gasto (envío a la meta)
+        const expenseTransaction = {
+          userId,
+          type: 'Expense',
+          category: 'Metas',
+          amount,
+          description: `Transferencia a meta: ${goal.name}`,
+          payment_method: paymentMethod || 'Efectivo',
+          status: 'Completed',
+          date: new Date(),
+          goal_id: id
+        };
+        console.log('Datos de la transacción de gasto:', expenseTransaction);
+
+        const [expenseResult] = await pool.query(
+          'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+          [
+            userId,
+            'Expense',
+            'Metas',
+            amount,
+            `Transferencia a meta: ${goal.name}`,
+            paymentMethod || 'Efectivo',
+            'Completed',
+            new Date().toISOString().slice(0, 19).replace('T', ' '),
+            id
+          ]
+        );
+        console.log('✅ Transacción de gasto registrada con ID:', expenseResult.insertId);
+
       } catch (txError) {
-        console.error('❌ Error al registrar transacción:', txError);
+        console.error('❌ Error al registrar las transacciones:', txError);
         return res.status(500).json({ 
-          message: 'Error al registrar la transacción',
+          message: 'Error al registrar las transacciones',
           error: txError.message 
         });
       }
