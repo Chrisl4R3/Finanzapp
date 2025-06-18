@@ -293,6 +293,8 @@ const TransactionList = ({ searchTerm = '' }) => {
       setIsLoading(true);
       setError(null);
 
+      console.log('Datos recibidos en handleSaveTransaction:', data);
+
       if (!data.type || !data.category || !data.amount || !data.description || !data.payment_method) {
         throw new Error('Todos los campos son requeridos');
       }
@@ -302,12 +304,22 @@ const TransactionList = ({ searchTerm = '' }) => {
         throw new Error('El monto debe ser un número positivo');
       }
 
-      if (data.assignToGoal && !data.goal_id) {
-        throw new Error('Debes seleccionar una meta');
+      if (data.assignToGoal) {
+        console.log('Validando meta seleccionada...');
+        if (!data.goal_id) {
+          throw new Error('Debes seleccionar una meta');
+        }
+        console.log('Meta seleccionada ID:', data.goal_id);
       }
 
       if (data.assignToGoal && data.goal_id) {
         // Si es un aporte a meta, usamos el servicio de metas
+        console.log('Datos del formulario:', { 
+          goal_id: data.goal_id,
+          amount: amount,
+          assignToGoal: data.assignToGoal,
+          data: data 
+        });
         await contributeToGoal(data.goal_id, amount, false);
       } else {
         // Si es una transacción normal

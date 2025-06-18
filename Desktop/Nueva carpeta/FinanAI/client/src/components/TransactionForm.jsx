@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FiDollarSign, FiCalendar } from 'react-icons/fi';
 import { getAllGoals } from '../services/goals';
 
@@ -51,9 +51,9 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
     if (formData.assignToGoal) {
       loadGoals();
     }
-  }, [formData.assignToGoal]);
+  }, [formData.assignToGoal, loadGoals]);
 
-  const loadGoals = async () => {
+  const loadGoals = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -61,13 +61,21 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
       const activeGoals = goalsData.filter(goal => goal.status === 'Active');
       console.log('Metas activas cargadas:', activeGoals);
       setGoals(activeGoals);
+      
+      // Si hay una meta seleccionada previamente, asegurarse de que el ID sea válido
+      if (formData.goal_id) {
+        const goalExists = activeGoals.some(goal => goal._id === formData.goal_id);
+        if (!goalExists) {
+          setFormData(prev => ({ ...prev, goal_id: '' }));
+        }
+      }
     } catch (err) {
       setError('Error al cargar las metas. Por favor, inténtalo de nuevo.');
       console.error('Error al cargar las metas:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [formData.goal_id]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;

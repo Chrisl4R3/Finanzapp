@@ -126,23 +126,74 @@ export const deleteGoal = async (goalId) => {
 // Abonar a una meta
 export const contributeToGoal = async (goalId, amount, isDirectContribution = false) => {
   try {
-    console.log('Enviando contribución a meta:', { goalId, amount, isDirectContribution });
+    // Validar parámetros
+    if (!goalId || typeof goalId !== 'string' || goalId.trim() === '') {
+      throw new Error('ID de meta no válido');
+    }
     
-    const response = await authenticatedFetch(`${API_URL}/api/goals/${goalId}/contribute`, {
+    // Validar que el ID tenga el formato correcto (24 caracteres hexadecimales para MongoDB)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(goalId);
+    if (!isValidObjectId) {
+      throw new Error(`El ID de la meta no tiene un formato válido: ${goalId}`);
+    }
+    
+    console.log('Enviando contribución a meta:', { 
+      goalId, 
+      amount, 
+      isDirectContribution,
+      timestamp: new Date().toISOString()
+    });
+    
+    const url = `${API_URL}/api/goals/${goalId}/contribute`;
+    console.log('URL de la petición:', url);
+    
+    const requestBody = {
+      amount: parseFloat(amount),
+      isDirectContribution: Boolean(isDirectContribution)
+    };
+    
+    console.log('Cuerpo de la petición:', requestBody);
+    
+    const response = await authenticatedFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        amount: parseFloat(amount),
-        isDirectContribution: Boolean(isDirectContribution)
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.message || 'Error al realizar el aporte a la meta';
-      console.error('Error en la respuesta del servidor:', errorMessage, errorData);
+      let errorMessage = 'Error al realizar el aporte a la meta';
+      let errorDetails = {};
+      
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+        errorDetails = errorData;
+      } catch (e) {
+        console.error('Error al analizar la respuesta de error:', e);
+      }
+      
+      const errorInfo = {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+        error: errorMessage,
+        details: errorDetails,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.error('Error en la respuesta del servidor:', errorInfo);
+      
+      // Mejorar mensajes de error comunes
+      if (response.status === 404) {
+        throw new Error(`No se encontró la meta con ID: ${goalId}`);
+      } else if (response.status === 400) {
+        throw new Error(`Datos de la solicitud inválidos: ${errorMessage}`);
+      } else if (response.status === 500) {
+        throw new Error(`Error del servidor: ${errorMessage}`);
+      }
+      
       throw new Error(errorMessage);
     }
 
