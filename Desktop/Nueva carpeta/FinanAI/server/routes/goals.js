@@ -129,8 +129,11 @@ router.post('/:id/contribute', async (req, res) => {
       console.log('Datos de la transacción de ingreso:', incomeTransaction);
 
       try {
+        // Insertar transacción de ingreso
         const [incomeResult] = await pool.query(
-          'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id, recurrence, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+          `INSERT INTO transactions 
+          (user_id, type, category, amount, description, payment_method, status, date, goal_id, recurrence, created_at, updated_at) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'none', NOW(), NOW())`,
           [
             userId,
             'Income',
@@ -140,28 +143,16 @@ router.post('/:id/contribute', async (req, res) => {
             paymentMethod || 'Efectivo',
             'Completed',
             new Date().toISOString().slice(0, 19).replace('T', ' '),
-            id,
-            'none'  // Valor por defecto para transacciones únicas
+            id
           ]
         );
         console.log('✅ Transacción de ingreso registrada con ID:', incomeResult.insertId);
 
-        // Transacción de gasto (envío a la meta)
-        const expenseTransaction = {
-          userId,
-          type: 'Expense',
-          category: 'Metas',
-          amount,
-          description: `Transferencia a meta: ${goal.name}`,
-          payment_method: paymentMethod || 'Efectivo',
-          status: 'Completed',
-          date: new Date(),
-          goal_id: id
-        };
-        console.log('Datos de la transacción de gasto:', expenseTransaction);
-
+        // Insertar transacción de gasto (envío a la meta)
         const [expenseResult] = await pool.query(
-          'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id, recurrence, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+          `INSERT INTO transactions 
+          (user_id, type, category, amount, description, payment_method, status, date, goal_id, recurrence, created_at, updated_at) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'none', NOW(), NOW())`,
           [
             userId,
             'Expense',
@@ -171,8 +162,7 @@ router.post('/:id/contribute', async (req, res) => {
             paymentMethod || 'Efectivo',
             'Completed',
             new Date().toISOString().slice(0, 19).replace('T', ' '),
-            id,
-            'none'  // Valor por defecto para transacciones únicas
+            id
           ]
         );
         console.log('✅ Transacción de gasto registrada con ID:', expenseResult.insertId);
