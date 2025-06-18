@@ -82,8 +82,11 @@ const Statistics = () => {
       setIsLoading(true);
       setError(null);
 
-      // Usar ruta relativa para que el proxy maneje la solicitud
-      const url = `/api/transactions/statistics?startDate=${encodeURIComponent(dateRange.startDate)}&endDate=${encodeURIComponent(dateRange.endDate)}`;
+      // Usar URL completa en producción, ruta relativa en desarrollo
+      const baseUrl = import.meta.env.PROD 
+        ? 'https://backend-production-cf437.up.railway.app/api' 
+        : '/api';
+      const url = `${baseUrl}/transactions/statistics?startDate=${encodeURIComponent(dateRange.startDate)}&endDate=${encodeURIComponent(dateRange.endDate)}`;
       console.log('URL completa de la petición:', url);
 
       console.log('Realizando petición fetch...');
