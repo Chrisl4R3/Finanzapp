@@ -298,6 +298,16 @@ router.get('/test', (req, res) => {
 
 // Obtener estadísticas detalladas
 router.get('/statistics', async (req, res) => {
+  // Configurar manualmente los encabezados CORS
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, cache-control');
+  res.header('Access-Control-Allow-Credentials', true);
+  
+  // Responder inmediatamente a las solicitudes OPTIONS
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
   console.log('=== Inicio de la solicitud de estadísticas ===');
   console.log('Usuario ID:', req.userId);
   console.log('Query params:', req.query);
