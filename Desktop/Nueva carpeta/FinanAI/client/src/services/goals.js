@@ -124,18 +124,16 @@ export const deleteGoal = async (goalId) => {
 };
 
 // Abonar a una meta
-export const contributeToGoal = async (goalId, amount, isDirectContribution = false) => {
+export const contributeToGoal = async (goalId, amount, isDirectContribution = false, paymentMethod = 'Efectivo') => {
   try {
-    // Validar parámetros
-    if (!goalId || typeof goalId !== 'string' || goalId.trim() === '') {
-      throw new Error('ID de meta no válido');
+    // Validar que el ID sea un número válido
+    const idNumber = parseInt(goalId, 10);
+    if (isNaN(idNumber) || idNumber <= 0) {
+      throw new Error(`El ID de la meta debe ser un número válido: ${goalId}`);
     }
     
-    // Validar que el ID tenga el formato correcto (24 caracteres hexadecimales para MongoDB)
-    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(goalId);
-    if (!isValidObjectId) {
-      throw new Error(`El ID de la meta no tiene un formato válido: ${goalId}`);
-    }
+    // Convertir a string para asegurar consistencia
+    goalId = idNumber.toString();
     
     console.log('Enviando contribución a meta:', { 
       goalId, 
@@ -149,7 +147,8 @@ export const contributeToGoal = async (goalId, amount, isDirectContribution = fa
     
     const requestBody = {
       amount: parseFloat(amount),
-      isDirectContribution: Boolean(isDirectContribution)
+      isDirectContribution: Boolean(isDirectContribution),
+      paymentMethod
     };
     
     console.log('Cuerpo de la petición:', requestBody);
@@ -206,7 +205,8 @@ export const contributeToGoal = async (goalId, amount, isDirectContribution = fa
       stack: error.stack,
       goalId,
       amount,
-      isDirectContribution
+      isDirectContribution,
+      paymentMethod
     });
     throw error;
   }

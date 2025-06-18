@@ -10,15 +10,19 @@ router.post('/:id/contribute', async (req, res) => {
     const { amount, isDirectContribution, paymentMethod } = req.body;
     const { userId } = req;
 
-    if (!amount || amount <= 0) {
+    // Validar que el monto sea un número válido
+    if (!amount || typeof amount !== 'number' || isNaN(amount) || amount <= 0) {
       console.log('❌ Monto inválido:', amount);
-      return res.status(400).json({ message: 'El monto debe ser mayor a 0' });
+      return res.status(400).json({ 
+        message: 'El monto debe ser un número válido y mayor a 0',
+        error: 'Invalid amount' 
+      });
     }
 
     console.log('🔍 Buscando meta...');
     // Verificar que la meta existe y pertenece al usuario
     const [goals] = await pool.query(
-      'SELECT * FROM goals WHERE id = ? AND user_id = ?',
+      'SELECT id, user_id, name, target_amount, progress, status FROM goals WHERE id = ? AND user_id = ?',
       [id, userId]
     );
     console.log('Resultado búsqueda:', goals);
@@ -29,10 +33,24 @@ router.post('/:id/contribute', async (req, res) => {
     }
 
     const goal = goals[0];
-    console.log('✅ Meta encontrada:', goal);
+    console.log('✅ Meta encontrada:', {
+      id: goal.id,
+      name: goal.name,
+      target_amount: goal.target_amount,
+      progress: goal.progress,
+      status: goal.status
+    });
 
-    let newProgress = parseFloat(goal.progress || 0) + parseFloat(amount);
-    console.log('Nuevo progreso calculado:', newProgress);
+    // Asegurarse de que los valores numéricos sean válidos
+    const currentProgress = parseFloat(goal.progress || '0');
+    const targetAmount = parseFloat(goal.target_amount || '0');
+    const newProgress = currentProgress + parseFloat(amount);
+    console.log('Valores numéricos:', {
+      currentProgress,
+      targetAmount,
+      amount,
+      newProgress
+    });
 
     // Nueva validación: solo rechazar si el abono es mayor al objetivo total
     if (parseFloat(amount) > parseFloat(goal.target_amount)) {
@@ -46,41 +64,83 @@ router.post('/:id/contribute', async (req, res) => {
 
       // Actualizar el progreso de la meta
       console.log('📝 Actualizando progreso de la meta...');
-      await pool.query(
-        'UPDATE goals SET progress = ?, status = ? WHERE id = ?',
-        [newProgress, newProgress >= goal.target_amount ? 'Completed' : 'Active', id]
-      );
-      console.log('✅ Progreso actualizado');
+      
+      // Asegurarse de que el status sea uno de los valores válidos del ENUM
+      const newStatus = newProgress >= parseFloat(goal.target_amount) ? 'Completed' : 'Active';
+      console.log('Nuevo status:', newStatus);
+      
+      try {
+        const [result] = await pool.query(
+          'UPDATE goals SET progress = ?, status = ? WHERE id = ?',
+          [newProgress, newStatus, id]
+        );
+        
+        if (result.affectedRows === 0) {
+          console.error('❌ No se actualizó ninguna fila');
+          return res.status(404).json({ 
+            message: 'No se encontró la meta para actualizar',
+            error: 'No rows affected' 
+          });
+        }
+        
+        console.log('✅ Progreso actualizado');
+      } catch (updateError) {
+        console.error('❌ Error al actualizar la meta:', updateError);
+        return res.status(500).json({ 
+          message: 'Error al actualizar la meta',
+          error: updateError.message 
+        });
+      }
 
       // Solo registrar la transacción si no es una contribución directa
       if (!isDirectContribution) {
         console.log('📝 Registrando transacción en el presupuesto...');
+        
+        // Verificar que el goal.name existe antes de usarlo
+        if (!goal.name) {
+          console.error('❌ El nombre de la meta es undefined:', goal);
+          return res.status(500).json({ 
+            message: 'Error: El nombre de la meta es inválido',
+            error: 'goal.name is undefined' 
+          });
+        }
+
         const transactionData = {
           userId,
-          type: 'Expense',
-          category: 'Otros-Gasto',
+          type: 'Income',
+          category: 'Otros-Ingreso',
           amount,
           description: `Abono a meta: ${goal.name}`,
-          payment_method: paymentMethod,
+          payment_method: paymentMethod || 'Efectivo',
           status: 'Completed',
-          date: new Date()
+          date: new Date(),
+          goal_id: id
         };
         console.log('Datos de la transacción:', transactionData);
 
-        const [transactionResult] = await pool.query(
-          'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            userId,
-            'Expense',
-            'Otros-Gasto',
-            amount,
-            `Abono a meta: ${goal.name}`,
-            paymentMethod,
-            'Completed',
-            new Date()
-          ]
-        );
-        console.log('✅ Transacción registrada con ID:', transactionResult.insertId);
+        try {
+          const [transactionResult] = await pool.query(
+            'INSERT INTO transactions (user_id, type, category, amount, description, payment_method, status, date, goal_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+              userId,
+              'Income',
+              'Otros-Ingreso',
+              amount,
+              `Abono a meta: ${goal.name}`,
+              paymentMethod || 'Efectivo',
+              'Completed',
+              new Date(),
+              id
+            ]
+          );
+          console.log('✅ Transacción registrada con ID:', transactionResult.insertId);
+        } catch (txError) {
+          console.error('❌ Error al registrar transacción:', txError);
+          return res.status(500).json({ 
+            message: 'Error al registrar la transacción',
+            error: txError.message 
+          });
+        }
       } else {
         console.log('ℹ️ Contribución directa: No se registra en el presupuesto');
       }

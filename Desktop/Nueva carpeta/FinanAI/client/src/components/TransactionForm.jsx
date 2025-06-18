@@ -117,6 +117,13 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     
+    // Validar que el monto sea un número válido
+    const amount = parseFloat(formData.amount);
+    if (!amount || isNaN(amount) || amount <= 0) {
+      setError('El monto debe ser un número válido y mayor a 0');
+      return;
+    }
+    
     // Validar el ID de la meta si está asignado a una
     if (formData.assignToGoal) {
       // Verificar que se haya seleccionado una meta
@@ -156,7 +163,8 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
     // Si todo está bien, proceder con el envío
     const submissionData = {
       ...formData,
-      type: formData.assignToGoal ? 'Income' : formData.type
+      type: formData.assignToGoal ? 'Income' : formData.type,
+      amount: parseFloat(formData.amount) // Convertir el monto a número
     };
     
     console.log('Enviando datos del formulario:', submissionData);
