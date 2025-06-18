@@ -125,10 +125,10 @@ const TransactionForm = ({ onSubmit, onCancel, initialData = null }) => {
         return;
       }
       
-      // Verificar que el ID tenga un formato válido (24 caracteres hexadecimales para MongoDB)
-      const isValidId = /^[0-9a-fA-F]{24}$/.test(formData.goal_id);
-      if (!isValidId) {
-        setError('El ID de la meta no tiene un formato válido');
+      // Verificar que el ID sea un número válido (para MySQL)
+      const goalId = parseInt(formData.goal_id, 10);
+      if (isNaN(goalId) || goalId <= 0) {
+        setError('El ID de la meta no es válido');
         return;
       }
       
