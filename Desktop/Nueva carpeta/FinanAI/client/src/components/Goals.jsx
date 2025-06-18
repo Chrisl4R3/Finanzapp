@@ -512,34 +512,77 @@ const Goals = () => {
       )}
 
       {historyGoal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-card-bg rounded-xl p-8 max-w-lg w-full mx-4 relative">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-card-bg rounded-2xl p-4 sm:p-6 w-full max-w-2xl my-8 relative">
             <button
               onClick={() => setHistoryGoal(null)}
-              className="absolute top-4 right-4 text-text-secondary hover:text-text-primary"
+              className="absolute top-4 right-4 text-text-secondary hover:text-text-primary transition-colors p-1"
+              aria-label="Cerrar historial"
             >
-              ✕
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
-            <h2 className="text-2xl font-bold text-text-primary mb-4 flex items-center gap-2">
-              <FaHistory /> Historial de aportes
-            </h2>
-            <p className="mb-2 text-text-secondary">Meta: <span className="font-semibold text-text-primary">{historyGoal.name}</span></p>
+            <div className="mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-text-primary flex items-center gap-2">
+                <FaHistory className="text-accent-color" /> Historial de Aportes
+              </h2>
+              <p className="text-text-secondary text-sm sm:text-base mt-1">
+                Meta: <span className="font-semibold text-text-primary">{historyGoal.name}</span>
+              </p>
+            </div>
+            
             {loadingHistory ? (
-              <div className="text-center py-8 text-text-secondary">Cargando historial...</div>
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent-color mb-4"></div>
+                <p className="text-text-secondary">Cargando historial...</p>
+              </div>
             ) : errorHistory ? (
-              <div className="text-center py-8 text-danger-color">{errorHistory}</div>
+              <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4 text-center">
+                <p className="text-red-400 font-medium">{errorHistory}</p>
+              </div>
             ) : history.length === 0 ? (
-              <div className="text-center py-8 text-text-secondary">No hay aportes registrados para esta meta.</div>
+              <div className="bg-secondary-bg/50 rounded-xl p-8 text-center">
+                <div className="text-5xl mb-4">📭</div>
+                <h3 className="text-lg font-medium text-text-primary mb-2">No hay registros</h3>
+                <p className="text-text-secondary text-sm">Aún no se han realizado aportes a esta meta.</p>
+              </div>
             ) : (
-              <ul className="divide-y divide-border-color/20">
-                {history.map(tx => (
-                  <li key={tx.id} className="py-3 flex justify-between items-center">
-                    <span className="text-text-primary">{tx.date ? new Date(tx.date).toLocaleDateString('es-ES') : ''}</span>
-                    <span className="text-accent-color font-semibold">+{formatCurrency(tx.amount)}</span>
-                    <span className="text-text-secondary text-sm">{tx.description}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="bg-secondary-bg/30 rounded-xl overflow-hidden border border-border-color/10">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border-color/10">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Fecha</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Descripción</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Monto</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-color/10">
+                      {history.map(tx => (
+                        <tr key={tx.id} className="hover:bg-secondary-bg/50 transition-colors">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-text-primary">
+                            {tx.date ? new Date(tx.date).toLocaleDateString('es-ES', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            }) : 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-text-secondary max-w-[200px] truncate" title={tx.description || 'Sin descripción'}>
+                            {tx.description || 'Aporte a meta'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium text-emerald-400">
+                            +{formatCurrency(tx.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="px-4 py-3 bg-secondary-bg/30 text-xs text-text-secondary border-t border-border-color/10">
+                  Total de {history.length} {history.length === 1 ? 'aporte' : 'aportes'}
+                </div>
+              </div>
             )}
           </div>
         </div>
