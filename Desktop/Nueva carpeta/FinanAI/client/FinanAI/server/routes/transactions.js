@@ -286,6 +286,16 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
+// Endpoint de prueba
+router.get('/test', (req, res) => {
+  console.log('✅ Prueba de conexión exitosa');
+  res.json({
+    status: 'success',
+    message: '¡El endpoint de estadísticas está funcionando!',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Obtener estadísticas detalladas
 router.get('/statistics', async (req, res) => {
   console.log('=== Inicio de la solicitud de estadísticas ===');

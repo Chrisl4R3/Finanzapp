@@ -29,13 +29,15 @@ export default defineConfig({
         secure: true,
         ws: true,
         cookieDomainRewrite: {
-          '*': '' // Eliminar el dominio de las cookies para desarrollo local
+          '*': ''
         },
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-          'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Authorization, Accept',
-          'Access-Control-Allow-Credentials': 'true'
+        onProxyReq: (proxyReq, req) => {
+          console.log('Proxy request to:', req.url);
+          // Agregar encabezados CORS
+          proxyReq.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+          proxyReq.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+          proxyReq.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Authorization, Accept');
+          proxyReq.setHeader('Access-Control-Allow-Credentials', 'true');
         },
         configure: (proxy) => {
           proxy.on('error', (err, _req, res) => {

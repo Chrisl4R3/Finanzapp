@@ -81,14 +81,8 @@ const Statistics = () => {
       setIsLoading(true);
       setError(null);
 
-      const baseUrl = ''; // Usar ruta relativa para que el proxy maneje la solicitud
-      const endpoint = '/api/transactions/statistics';
-      const queryParams = new URLSearchParams({
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate
-      });
-      
-      const url = `${baseUrl}${endpoint}?${queryParams}`;
+      // Usar ruta relativa para que el proxy maneje la solicitud
+      const url = `/api/transactions/statistics?startDate=${encodeURIComponent(dateRange.startDate)}&endDate=${encodeURIComponent(dateRange.endDate)}`;
       console.log('URL completa de la petición:', url);
       
       const token = localStorage.getItem('authToken');
@@ -101,18 +95,12 @@ const Statistics = () => {
       console.log('Realizando petición fetch...');
       const fetchOptions = {
         method: 'GET',
-        mode: 'cors', // Asegurar modo CORS
-        credentials: 'include', // Incluir credenciales
+        credentials: 'include',
         signal: controller.signal,
         headers: {
-          'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'X-Requested-With': 'XMLHttpRequest',
-          'Access-Control-Allow-Origin': 'https://backend-production-cf437.up.railway.app',
-          'Access-Control-Allow-Credentials': 'true'
-        },
-        redirect: 'follow'
+          'Authorization': `Bearer ${token}`
+        }
       };
       console.log('Opciones de fetch:', JSON.stringify(fetchOptions, null, 2));
 
