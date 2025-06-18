@@ -27,6 +27,7 @@ const TransactionList = ({ searchTerm = '' }) => {
 
   // States
   const [transactions, setTransactions] = useState([]);
+  const [_, setGoals] = useState([]); // Usamos _ para indicar que no usamos el valor directamente
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6); 
@@ -48,8 +49,6 @@ const TransactionList = ({ searchTerm = '' }) => {
     assignToGoal: false,
     goal_id: ''
   });
-  const [goals, setGoals] = useState([]);
-
   // Fetch transactions and goals
   const fetchTransactions = async () => {
     try {
@@ -244,7 +243,6 @@ const TransactionList = ({ searchTerm = '' }) => {
   };
 
   const handleSaveTransaction = async (data) => {
-    let response;
     try {
       setIsLoading(true);
       setError(null);
@@ -260,43 +258,76 @@ const TransactionList = ({ searchTerm = '' }) => {
         throw new Error('El monto debe ser un número positivo');
       }
 
-      if (data.assignToGoal) {
-        console.log('Validando meta seleccionada...');
+      // Verificar si es un ingreso destinado a una meta
+      const isIncomeForGoal = data.type === 'Income' && data.assignToGoal;
+
+      if (isIncomeForGoal) {
+        console.log('Validando meta seleccionada para ingreso...');
         if (!data.goal_id) {
-          throw new Error('Debes seleccionar una meta');
+          throw new Error('Debes seleccionar una meta para asignar este ingreso');
         }
         console.log('Meta seleccionada ID:', data.goal_id);
       }
 
-      if (data.assignToGoal) {
-        // Si es una contribución a meta, usar el servicio de contribución
-        const { goal_id: goalId, amount, payment_method } = data;
-        console.log('Enviando contribución a meta:', {
-          goalId,
-          amount,
-          payment_method
-        });
-
+      if (isIncomeForGoal) {
+        // Si es un ingreso destinado a una meta, crear dos transacciones:
+        // 1. Un ingreso normal
+        // 2. Un gasto que se asigna a la meta
         try {
-          const response = await contributeToGoal(goalId, amount, false, payment_method);
-          console.log('Respuesta de contribución:', response);
+          // Primero, registrar el ingreso normal
+          const incomeResponse = await authenticatedFetch('/api/transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'Income',
+              category: data.category,
+              amount: amount,
+              date: data.date || new Date().toISOString().split('T')[0],
+              description: data.description,
+              payment_method: data.payment_method,
+              status: 'Completed',
+              goal_id: null // No asignar a meta directamente
+            })
+          });
 
-          // Actualizar la lista de transacciones
-          setTransactions(prevTransactions => [
-            ...prevTransactions,
+          if (!incomeResponse.ok) {
+            const errorData = await incomeResponse.json();
+            throw new Error(errorData.message || 'Error al registrar el ingreso');
+          }
+
+          // Luego, registrar el gasto que se asigna a la meta
+          const goalResponse = await contributeToGoal(data.goal_id, amount, false, data.payment_method);
+          console.log('Respuesta de contribución a meta:', goalResponse);
+
+          // Actualizar la lista de transacciones con ambas transacciones
+          const newTransactions = [
             {
-              id: response.transaction_id || Date.now(), // Usar timestamp como fallback
+              id: Date.now(), // Usar timestamp como ID temporal
               user_id: user.id,
               type: 'Income',
-              category: 'Otros-Ingreso',
-              amount: parseFloat(amount),
-              description: `Abono a meta: ${response.goal_name || 'Meta sin nombre'}`,
-              payment_method,
+              category: data.category,
+              amount: amount,
+              description: data.description,
+              payment_method: data.payment_method,
               status: 'Completed',
-              date: new Date().toISOString().slice(0, 19).replace('T', ' '),
-              goal_id: goalId
+              date: data.date || new Date().toISOString().split('T')[0],
+              goal_id: null
+            },
+            {
+              id: Date.now() + 1, // ID temporal único
+              user_id: user.id,
+              type: 'Expense',
+              category: 'Metas',
+              amount: amount,
+              description: `Transferencia a meta: ${goalResponse.goal_name || 'Meta sin nombre'}`,
+              payment_method: data.payment_method,
+              status: 'Completed',
+              date: new Date().toISOString().split('T')[0],
+              goal_id: data.goal_id
             }
-          ]);
+          ];
+
+          setTransactions(prevTransactions => [...prevTransactions, ...newTransactions]);
 
           // Actualizar las metas para reflejar el progreso
           const updatedGoals = await getAllGoals();
@@ -308,17 +339,17 @@ const TransactionList = ({ searchTerm = '' }) => {
           // Mostrar mensaje de éxito
           Swal.fire({
             title: '¡Éxito!',
-            text: 'La contribución se ha registrado correctamente',
+            text: 'Se ha registrado el ingreso y su asignación a la meta',
             icon: 'success'
           });
           
-          // Forzar recarga de transacciones
+          // Forzar recarga de transacciones para asegurar consistencia
           await fetchTransactions();
           
         } catch (error) {
           console.error('Error en la contribución:', error);
           // Si hay un error en el servidor pero la transacción se guardó (código 500)
-          if (error.message.includes('500')) {
+          if (error.message && error.message.includes('500')) {
             // Forzar recarga de datos
             await fetchTransactions();
             const updatedGoals = await getAllGoals();
@@ -333,7 +364,7 @@ const TransactionList = ({ searchTerm = '' }) => {
               setShowForm(false);
               Swal.fire({
                 title: '¡Atención!',
-                text: 'La contribución se registró, pero hubo un problema al actualizar la interfaz. Los datos se han actualizado correctamente.',
+                text: 'La operación se completó, pero hubo un problema al actualizar la interfaz. Los datos se han actualizado correctamente.',
                 icon: 'info'
               });
               return;
@@ -343,12 +374,7 @@ const TransactionList = ({ searchTerm = '' }) => {
           // Si no es un error 500 o la transacción no se guardó
           throw error;
         }
-        const updatedGoals = goals.map(goal => 
-          goal.id === parseInt(goalId) ? {
-            ...goal,
-            progress: response.newProgress || goal.progress
-          } : goal
-        );
+        const updatedGoals = await getAllGoals();
         setGoals(updatedGoals);
       } else {
         // Si es una transacción normal
