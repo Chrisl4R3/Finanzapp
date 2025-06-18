@@ -393,107 +393,73 @@ const TransactionList = ({ searchTerm = '' }) => {
       </div>
 
       {/* Barra de búsqueda y filtros */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 p-4 bg-card-bg rounded-xl">
-        {/* Filtros */}
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          {/* Filtro de categoría */}
-          <div className="relative">
-            <select
-              id="category"
-              className="appearance-none bg-white pl-3 pr-8 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200 text-sm"
-              value={selectedCategory}
-              onChange={e => setSelectedCategory(e.target.value)}
-            >
-              <option value="">Todas las categorías</option>
-              {availableCategories.map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-              </svg>
+      <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex-1 flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <select
+                id="category"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={selectedCategory}
+                onChange={e => setSelectedCategory(e.target.value)}
+              >
+                <option value="">Todas las categorías</option>
+                {availableCategories.map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </div>
+            <div className="relative flex-1">
+              <select
+                id="type"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={selectedType}
+                onChange={e => setSelectedType(e.target.value)}
+              >
+                <option value="all">Todos</option>
+                <option value="Income">Ingresos</option>
+                <option value="Expense">Gastos</option>
+              </select>
+            </div>
+            <div className="relative flex-1">
+              <select
+                id="month"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={selectedMonth}
+                onChange={e => setSelectedMonth(e.target.value)}
+              >
+                <option value="">Todos los meses</option>
+                {availableMonths.map(month => {
+                  const [year, monthNum] = month.split('-');
+                  const monthName = new Date(parseInt(year), parseInt(monthNum) - 1, 1).toLocaleString('es-ES', { month: 'long' });
+                  return (
+                    <option key={month} value={month}>
+                      {`${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}`}
+                    </option>
+                  );
+                })}
+              </select>
             </div>
           </div>
-
-          {/* Filtro de tipo */}
-          <div className="relative">
-            <select
-              id="type"
-              className="appearance-none bg-white pl-3 pr-8 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200 text-sm"
-              value={selectedType}
-              onChange={e => setSelectedType(e.target.value)}
-            >
-              <option value="all">Todos</option>
-              <option value="Income">Ingresos</option>
-              <option value="Expense">Gastos</option>
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-              </svg>
+          <div className="relative w-full md:w-64">
+            <div className="relative">
+              <input
+                type="text"
+                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Buscar transacciones..."
+                value={searchTermLocal}
+                onChange={e => setSearchTermLocal(e.target.value)}
+              />
+              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             </div>
           </div>
-
-          {/* Filtro de mes */}
-          <div className="relative">
-            <select
-              id="month"
-              className="appearance-none bg-white pl-3 pr-8 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200 text-sm"
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-            >
-              <option value="">Todos los meses</option>
-              {availableMonths.map(month => {
-                const [year, monthNum] = month.split('-');
-                const monthName = new Date(parseInt(year), parseInt(monthNum) - 1, 1).toLocaleString('es-ES', { month: 'long' });
-                return (
-                  <option key={month} value={month}>
-                    {`${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}`}
-                  </option>
-                );
-              })}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* Barra de búsqueda */}
-        <div className="relative w-full md:w-64">
-          <input
-            type="text"
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200 text-sm"
-            placeholder="Buscar transacciones..."
-            value={searchTermLocal}
-            onChange={e => setSearchTermLocal(e.target.value)}
-          />
-          <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
         </div>
       </div>
 
       {/* Lista de transacciones */}
       <div className="bg-card-bg rounded-xl p-4">
         <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <label htmlFor="month" className="text-sm font-medium text-gray-700">Mes:</label>
-            <select
-              id="month"
-              className="px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-accent-color focus:border-accent-color transition-all duration-200"
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-            >
-              <option value="">Todos los meses</option>
-              {availableMonths.map(month => (
-                <option key={month} value={month}>
-                  {new Date(month + '-01').toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
-                </option>
-              ))}
-            </select>
-          </div>
+          <h2 className="text-lg font-semibold text-gray-800">Transacciones Recientes</h2>
           <button
             className="flex items-center gap-2 px-4 py-2.5 bg-accent-color hover:bg-accent-color-darker text-white rounded-lg transition-all duration-200 hover:shadow-md"
             onClick={() => {
